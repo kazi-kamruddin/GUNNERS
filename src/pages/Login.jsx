@@ -7,7 +7,7 @@ const Login = () => {
 
   const toggleAction = () => {
     setAction(prevAction => (prevAction === "Login" ? "Sign Up" : "Login"));
-    // Toggle between two background images
+    // ekhane change hbe bg
     setBackgroundImage(prevBackground => (
       prevBackground === "https://wallpapers.com/images/hd/fanart-for-pierre-emerick-aubameyang-from-arsenal-fc-7kp14rmfc8zr68yx.jpg" 
       ? "https://cdn.wallpapersafari.com/53/52/KjNu1B.png" 
