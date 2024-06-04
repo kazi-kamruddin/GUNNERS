@@ -166,6 +166,7 @@ body {
   /* existing CSS code */
 
 footer {
+  margin-top: 50px;
   background-color: #333; /* dark gray background */
   color: #fff; /* white text */
   padding: 20px; /* add some padding to the footer */
