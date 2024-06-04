@@ -1,6 +1,6 @@
 import NavBar from "./components/NavBar";
 import { Route, Routes } from "react-router-dom";
-import Dashboard from "./pages/Dashboard.jsx";
+import Dashboard from "./pages/Dashboard/Dashboard.jsx";
 import Login from "./pages/Login.jsx";
 import Homepage from "./pages/Homepage.jsx";
 
