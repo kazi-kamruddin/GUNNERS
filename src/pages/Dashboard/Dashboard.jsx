@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import './dashboard.css'; // import the CSS file
 
-
 const FanPage = () => {
   const user = {
     name: ' Kazi  Kamruddin  Ahmed ',
@@ -93,7 +92,7 @@ const FanPage = () => {
         </div>
       )}
       <footer>
-        <p>&copy; 2023 Arsenal FC Fan Page</p>
+        <p>&copy; 2024 Arsenal FC Fan Page</p>
       </footer>
     </div>
   );
