@@ -1,100 +1,128 @@
-.container{
+.login-background {
+    background: url('https://wallpapers.com/images/hd/fanart-for-pierre-emerick-aubameyang-from-arsenal-fc-7kp14rmfc8zr68yx.jpg') no-repeat center center fixed;
+    background-size: cover;
+    height: 100vh; /* Ensure the background covers the entire viewport */
+    display: flex;
+    justify-content: center; /* Center the container horizontally */
+    align-items: center;
+    padding: 0; /* Remove padding */
+  }
+  
+  .container {
+    /* Styles for the login container */
     display: flex;
     flex-direction: column;
-    margin: auto;
-    width: 600px;
-    margin-top: 200px;
-    background: #fff;
-    padding-bottom: 30px;
-}
-
-.header{
+    align-items: center;
+    max-width: 600px;
+    background: rgba(66, 3, 3, 0.9);
+    padding: 30px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    margin-left: auto; /* Push the container towards the center */
+    margin-right: 1200px; /* Adjust the margin to position between center and right */
+  }
+  
+  .header {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 9px;
     width: 100%;
     margin-top: 30px;
-}
-
-.text{
-    color: #3c009d;
+  }
+  
+  .text {
+    color: #f0f0f0; /* Light grey for better contrast */
     font-size: 48px;
     font-weight: 700;
-}
-
-.underline{
+  }
+  
+  .underline {
     width: 61px;
     height: 6px;
-    background: #3c009d;
+    background: #f0f0f0; /* Light grey for better contrast */
     border-radius: 9px;
-}
-
-.inputs{
+  }
+  
+  .inputs {
     margin-top: 55px;
     display: flex;
     flex-direction: column;
     gap: 25px;
-}
-
-.input{
+    width: 80%; /* Make inputs container full width */
+    max-width: 480px; /* Set max width */
+  }
+  
+  /* Login.css */
+.input {
     display: flex;
     align-items: center;
-    margin: auto;
-    width: 480px;
-    height: 80px;
-
-    background: #eaeaea;
+    width: 100%; /* Make input field full width */
+    height: 50px; /* Set a reasonable height */
+    background: #993333; /* Softer red for input background */
     border-radius: 6px;
+    padding: 0 20px; /* Add horizontal padding */
 }
 
-.input img{
-    margin: 0px 30px;
+.input img {
+    width: 24px; /* Set the width of the icon */
+    height: 24px; /* Set the height of the icon */
+    margin-right: 10px; /* Add some space between the icon and the input field */
 }
 
-.input input{
-    height: 500px;
-    width: 400px;
+.input input {
+    width: calc(100% - 34px); /* Adjust the input width to accommodate the icon */
     background: transparent;
     border: none;
     outline: none;
-    color: #797979;
+    color: #ffffff; /* White color for input text */
     font-size: 19px;
+    padding: 10px 0; /* Adjust padding */
 }
 
-.forgot-password{
-    padding-left: 62px;
-    margin-top: 27px;
-    color: #797979;
+  
+  .forgot-password {
+    width: 100%;
+    max-width: 480px;
+    margin: 27px auto 0;
+    color: #dcdcdc; /* Lighter grey for better readability */
     font-size: 18px;
-}
-
-.forgot-password span{
-    color: #4c00b4;
+    text-align: right; /* Align to the right */
+  }
+  
+  .forgot-password span {
+    color: #ffcc00; /* Bright color for call to action */
     cursor: pointer;
-}
-
-.submit-container{
+  }
+  
+  .submit-container {
     display: flex;
+    justify-content: center; /* Center the buttons */
     gap: 30px;
     margin: 60px auto;
-}
-
-.submit{
+    width: 100%;
+  }
+  
+  .submit {
     display: flex;
     justify-content: center;
     align-items: center;
     width: 220px;
     height: 59px;
     color: #fff;
-    background:  #4c00b4;
+    background: #b30000; /* Bright red for submit button */
     border-radius: 50px;
     font-size: 19px;
     font-weight: 700;
     cursor: pointer;
-}
-
-.gray{
-    background: #EAEAEA;
-    color: #676767;
-}
+  }
+  
+  .gray {
+    background: #555555; /* Dark grey for inactive buttons */
+    color: #ccc; /* Light grey for text on inactive buttons */
+  }
+  
+  .input input::placeholder {
+    color: #ffffff; /* White color for placeholder text */
+  }
+  
