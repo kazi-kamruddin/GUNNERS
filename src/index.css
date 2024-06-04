@@ -1,39 +1,49 @@
-.btn{
-    background-color: chocolate;
-    border-radius: 5px;
-    font-size: larger;
-    padding: 10px 8px;
-    color: white;
-    transition: all 0.2s ease-in-out;
-}
-
-.btn:hover{
-    color: black;
-    background-color: goldenrod;
-}
-
-.nav-main-div{
+/* Add this to make the navigation panel stay on top */
+.nav-main-div {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
+    z-index: 50; /* Add this to ensure the nav panel stays on top of other elements */
     display: flex;
     justify-content: center;
     padding: 15px 0 15px 0;
-}
-
-.nav-ul {
+    background-color: #fff; /* Add a background color to the nav panel */
+    box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3); /* Add a subtle shadow to the nav panel */
+  }
+  
+  /* Update the body padding to account for the nav panel height */
+  body {
+    padding-top: 0; /* Adjust this value to match the height of the nav panel */
+  }
+  
+  /* Your existing styles */
+  .btn {
+    background-color: chocolate;
+    border-radius: 5px;
+    font-size: larger;
+    padding: 10px;
+    color: white;
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .btn:hover {
+    color: black;
+    background-color: goldenrod;
+  }
+  
+  .nav-ul {
     margin: 0 auto;
     display: flex;
     font-size: 20px;
-    gap: 20px;
-    list-style-type: none
-}
-
-.nav-item > *{
+    gap: 40px;
+    list-style-type: none;
+  }
+  
+  .nav-item > * {
     text-decoration: none;
-}
-
-.active {
+  }
+  
+  .active {
     text-decoration: underline;
-}
+  }
