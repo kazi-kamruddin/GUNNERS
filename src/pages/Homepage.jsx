@@ -45,9 +45,7 @@ const Homepage = () => {
                   <img src={manULogo} alt="Team 2 Logo" className="logoManU" />
                 </div>
                 <div>
-                  <p className="text">Carabao Cup Final</p>
-                </div>
-                <div>
+                  <p>Carabao Cup Final</p>
                   <p>Venue: Emirates Stadium, London</p>
                   <p>Attendance: 59,576</p>
                 </div>

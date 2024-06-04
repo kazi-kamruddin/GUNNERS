@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import './dashboard.css'; // import the CSS file
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+// import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const FanPage = () => {
   const user = {
