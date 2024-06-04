@@ -25,23 +25,23 @@ const Login = () => {
           <div className="inputs">
             {action === "Login" ? <div></div> : (
               <div className="input">
-                  <img src="https://mir-s3-cdn-cf.behance.net/project_modules/disp/41b3cb23122177.5631e11bb8892.png" alt="" /> {/* Add user icon URL */}
+                  <img src="https://mir-s3-cdn-cf.behance.net/project_modules/disp/41b3cb23122177.5631e11bb8892.png" alt="" />
                   <input type="text" placeholder="Username" />
               </div>
             )}
 
             <div className="input">
-                <img src="https://cdn.dribbble.com/users/4874/screenshots/3074660/media/f0ff54c0c250bca686a89c7b39b83139.gif" alt="" /> {/* Add email icon URL */}
+                <img src="https://cdn.dribbble.com/users/4874/screenshots/3074660/media/f0ff54c0c250bca686a89c7b39b83139.gif" alt="" /> 
                 <input type="email" placeholder="Email" />
             </div>
 
             <div className="input">
-                <img src="https://cdn-icons-png.flaticon.com/512/421/421648.png" alt="" /> {/* Add password icon URL */}
+                <img src="https://cdn-icons-png.flaticon.com/512/421/421648.png" alt="" /> 
                 <input type="password" placeholder="Password" />
             </div>
           </div>
 
-          {/* Submit Button */}
+          
           <div className="submit-container">
               <div className="submit" style={{ backgroundColor: '#33691E' }}>Submit</div>
           </div>
@@ -50,7 +50,7 @@ const Login = () => {
             <div className="forgot-password">Forgot Password? <span>Click here!</span></div>
           )}
           
-          {/* Login and Sign Up Buttons */}
+          
           <div className="submit-container">
               <div className={action === "Login" ? "submit gray" : "submit"} onClick={toggleAction}>Sign Up</div>
               <div className={action === "Sign Up" ? "submit gray" : "submit"} onClick={toggleAction}>Log in</div>
