@@ -113,6 +113,7 @@ body {
   .menu-bar a {
     color: #fff; /* white color */
     text-decoration: none;
+  
   }
   
   .menu-bar a:hover {
@@ -162,3 +163,35 @@ body {
     font-size: 12px;
     margin-bottom: 10px;
   }
+  /* existing CSS code */
+
+footer {
+  background-color: #333; /* dark gray background */
+  color: #fff; /* white text */
+  padding: 20px; /* add some padding to the footer */
+  text-align: center; /* center the text */
+  clear: both; /* clear any floats */
+}
+
+footer p {
+  margin-bottom: 10px; /* add some space between the text and the social media links */
+}
+
+.social-media {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.social-media span {
+  margin: 0 10px;
+}
+
+.social-media svg {
+  font-size: 24px;
+  color: #fff;
+}
+
+.social-media svg:hover {
+  color: #ccc;
+}

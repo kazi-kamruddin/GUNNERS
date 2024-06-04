@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import './dashboard.css'; // import the CSS file
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 const FanPage = () => {
   const user = {
@@ -91,6 +92,17 @@ const FanPage = () => {
           </form>
         </div>
       )}
+      <footer>
+        <p>&copy; 2023 Arsenal FC Fan Page</p>
+        <div className="social-media">
+          <>
+          <FontAwesomeIcon icon="fa-brands fa-square-facebook" />
+          </>
+          <a href="https://www.instagram.com" target="_blank" rel="noopener noreferrer">
+            <i className="fab fa-instagram"></i>
+          </a>
+        </div>
+      </footer>
     </div>
   );
 };
