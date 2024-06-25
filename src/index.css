@@ -1,49 +1,102 @@
 /* Add this to make the navigation panel stay on top */
 .nav-main-div {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    z-index: 50; /* Add this to ensure the nav panel stays on top of other elements */
-    display: flex;
-    justify-content: center;
-    padding: 15px 0 15px 0;
-    background-color: #fff; /* Add a background color to the nav panel */
-    box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3); /* Add a subtle shadow to the nav panel */
-  }
-  
-  /* Update the body padding to account for the nav panel height */
-  body {
-    padding-top: 0; /* Adjust this value to match the height of the nav panel */
-  }
-  
-  /* Your existing styles */
-  .btn {
-    background-color: chocolate;
-    border-radius: 5px;
-    font-size: larger;
-    padding: 10px;
-    color: white;
-    transition: all 0.2s ease-in-out;
-  }
-  
-  .btn:hover {
-    color: black;
-    background-color: goldenrod;
-  }
-  
-  .nav-ul {
-    margin: 0 auto;
-    display: flex;
-    font-size: 20px;
-    gap: 40px;
-    list-style-type: none;
-  }
-  
-  .nav-item > * {
-    text-decoration: none;
-  }
-  
-  .active {
-    text-decoration: underline;
-  }
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 50; /* Add this to ensure the nav panel stays on top of other elements */
+  display: flex;
+  justify-content: space-evenly;
+  padding: 15px 0 15px 0;
+  background-color: #c00; /* Add a background color to the nav panel */
+  box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3); /* Add a subtle shadow to the nav panel */
+}
+
+/* Update the body padding to account for the nav panel height */
+body {
+  padding-top: 100px; /* Adjust this value to match the height of the nav panel */
+}
+
+/* Your existing styles */
+.btn {
+  background-color: chocolate;
+  border-radius: 5px;
+  font-size: larger;
+  padding: 10px;
+  color: white;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn:hover {
+  color: black;
+  background-color: goldenrod;
+}
+
+.nav-ul {
+  margin: 0 auto;
+  display: flex;
+  font-size: 20px;
+  gap: 40px;
+  list-style-type: none;
+}
+
+.nav-item > * {
+  text-decoration: none;
+  color: #ffffff; /* White text */
+}
+
+.active {
+  text-decoration: underline;
+}
+
+/* Global styles */
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Navbar styles */
+.navbar {
+  background-color: #ff0000; /* Red background */
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navbar a {
+  color: #ffffff; /* White text */
+  text-decoration: none;
+}
+
+/* Main content styles */
+.main-content {
+  margin-top: 100px; /* Match the margin top in the JSX */
+  padding: 20px;
+}
+
+/* Route styles */
+.route {
+  padding: 20px;
+  border: 1px solid #ff0000; /* Red border */
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.route:hover {
+  background-color: #ffcccc; /* Light red background on hover */
+}
+
+/* Specific route styles */
+.dashboard {
+  background-color: #ff9999; /* Dark red background */
+}
+
+.login {
+  background-color: #ff6666; /* Medium red background */
+}
+
+.teams {
+  background-color: #ff3333; /* Bright red background */
+}
