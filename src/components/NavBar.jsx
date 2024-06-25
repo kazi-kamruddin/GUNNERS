@@ -6,6 +6,7 @@ const pages = [
   { link: "/", text: "Home" },
   { link: "/dashboard", text: "Dashboard" },
   { link: "/login", text: "Login" },
+  { link: "/teams", text: "Teams" },/////////////////////////////
 ];
 
 const NavBar = () => {
