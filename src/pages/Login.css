@@ -1,7 +1,7 @@
 .login-background {
     background: url('https://wallpapers.com/images/hd/fanart-for-pierre-emerick-aubameyang-from-arsenal-fc-7kp14rmfc8zr68yx.jpg') no-repeat center center fixed;
     background-size: cover;
-    height: 100vh; /* Ensure the background covers the entire viewport */
+    height: 100vh;
     display: flex;
     justify-content: center; /* Center the container horizontally */
     align-items: center;
@@ -19,7 +19,7 @@
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     border-radius: 8px;
     margin-left: auto; /* Push the container towards the center */
-    margin-right: 1200px; /* Adjust the margin to position between center and right */
+    margin-right: 2100px; /* Adjust the margin to position between center and right */
   }
   
   .header {
