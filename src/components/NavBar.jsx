@@ -1,12 +1,15 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useLocation } from "react-router-dom";
+import './NavBar.css';
+
 
 const pages = [
   { link: "/", text: "Home" },
   { link: "/dashboard", text: "Dashboard" },
   { link: "/login", text: "Login" },
-  { link: "/teams", text: "Teams" },/////////////////////////////
+  { link: "/teams", text: "Teams" },
+  { link: "/shop", text: "Shops" },
 ];
 
 const NavBar = () => {
