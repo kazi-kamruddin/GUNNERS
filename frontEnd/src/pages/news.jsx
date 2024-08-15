@@ -26,9 +26,6 @@ const NewsPage = () => {
                     <NewsDetails news={news} key={news._id} />
                 ))}
             </div>
-            <div className="ff">
-                dgfdgdfgdfg
-            </div>
         </div>
     )
 };
