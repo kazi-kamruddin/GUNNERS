@@ -11,10 +11,10 @@ const newsRoutes = require('./routes/newsRoutes.js');
 
 //middleware
 app.use(cors({
-    origin: 'http://localhost:5173'  // Replace with your frontend URL
+    origin: 'http://localhost:5173'  
 }));
 
-//this will run for every request
+//these will run for every request
 app.use(express.json());     //protita request er access pailam
 
 app.use((req,res,next) => {

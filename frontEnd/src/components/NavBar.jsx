@@ -10,6 +10,7 @@ const pages = [
   { link: "/login", text: "Login" },
   { link: "/teams", text: "Teams" },
   { link: "/shop", text: "Shops" },
+  { link: "/news", text: "News" },
 ];
 
 const NavBar = () => {
