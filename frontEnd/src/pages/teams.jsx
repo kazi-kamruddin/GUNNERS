@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './teams.css';
+import '../allCss/teams.css';
 
 function PlayerInfoPage() {
   const menPlayers = [

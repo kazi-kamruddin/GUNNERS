@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './dashboard.css'; // import the CSS file
+import '../allCss/dashboard.css'; // import the CSS file
 
 const FanPage = () => {
   const user = {

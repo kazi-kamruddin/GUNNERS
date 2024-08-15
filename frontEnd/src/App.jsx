@@ -1,10 +1,10 @@
 import NavBar from "./components/NavBar";
 import { Route, Routes } from "react-router-dom";
-import Dashboard from "./pages/Dashboard/Dashboard.jsx";
+import Dashboard from "./pages/Dashboard.jsx";
 import Login from "./pages/Login.jsx";
 import Homepage from "./pages/Homepage.jsx";
-import Teams from "./pages/teams/teams.jsx";
-import ShopPage from './pages/Shop/ShopPage.jsx';
+import Teams from "./pages/teams.jsx";
+import ShopPage from './pages/ShopPage.jsx';
 
 const App = () => {
   return (

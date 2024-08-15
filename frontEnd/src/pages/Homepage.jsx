@@ -1,10 +1,10 @@
 import React from "react";
-import "./homePage/homeStyle.css";
-import arsLogo from "./homePage/assets/ars.png";
-import manULogo from "./homePage/assets/manu.png";
-import liverLogo from "./homePage/assets/liver.png";
-import matilda from "./homePage/assets/matilda.jpg";
-import emirates from "./homePage/assets/emi.png";
+import "../allCss/homeStyle.css";
+import arsLogo from "../assets/homePageAssests/ars.png";
+import manULogo from "../assets/homePageAssests/manu.png";
+import liverLogo from "../assets/homePageAssests/liver.png";
+import matilda from "../assets/homePageAssests/matilda.jpg";
+import emirates from "../assets/homePageAssests/emi.png";
 
 const Homepage = () => {
   const handleClick = () => {

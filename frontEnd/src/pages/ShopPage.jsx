@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './ShopPage.css';
+import '../allCss/ShopPage.css';
 
 const products = [
     { id: 1, name: 'LD01 LOUNGE CHAIR', price: 200, image: 'https://i1.adis.ws/i/ArsenalDirect/mit6141_f1?$pdpMainImage$' },
