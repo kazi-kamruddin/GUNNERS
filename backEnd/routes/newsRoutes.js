@@ -3,13 +3,17 @@ const newsModel = require('../models/newsModel');
 const {
     getAllNews,
     createNews,
+    getSingleNews,
 } = require('../controllers/newsController');
 const router = express.Router();
 
-//all workout
+//all news
 router.get('/', getAllNews)
 
-//add a workout
+//single news
+router.get('/:id', getSingleNews)
+
+//add a news
 router.post('/', createNews)
 
 module.exports = router;
