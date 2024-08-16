@@ -6,6 +6,7 @@ import Homepage from "./pages/Homepage.jsx";
 import Teams from "./pages/teams.jsx";
 import ShopPage from './pages/ShopPage.jsx';
 import NewsPage from './pages/news.jsx';
+import SingleNews from "./components/singleNews.jsx";
 
 const App = () => {
   return (
@@ -19,6 +20,7 @@ const App = () => {
           <Route path="teams" element={<Teams />} />
           <Route path="shop" element={<ShopPage />} />
           <Route path="news" element={<NewsPage />} />
+          <Route path="news/:id" element={<SingleNews />} />
         </Routes>
       </div>
     </>

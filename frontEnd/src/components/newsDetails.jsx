@@ -1,7 +1,15 @@
 import React from "react";
-import '../allCss/newsDetails.css'
+import '../allCss/newsDetails.css';
+import { useNavigate } from "react-router-dom";
 
 const NewsDetails = ({ news }) => {
+
+  const navigate = useNavigate();
+
+  const readMore = (news) => {
+    navigate(`/news/${news._id}`);
+  };
+
   return (
     <div className="whole">
       <div className="title">
@@ -11,6 +19,9 @@ const NewsDetails = ({ news }) => {
         <img src={news.imageLink} alt="News" className="image" />
         <p>{news.body}</p>
       </div>
+      <button className="allNewsButton" onClick={() => readMore(news)}>
+          Read more &#8594;
+      </button>
       <div className="footer">
         <p className="date">{new Date(news.createdAt).toLocaleDateString()}</p>
       </div>
@@ -19,18 +30,3 @@ const NewsDetails = ({ news }) => {
 };
 
 export default NewsDetails;
-
-
-// const NewsDetails = ({ news }) => {
-
-//     return (
-//       <div className="newsDetails">
-//         <h4>{news.title}</h4>
-//         <p>{news.body}</p>
-//         <img src={news.imageLink} alt="didnt load"></img>
-//         <p>{news.createdAt}</p>
-//       </div>
-//     )
-//   }
-  
-//   export default NewsDetails;
