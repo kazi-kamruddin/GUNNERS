@@ -21,6 +21,9 @@ const NewsPage = () => {
 
     return (
         <div className="newsPage">
+            <div className="pageTitle">
+                    NEWS
+            </div>
             <div className="allNews">
                 {allNews && allNews.map(news => (
                     <NewsDetails news={news} key={news._id} />

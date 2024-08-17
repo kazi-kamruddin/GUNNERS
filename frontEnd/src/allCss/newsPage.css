@@ -1,7 +1,22 @@
+@import url('https://fonts.googleapis.com/css2?family=New+Amsterdam&display=swap');
+
 .newsPage{
     margin-top: 140px;
 }
 
 .allNews{
     background-color: whitesmoke;
+}
+
+.pageTitle {
+    background-color: gray;
+    color: brown;
+    font-size: 50px;
+    font-weight: 400;
+    font-style: normal;
+    font-family: "New Amsterdam", sans-serif;
+    padding: 30px 10px 30px 50px;
+    border: 50px;
+    border-width: 50px;
+    border-color: blue;
 }
