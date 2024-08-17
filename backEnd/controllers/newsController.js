@@ -30,9 +30,9 @@ const getSingleNews = async (req,res) => {
 const createNews = async (req,res) => {
     console.log(req.body);
     
-    const {title, body, imageLink} = req.body;
+    const {title, body, mainBody, imageLink} = req.body;
     try{
-        const news = await newsModel.create({title, body, imageLink});
+        const news = await newsModel.create({title, body, mainBody, imageLink});
         res.status(200).json(news);
     }
     catch (error){

@@ -23,10 +23,8 @@ const SingleNews = () => {
         <div> 
             {news && <p>{news.title}</p>}
             {news && <p>{news.title}</p>}
-            {news && <p>{news.title}</p>}
-            {news && <p>{news.title}</p>}
             {news && <img src={news.imageLink}/>}
-            {news && <p>{news.body}</p>}
+            {news && <p>{news.mainBody}</p>}
             <button onClick={() => window.history.back()} className="back-button">Back</button>
         </div>
     );

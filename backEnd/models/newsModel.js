@@ -14,6 +14,11 @@ const newsSchema = new schema({
         required: true,
     },
 
+    mainBody: {
+        type: String,
+        required: true,
+    },
+
     imageLink: {
         type: String,
         required: true,
