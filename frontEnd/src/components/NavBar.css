@@ -1,52 +1,65 @@
 .nav-main-div {
-    background-color: #333;
-    padding: 10px 0;
-    z-index: 999;
-  }
-  
-  .nav-ul {
-    list-style: none;
-    display: flex;
-    justify-content: space-around;
-    padding: 0;
-    margin: 0;
-  }
-  
-  .nav-item {
-    position: relative;
-  }
-  
-  .nav-item a {
-    text-decoration: none;
-    color: white;
-    padding: 10px 15px;
-    display: block;
-    font-size: 16px;
-    transition: background-color 0.3s, color 0.3s;
-  }
-  
-  .nav-item a:hover,
-  .nav-item a.active {
-    background-color: #555;
-    color: #ffcc00;
-  }
-  
-  .nav-item a::before {
-    content: "";
-    position: absolute;
-    width: 100%;
-    height: 2px;
-    bottom: 0;
-    left: 0;
-    background-color: #ffcc00;
-    visibility: hidden;
-    transform: scaleX(0);
-    transition: all 0.3s ease-in-out;
-  }
-  
-  .nav-item a:hover::before,
-  .nav-item a.active::before {
-    visibility: visible;
-    transform: scaleX(1);
-  }
-  
+  background-color: #333;
+  padding: 10px 0;
+  z-index: 999;
+}
+
+.navigationBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-around; /* Or use space-between if you want the logout button on the far right */
+}
+
+.nav-item {
+  position: relative;
+  display: inline-block;
+}
+
+.nav-item a {
+  text-decoration: none;
+  color: white;
+  padding: 10px 15px;
+  display: block;
+  font-size: 16px;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.nav-item a:hover,
+.nav-item a.active {
+  background-color: #555;
+  color: #ffcc00;
+}
+
+.nav-item a::before {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  bottom: 0;
+  left: 0;
+  background-color: #ffcc00;
+  visibility: hidden;
+  transform: scaleX(0);
+  transition: all 0.3s ease-in-out;
+}
+
+.nav-item a:hover::before,
+.nav-item a.active::before {
+  visibility: visible;
+  transform: scaleX(1);
+}
+
+.logout {
+  padding: 10px 15px;
+  background-color: transparent;
+  border: none;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.logout:hover {
+  background-color: #555;
+  color: #ffcc00;
+}

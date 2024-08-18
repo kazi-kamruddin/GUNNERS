@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import '../allCss/Login.css';
 
-const Login = () => {
+const LoginG = () => {
   const [action, setAction] = useState("Login");
   const [backgroundImage, setBackgroundImage] = useState("https://wallpapers.com/images/hd/fanart-for-pierre-emerick-aubameyang-from-arsenal-fc-7kp14rmfc8zr68yx.jpg");
 
@@ -60,4 +60,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default LoginG;
