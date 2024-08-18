@@ -16,9 +16,9 @@ const loginUser = async (req,res) => {
         const user = await userModel.login(email,password);
 
         //token creation
-        const token = generateToken(user._id, );
+        const token = generateToken(user._id);
 
-        res.status(200).json({email,user,token,message:"you're logged in"});
+        res.status(200).json({email,token,user,message:"you're logged in"});
     }
     catch (error){
         res.status(400).json({error : error.message});
@@ -32,9 +32,9 @@ const signUpUser = async (req,res) => {
         const user = await userModel.signUp(email,password);
 
         //token creation
-        const token = generateToken(user._id, );
+        const token = generateToken(user._id);
 
-        res.status(200).json({email,user,token});
+        res.status(200).json({email,token,user,message:"you're signed up"});
     }
     catch (error){
         res.status(400).json({error : error.message});
