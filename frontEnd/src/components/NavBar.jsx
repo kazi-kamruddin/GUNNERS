@@ -7,10 +7,11 @@ import './NavBar.css';
 const pages = [
   { link: "/", text: "Home" },
   { link: "/dashboard", text: "Dashboard" },
-  { link: "/login", text: "Login" },
   { link: "/teams", text: "Teams" },
   { link: "/shop", text: "Shops" },
   { link: "/news", text: "News" },
+  { link: "/login", text: "Login" },
+  { link: "/signUp", text: "SignUp" },
 ];
 
 const NavBar = () => {
