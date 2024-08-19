@@ -36,7 +36,7 @@ userSchema.statics.login = async function (email, password) {
     const match = await bcrypt.compare(password, currentUser.password);
 
     if(!match){
-        throw Error('incorrect email');
+        throw Error('incorrect password');
     }
 
     return currentUser;
@@ -45,8 +45,14 @@ userSchema.statics.login = async function (email, password) {
 userSchema.statics.signUp = async function (email, password) {
 
     //validation
-    if(!email || !password){
+    if(!email && !password){
         throw Error('need em both');
+    }
+    if(!email){
+        throw Error('enter email');
+    }
+    if(!password){
+        throw Error('enter password');
     }
     if(!validator.isEmail(email)){
         throw Error('invalid email');

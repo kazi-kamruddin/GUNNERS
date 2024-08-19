@@ -1,7 +1,8 @@
 import React from "react";
+import config from "../config";
 import { Link } from "react-router-dom";
 import { useLocation } from "react-router-dom";
-import './NavBar.css';
+import '../allCss/NavBar.css';
 import { useLogout } from "../hook/useLogout";
 import { useAuthContext } from "../hook/useAuthContext";
 
@@ -10,18 +11,34 @@ const NavBar = () => {
 
   const { logout } = useLogout();
   const { user } = useAuthContext();
+  
+  let isAdmin = false;
 
   const handleLogout = () => {
     logout();
   };
 
+  if(user && user.email === config.ADMIN_EMAIL){
+      console.log('admin detected');
+      isAdmin = true;
+  }
+  else{
+    console.log('general user detected');
+    isAdmin = false;
+  }
+
   return (
     <div className="nav-main-div">
       <nav className="navigationBar">
+        { user && isAdmin && (
+            <div className="admin-dash">
+              <Link to="/adminDashboard">Admin Dashboard</Link>
+            </div>
+        )}
         <div className={`nav-item ${location.pathname === "/" && "active"}`}>
           <Link to="/">Home</Link>
         </div>
-        { user && (
+        { user && !isAdmin && (
             <div className={`nav-item ${location.pathname === "/dashboard" && "active"}`}>
               <Link to="/dashboard">Dashboard</Link>
             </div>
