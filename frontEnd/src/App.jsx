@@ -25,18 +25,18 @@ const App = () => {
       <NavBar />
       <div style={{ marginTop: "100px" }}>
         <Routes>
-          <Route path="/" element={<Homepage />} />
           <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to={"/login"}/>} />
-          <Route path="/adminDashboard" element={user ? <AdminDashboard /> : <Navigate to={"/login"}/>} />
           <Route path="/adminDashboard/addNews" element={user ? <AddNews /> : <Navigate to={"/login"}/>} />
           <Route path="/adminDashboard/editShop" element={user ? <EditShopItem /> : <Navigate to={"/login"}/>} />
           <Route path="/adminDashboard/editPlayers" element={user ? <EditPlayerList /> : <Navigate to={"/login"}/>} />
+          <Route path="/adminDashboard" element={user ? <AdminDashboard /> : <Navigate to={"/login"}/>} />
           <Route path="/teams" element={<Teams />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/news" element={<NewsPage />} />
           <Route path="/news/:id" element={<SingleNews />} />
           <Route path="/login" element={!user ? <Login /> : <Navigate to={"/"}/>} />
           <Route path="/signUp" element={!user  ? <SignUp /> : <Navigate to={"/"}/>} />
+          <Route path="/" element={<Homepage />} />
         </Routes>
       </div>
     </>
