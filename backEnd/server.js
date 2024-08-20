@@ -6,9 +6,9 @@ const cors = require('cors');
 const app = express();
 
 //route khujte ami kon file e jabo
-//const workoutRoutes = require('./routes/workoutRoutes.js');
 const newsRoutes = require('./routes/newsRoutes.js');
 const userRoutes = require('./routes/userRoutes.js');
+const adminRoutes = require('./routes/adminRoutes.js');
 
 //middleware
 app.use(cors({
@@ -29,6 +29,7 @@ app.use((req,res,next) => {
 // })
 app.use('/api/news', newsRoutes);
 app.use('/api/user', userRoutes);
+app.use('/api/adminDashboard', adminRoutes);
 
 //connect to mongo
 mongoose.connect(process.env.DB_URI)
