@@ -8,6 +8,9 @@ import Teams from "./pages/teams.jsx";
 import ShopPage from './pages/ShopPage.jsx';
 import NewsPage from './pages/news.jsx';
 import SingleNews from "./components/singleNews.jsx";
+import AddNews from "./components/admin/addNews.jsx";
+import EditPlayerList from "./components/admin/editPlayerList.jsx";
+import EditShopItem from "./components/admin/editShopItem.jsx";
 import Login from "./pages/loginPage.jsx";
 import SignUp from "./pages/signUpPage.jsx";
 import config from "./config.jsx";
@@ -16,11 +19,6 @@ const App = () => {
 
   const { user } = useAuthContext();
   //console.log(user);
-  console.log(config.ADMIN_EMAIL);
-  console.log("[{()}]");
-  if(user){
-    console.log(user.email);
-  }
 
   return (
     <>
@@ -30,6 +28,9 @@ const App = () => {
           <Route path="/" element={<Homepage />} />
           <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to={"/login"}/>} />
           <Route path="/adminDashboard" element={user ? <AdminDashboard /> : <Navigate to={"/login"}/>} />
+          <Route path="/adminDashboard/addNews" element={user ? <AddNews /> : <Navigate to={"/login"}/>} />
+          <Route path="/adminDashboard/editShop" element={user ? <EditShopItem /> : <Navigate to={"/login"}/>} />
+          <Route path="/adminDashboard/editPlayers" element={user ? <EditPlayerList /> : <Navigate to={"/login"}/>} />
           <Route path="/teams" element={<Teams />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/news" element={<NewsPage />} />
