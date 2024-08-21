@@ -1,0 +1,36 @@
+.divider {
+    height: 10px;
+    background-color: black;
+    margin: 20px 0px 20px 0px; 
+}
+
+.allNews{
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin: 20px auto;
+    max-width: 600px;
+    overflow: hidden;
+    background-color: white;
+    display: block;
+}
+
+.editButton {
+    background-color: #90EE90;
+    color: rgb(6, 5, 5);
+    border: 2px solid #008000;
+    border-radius: 8px;
+    padding: 10px 20px;
+    cursor: pointer;
+    display: block;
+}
+
+.deleteButton {
+    background-color: #90EE90;
+    color: rgb(6, 5, 5);
+    border: 2px solid #008000;
+    border-radius: 8px;
+    padding: 10px 20px;
+    cursor: pointer;
+    display: block;
+}

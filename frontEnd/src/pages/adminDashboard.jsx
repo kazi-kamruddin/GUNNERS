@@ -10,7 +10,7 @@ const AdminDashboard = () => {
 
     const addNews =() => {
         console.log("navigate to addNews");
-        navigate('/adminDashboard/addNews');
+        navigate('/adminDashboard/editNews');
     }
     const editShop =() => {
         console.log("item added");
@@ -26,7 +26,7 @@ const AdminDashboard = () => {
             <p>hail {user.email}</p>
             <p>it's the ADMIN dashboard</p>
             <button onClick={addNews}>
-                add news
+                edit news
             </button>
             <button onClick={editShop}>
                 edit shop

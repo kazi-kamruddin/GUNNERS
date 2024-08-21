@@ -4,6 +4,7 @@ const {
     getAllNews,
     createNews,
     getSingleNews,
+    deleteSingleNews,
 } = require('../controllers/newsController');
 const router = express.Router();
 
@@ -18,5 +19,7 @@ const router = express.Router();
 
 // //add a news
 router.post('/addNews', createNews)
+
+router.delete('/editNews/:id', deleteSingleNews);
 
 module.exports = router;
