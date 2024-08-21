@@ -58,10 +58,31 @@ const deleteSingleNews = async (req,res) => {
     }
 }
 
+//updat a news
+const updateNews = async (req,res) => {
+    const {id} = req.params;
+    if(!mongoose.Types.ObjectId.isValid(id))           
+        return res.status(400).json({error : "no such news"});
+
+    try{
+        const patchNews = await newsModel.findOneAndUpdate({_id : id}, {
+            ...req.body                //destructuring the request body to edit fields
+        });
+        if(!patchNews)
+            return res.status(400).json({error : "no such news"});
+
+        res.status(200).json(patchNews);
+    }
+    catch (error){
+        res.status(400).json({error : error.message});
+    }
+}
+
 
 module.exports = {
     getAllNews,
     createNews,
     getSingleNews,
     deleteSingleNews,
+    updateNews,
 }
