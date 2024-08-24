@@ -7,22 +7,22 @@ const {
     deleteSingleNews,
     updateNews
 } = require('../controllers/newsController');
+
+const {
+    createFixture,
+    getAllFixture,
+} = require('../controllers/fixtureController');
 const router = express.Router();
 
-// //all news
-// router.get('/', getAllNews)
-
-// //single news
-// router.get('/:id', getSingleNews)
-
-// //add a news
-// router.post('/', createNews)
-
-// //add a news
+//newsBlock
 router.post('/addNews', createNews)
-
 router.delete('/editNews/:id', deleteSingleNews);
-
 router.patch('/editNews/:id', updateNews);
+
+//fixtureBlock
+router.post('/editFixture', createFixture)
+router.get('/editFixture', getAllFixture)
+
+
 
 module.exports = router;

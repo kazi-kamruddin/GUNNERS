@@ -12,6 +12,10 @@ const AdminDashboard = () => {
         console.log("navigate to addNews");
         navigate('/adminDashboard/editNews');
     }
+    const editFixture =() => {
+        console.log("navigate to edit Fixture");
+        navigate('/adminDashboard/editFixture');
+    }
     const editShop =() => {
         console.log("item added");
         navigate('/adminDashboard/editShop');
@@ -27,6 +31,9 @@ const AdminDashboard = () => {
             <p>it's the ADMIN dashboard</p>
             <button onClick={addNews}>
                 edit news
+            </button>
+            <button onClick={editFixture}>
+                edit Fixture
             </button>
             <button onClick={editShop}>
                 edit shop

@@ -9,6 +9,7 @@ const app = express();
 const newsRoutes = require('./routes/newsRoutes.js');
 const userRoutes = require('./routes/userRoutes.js');
 const adminRoutes = require('./routes/adminRoutes.js');
+const fixtureRoutes = require('./routes/fixtureRoutes.js');
 
 //middleware
 app.use(cors({
@@ -30,6 +31,7 @@ app.use((req,res,next) => {
 app.use('/api/news', newsRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/adminDashboard', adminRoutes);
+app.use('/api/fixture', fixtureRoutes);
 
 //connect to mongo
 mongoose.connect(process.env.DB_URI)

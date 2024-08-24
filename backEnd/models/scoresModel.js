@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const schema = mongoose.Schema;
 
-const fixtureSchema = new schema({ 
+const scoresSchema = new schema({
     date: {
         type: String,
         required: true,
@@ -22,6 +22,16 @@ const fixtureSchema = new schema({
         required: true,
     },
 
+    team1Score: {
+        type: String,
+        required: true,
+    },
+
+    team1Scorers: {
+        type: [String], 
+        required: false,
+    },
+
     team2: {
         type: String,
         required: true,
@@ -30,6 +40,16 @@ const fixtureSchema = new schema({
     team2Logo: {
         type: String,
         required: true,
+    },
+
+    team2Score: {
+        type: String,
+        required: true,
+    },
+
+    team2Scorers: {
+        type: [String], 
+        required: false,
     },
 
     venue: {
@@ -45,4 +65,4 @@ const fixtureSchema = new schema({
 }, {timestamps: true})
 
 
-module.exports = mongoose.model('fixture', fixtureSchema);
+module.exports = mongoose.model('Score', scoresSchema);
