@@ -6,6 +6,8 @@ import Dashboard from "./pages/Dashboard.jsx";
 import Homepage from "./pages/Homepage.jsx";
 import Teams from "./pages/teams.jsx";
 import ShopPage from './pages/ShopPage.jsx';
+import Scores from "./pages/scores.jsx";
+import Fixture from "./pages/fixture.jsx";
 import NewsPage from './pages/news.jsx';
 import SingleNews from "./components/singleNews.jsx";
 import EditNews from "./components/admin/editNews.jsx";
@@ -34,6 +36,8 @@ const App = () => {
           <Route path="/teams" element={<Teams />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/news" element={<NewsPage />} />
+          <Route path="/fixture" element={<Fixture />} />
+          <Route path="/scores" element={<Scores />} />
           <Route path="/news/:id" element={<SingleNews />} />
           <Route path="/login" element={!user ? <Login /> : <Navigate to={"/"}/>} />
           <Route path="/signUp" element={!user  ? <SignUp /> : <Navigate to={"/"}/>} />
