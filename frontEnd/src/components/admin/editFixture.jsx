@@ -51,39 +51,38 @@ const EditFixture = () => {
         }
     };
 
-    // triggers when presses yes to delete a news
-    // const clickedYesToDelete = async (news) => {
-    //     console.log("delete him", news._id);
+    //triggers when presses yes to delete a fixture
+    const clickedYesToDelete = async (fixture) => {
+        console.log("delete him", fixture._id);
     
-    //     const endpoint = `http://localhost:4000/api/adminDashboard/editNews/${news._id}`;
-    //     console.log(endpoint);
+        const endpoint = `http://localhost:4000/api/adminDashboard/editFixture/${fixture._id}`;
+        console.log(endpoint);
     
-    //     try {
-    //         const response = await fetch(endpoint, {
-    //             method: 'DELETE',
-    //             headers: {
-    //                 'Authorization': `Bearer ${user.token}`,
-    //             },
-    //         });
+        try {
+            const response = await fetch(endpoint, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${user.token}`,
+                },
+            });
     
-    //         const json = await response.json();
+            const json = await response.json();
     
-    //         if (!response.ok) {
-    //             setError(json.error);
-    //             setSuccess(null);
-    //         } else {
-    //             setError(null);
-    //             setSuccess('News deleted successfully!');
-    //             setNews((prevNews) => prevNews.filter(item => item._id !== news._id)); 
-    //         }
-    //     } catch (error) {
-    //         console.error("Error deleting the news:", error);
-    //         setError('Failed to delete the news. Please try again.');
-    //     }
-    // };
+            if (!response.ok) {
+                setError(json.error);
+                setSuccess(null);
+            } else {
+                setError(null);
+                setSuccess('fixture deleted successfully!');
+                setFixture((prevFixture) => prevFixture.filter(item => item._id !== fixture._id)); 
+            }
+        } catch (error) {
+            console.error("Error deleting the fixture:", error);
+            setError('Failed to delete the fixture. Please try again.');
+        }
+    };
 
-    // fetches all the news, ttriggers when state of 'success' changes
-
+    // fetches all the fixture, ttriggers when state of 'success' changes
     useEffect(() => {
         const fetchFixture = async () => {
             try {
@@ -103,18 +102,18 @@ const EditFixture = () => {
 
     const handleDeleteClick = (fixture) => {
         setDeleteTargetId(fixture._id);
-        console.log("target for deletion: ", fixture._id, fixture.title);
+        console.log("target for deletion: ", fixture._id);
     };
 
     const handleCancelDelete = (fixture) => {
         setDeleteTargetId(null);
-        console.log("clicked no", fixture._id, fixture.title);
+        console.log("clicked no", fixture._id);
     };
 
     const handleConfirmDelete = (fixture) => {
         setDeleteTargetId(null);
-        //clickedYesToDelete(fixture);
-        console.log("clicked yes", fixture._id, fixture.title);
+        clickedYesToDelete(fixture);
+        console.log("clicked yes", fixture._id);
     };
 
     return (
@@ -176,14 +175,14 @@ const EditFixture = () => {
                     <div className="fixtureCard" key={fixture._id}>
                         <p>{fixture.date}</p>
                         <p>{fixture.competition}</p>
-                        <p>{fixture.team}</p>
+                        <p>{fixture.team1}</p>
                         <img src={fixture.team1Logo} alt="team1" className="image1" />
                         <p>{fixture.team2}</p>
                         <img src={fixture.team2Logo} alt="team2" className="image2" />
                         <p>{fixture.venue}</p>
                         <p>{fixture.form}</p>
                         <button className="deleteButton" onClick={() => handleDeleteClick(fixture)}>
-                            delete this article &#8594;
+                            delete this fixture &#8594;
                         </button>
 
                         {deleteTargetId === fixture._id && (

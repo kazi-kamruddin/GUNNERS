@@ -1,5 +1,4 @@
 const { default: mongoose } = require('mongoose');
-const newsModel = require('../models/fixtureModel');
 const fixtureModel = require('../models/fixtureModel');
 
 //create a new fixtrue
@@ -28,7 +27,26 @@ const getAllFixture = async (req,res) => {
     }
 }
 
+//delete a fixtuer
+const deleteSingleFixture = async (req,res) => {
+    const {id} = req.params;
+    if(!mongoose.Types.ObjectId.isValid(id))             
+        return res.status(400).json({error : "no such fixture"});
+
+    try{
+        const deleteFixture = await fixtureModel.findOneAndDelete({_id : id});
+        if(!deleteFixture)
+            return res.status(400).json({error : "no such fixture"});
+
+        res.status(200).json(deleteFixture);
+    }
+    catch (error){
+        res.status(400).json({error : error.message});
+    }
+}
+
 module.exports = {
     createFixture,
     getAllFixture,
+    deleteSingleFixture,
 }

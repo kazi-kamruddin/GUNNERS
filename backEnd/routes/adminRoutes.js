@@ -11,6 +11,7 @@ const {
 const {
     createFixture,
     getAllFixture,
+    deleteSingleFixture,
 } = require('../controllers/fixtureController');
 const router = express.Router();
 
@@ -22,6 +23,7 @@ router.patch('/editNews/:id', updateNews);
 //fixtureBlock
 router.post('/editFixture', createFixture)
 router.get('/editFixture', getAllFixture)
+router.delete('/editFixture/:id', deleteSingleFixture);
 
 
 
