@@ -33,6 +33,7 @@ const createNews = async (req,res) => {
     const {title, body, mainBody, imageLink} = req.body;
     try{
         const news = await newsModel.create({title, body, mainBody, imageLink});
+        
         res.status(200).json(news);
     }
     catch (error){
@@ -43,7 +44,7 @@ const createNews = async (req,res) => {
 //delete a news
 const deleteSingleNews = async (req,res) => {
     const {id} = req.params;
-    if(!mongoose.Types.ObjectId.isValid(id))             //id ta valid kina check
+    if(!mongoose.Types.ObjectId.isValid(id))             
         return res.status(400).json({error : "no such news"});
 
     try{
