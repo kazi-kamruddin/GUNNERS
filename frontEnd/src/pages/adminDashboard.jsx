@@ -8,7 +8,7 @@ const AdminDashboard = () => {
     const { user } = useAuthContext();
     const navigate = useNavigate();
 
-    const addNews =() => {
+    const editNews =() => {
         console.log("navigate to addNews");
         navigate('/adminDashboard/editNews');
     }
@@ -20,16 +20,16 @@ const AdminDashboard = () => {
         console.log("item added");
         navigate('/adminDashboard/editShop');
     }
-    const editPlayers =() => {
-        console.log("players added");
-        navigate('/adminDashboard/editPlayers');
+    const editScores =() => {
+        console.log("to edit scores page");
+        navigate('/adminDashboard/editScores');
     }
 
     return (
         <div className="dashboard">
             <p>hail {user.email}</p>
             <p>it's the ADMIN dashboard</p>
-            <button onClick={addNews}>
+            <button onClick={editNews}>
                 edit news
             </button>
             <button onClick={editFixture}>
@@ -38,8 +38,8 @@ const AdminDashboard = () => {
             <button onClick={editShop}>
                 edit shop
             </button>
-            <button onClick={editPlayers}>
-                edit Player list
+            <button onClick={editScores}>
+                edit scores
             </button>
         </div>
     );

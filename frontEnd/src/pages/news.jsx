@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import '../allCss/newsPage.css';
-
 import NewsDetails from "../components/newsDetails.jsx"
 
 const NewsPage = () => {
@@ -26,7 +25,7 @@ const NewsPage = () => {
             </div>
             <div className="allNews">
                 {allNews && allNews.map(news => (
-                    <NewsDetails news={news} key={news._id} />
+                    <NewsDetails news={news} key={news._id}/>
                 ))}
             </div>
         </div>

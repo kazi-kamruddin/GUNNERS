@@ -1,5 +1,4 @@
 const express = require('express');
-const newsModel = require('../models/newsModel');
 const {
     getAllNews,
     createNews,

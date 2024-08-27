@@ -56,11 +56,6 @@ const scoresSchema = new schema({
         type: String,
         required: true,
     },
-
-    form: {
-        type: String,
-        required: true,
-    },
     
 }, {timestamps: true})
 

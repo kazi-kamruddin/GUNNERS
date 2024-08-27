@@ -13,6 +13,11 @@ const {
     getAllFixture,
     deleteSingleFixture,
 } = require('../controllers/fixtureController');
+
+const {
+    getAllScores,
+    createScore,
+} = require('../controllers/scoresController');
 const router = express.Router();
 
 //newsBlock
@@ -25,6 +30,9 @@ router.post('/editFixture', createFixture)
 router.get('/editFixture', getAllFixture)
 router.delete('/editFixture/:id', deleteSingleFixture);
 
+//scoreBlock
+router.get('/editScores', getAllScores)
+router.post('/editScores', createScore)
 
 
 module.exports = router;
