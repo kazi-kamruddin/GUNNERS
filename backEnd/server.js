@@ -10,6 +10,7 @@ const newsRoutes = require('./routes/newsRoutes.js');
 const userRoutes = require('./routes/userRoutes.js');
 const adminRoutes = require('./routes/adminRoutes.js');
 const fixtureRoutes = require('./routes/fixtureRoutes.js');
+const scoreRoutes = require('./routes/scoreRoutes.js');
 
 //middleware
 app.use(cors({
@@ -32,6 +33,7 @@ app.use('/api/news', newsRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/adminDashboard', adminRoutes);
 app.use('/api/fixture', fixtureRoutes);
+app.use('/api/scores', scoreRoutes);
 
 //connect to mongo
 mongoose.connect(process.env.DB_URI)

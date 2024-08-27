@@ -20,10 +20,10 @@ const AdminDashboard = () => {
         console.log("item added");
         navigate('/adminDashboard/editShop');
     }
-    const editPlayers =() => {
-        console.log("players added");
-        navigate('/adminDashboard/editPlayers');
-    }
+    // const editPlayers =() => {
+    //     console.log("players added");
+    //     navigate('/adminDashboard/editPlayers');
+    // }
 
     return (
         <div className="dashboard">
@@ -37,9 +37,6 @@ const AdminDashboard = () => {
             </button>
             <button onClick={editShop}>
                 edit shop
-            </button>
-            <button onClick={editPlayers}>
-                edit Player list
             </button>
         </div>
     );
