@@ -9,11 +9,11 @@ const EditScores = () => {
     const [team1, setTeam1] = useState('');
     const [team1Logo, setTeam1Logo] = useState('');
     const [team1Score, setTeam1Score] = useState('');
-    const [team1Scorers, setTeam1Scorers] = useState(['']);
+    const [team1Scorers, setTeam1Scorers] = useState([]);
     const [team2, setTeam2] = useState('');
     const [team2Logo, setTeam2Logo] = useState('');
     const [team2Score, setTeam2Score] = useState('');
-    const [team2Scorers, setTeam2Scorers] = useState(['']);
+    const [team2Scorers, setTeam2Scorers] = useState([]);
     const [venue, setVenue] = useState('');
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
@@ -22,7 +22,7 @@ const EditScores = () => {
     const clickedAddScore = async (e) => {
         e.preventDefault();
 
-        const scoreData = { date,competition,team1,team1Logo,team1Score,team1Scorers,team2,team2Logo,team2Score,team2Scorers,venue };
+        const scoreData = { date, competition, team1, team1Logo, team1Score, team1Scorers, team2, team2Logo, team2Score, team2Scorers, venue };
 
         const response = await fetch('http://localhost:4000/api/adminDashboard/editScores', {
             method: 'POST',
@@ -38,8 +38,7 @@ const EditScores = () => {
         if (!response.ok) {
             setError(json.error);
             setSuccess(null);
-        } 
-        else {
+        } else {
             setSuccess('Score added successfully!');
             setError(null);
             setDate('');
@@ -47,11 +46,11 @@ const EditScores = () => {
             setTeam1('');
             setTeam1Logo('');
             setTeam1Score('');
-            setTeam1Scorers(['']);
+            setTeam1Scorers([]);
             setTeam2('');
             setTeam2Logo('');
             setTeam2Score('');
-            setTeam2Scorers(['']);
+            setTeam2Scorers([]);
             setVenue('');
         }
     };
@@ -72,8 +71,6 @@ const EditScores = () => {
         };
         fetchScores();
     }, [success]);
-
-
 
     return (
         <div className="adminEditScores">
@@ -110,7 +107,7 @@ const EditScores = () => {
                     <label>Team 1 Scorers:</label>
                     <input
                         type="text"
-                        value={team1Scorers}
+                        value={team1Scorers.join('-')}
                         onChange={(e) => setTeam1Scorers(e.target.value.split('-').map(name => name.trim()))}
                         required
                     />
@@ -136,7 +133,7 @@ const EditScores = () => {
                     <label>Team 2 Scorers:</label>
                     <input
                         type="text"
-                        value={team2Scorers}
+                        value={team2Scorers.join('-')}
                         onChange={(e) => setTeam2Scorers(e.target.value.split('-').map(name => name.trim()))}
                         required
                     />
@@ -151,13 +148,8 @@ const EditScores = () => {
                 <button type="submit">Add score</button>
             </form>
 
-
-
-
-
             {error && <p>{error}</p>}
-            {success && <p>{success}</p>} 
-            fixture delete/add korte gele success/error message eikhane show korbe.
+            {success && <p>{success}</p>}
 
             <div className="allScores">
                 {allScores && allScores.map(score => (
