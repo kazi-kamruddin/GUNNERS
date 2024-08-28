@@ -5,14 +5,10 @@
 }
 
 .allNews{
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    margin: 20px auto;
-    max-width: 600px;
-    overflow: hidden;
     background-color: white;
-    display: block;
+    max-width: 600px;
+    overflow: hidden;  /*max-width exceed korle baki part dekhbe naa eita dewate*/
+    display: block; 
 }
 
 .editButton {

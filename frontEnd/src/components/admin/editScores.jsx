@@ -169,7 +169,6 @@ const EditScores = () => {
                             <p>Scorers: {score.team2Scorers.join(', ')}</p>
                         </div>
                         <p>{score.venue}</p>
-                        <p>Form: {score.form}</p>
                         <div className="footer">
                             <p className="date">{new Date(score.createdAt).toLocaleDateString()}</p>
                         </div>
