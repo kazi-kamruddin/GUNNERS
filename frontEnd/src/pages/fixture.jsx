@@ -1,5 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
+import '../allCss/fixture.css';
 import FixtureList from '../components/fixtureList';
 
 const Fixture = () => {
@@ -30,7 +31,6 @@ const Fixture = () => {
             ))}
         </div>
     </div>
-    // <div className="gg">whatdahell</div>
   );
 };
 

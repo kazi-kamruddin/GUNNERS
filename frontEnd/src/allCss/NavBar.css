@@ -2,12 +2,15 @@
   background-color: #333;
   padding: 10px 0;
   z-index: 999;
+  position: fixed;
+  top: 0;
+  width: 100%;
 }
 
 .navigationBar {
   display: flex;
   align-items: center;
-  justify-content: space-around; /* Or use space-between if you want the logout button on the far right */
+  justify-content: space-around;
 }
 
 .nav-item {
@@ -62,4 +65,8 @@
 .logout:hover {
   background-color: #555;
   color: #ffcc00;
+}
+
+.content {
+  padding-top: 58px; 
 }
