@@ -1,0 +1,41 @@
+.home {
+    display: grid;
+    grid-template-columns: 3fr 2fr; 
+    gap: 20px; 
+    padding: 20px;
+    background-image: url('https://images5.alphacoders.com/115/thumb-1920-1157178.png'); 
+    background-size: cover; 
+    background-position: center; 
+    background-repeat: no-repeat;
+    position: relative;
+    height: 100vh;
+    box-sizing: border-box;
+}
+
+.left-column, .right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: relative;
+    z-index: 1; 
+}
+
+.news1, .news2, .score, .fixture {
+    background-color: rgba(255, 255, 255, 0.9); 
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    height: 150px; 
+    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.news1:hover, .news2:hover, .score:hover, .fixture:hover {
+    background-color: rgba(224, 224, 224, 0.9);
+    transform: scale(1.02);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); 
+}
+
+.score, .fixture {
+    height: 100px; 
+}

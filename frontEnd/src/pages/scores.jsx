@@ -1,5 +1,6 @@
 import React from "react";
 import { useState, useEffect } from "react";
+import '../allCss/scores.css';
 import ScoresList from '../components/scoresList';
 
 const Scores = () => {

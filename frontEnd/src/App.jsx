@@ -22,12 +22,11 @@ import SignUp from "./pages/signUpPage.jsx";
 const App = () => {
 
   const { user } = useAuthContext();
-  //console.log(user);
 
   return (
     <>
       <NavBar />
-      <div style={{ marginTop: "100px" }}>
+      <div className="content">
         <Routes>
           <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to={"/login"}/>} />
           <Route path="/adminDashboard/editNews" element={user ? <EditNews /> : <Navigate to={"/login"}/>} />
