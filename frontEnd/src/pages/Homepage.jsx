@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from 'react-router-dom'; 
 import "../allCss/homeStyle.css";
 
 const Homepage = () => {
   const [allNews, setNews] = useState([]);
   const [allFixtures, setFixture] = useState([]);
   const [allScores, setScore] = useState([]);
+  const navigate = useNavigate(); 
 
   useEffect(() => {
     const fetchNews = async () => {
@@ -13,7 +15,7 @@ const Homepage = () => {
 
       if (response.ok) {
         setNews(json);
-        console.log(json);
+        //console.log(json);
       }
     }
 
@@ -23,7 +25,7 @@ const Homepage = () => {
 
       if (response.ok) {
         setScore(json);
-        console.log(json);
+        //console.log(json);
       }
     }
 
@@ -33,7 +35,7 @@ const Homepage = () => {
 
       if (response.ok) {
         setFixture(json);
-        console.log(json);
+        //console.log(json);
       }
     }
 
@@ -47,27 +49,61 @@ const Homepage = () => {
   const latestScore = allScores && allScores.length > 0 ? allScores[0] : null;
   const latestFixture = allFixtures && allFixtures.length > 0 ? allFixtures[0] : null;
 
+  const clickedFirstNews = () => {
+      console.log("clicked first news");
+      navigate(`/news/${latestNews._id}`);
+  };
+
+  const clickedSecondNews = () => {
+      console.log("clicked second news");
+      navigate(`/news/${secondLatestNews._id}`);
+  };
+
   return (
     <div className="home">
       <div className="left-column">
-        <div className="news1">
+        <div className="news">
           {latestNews ? (
-            <>
-              <p>{latestNews.title}</p>
-              <p>{latestNews.body}</p>
-            </>
+            <div 
+              className="card" 
+              onClick={() => clickedFirstNews()}
+            >
+              <div className="card-media">
+                <img 
+                  src={latestNews.imageLink} 
+                  alt={latestNews.title}
+                  className="card-image"
+                />
+              </div>
+              <div className="card-content">
+                <h3 className="card-title">{latestNews.title}</h3>
+                <p className="card-body">{latestNews.body}</p>
+              </div>
+            </div>
           ) : (
             <p>No news available</p>
           )}
         </div>
-        <div className="news2">
+        <div className="news">
           {secondLatestNews ? (
-            <>
-              <p>{secondLatestNews.title}</p>
-              <p>{secondLatestNews.body}</p>
-            </>
+            <div 
+              className="card" 
+              onClick={() => clickedSecondNews()}
+            >
+              <div className="card-media">
+                <img 
+                  src={secondLatestNews.imageLink} 
+                  alt={secondLatestNews.title}
+                  className="card-image"
+                />
+              </div>
+              <div className="card-content">
+                <h3 className="card-title">{secondLatestNews.title}</h3>
+                <p className="card-body">{secondLatestNews.body}</p>
+              </div>
+            </div>
           ) : (
-            <p>No more news available</p>
+            <p>No news available</p>
           )}
         </div>
       </div>
