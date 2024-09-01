@@ -3,6 +3,7 @@
     grid-template-columns: 7fr 4fr; 
     gap: 20px; 
     padding: 20px;
+    padding-top: 40px;
     background-image: url('https://images5.alphacoders.com/115/thumb-1920-1157178.png'); 
     background-size: cover; 
     background-position: center; 
@@ -30,8 +31,10 @@
 
 .news .card:hover, .score:hover, .fixture:hover {
     background-color: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6); 
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.8); 
 }
+
+/*//////////////////////////////////       news        //////////////////////////////////////*/
 
 .news .card {
     position: relative;
@@ -45,7 +48,7 @@
 
 .news .card-media {
     position: relative;
-    overflow: hidden;
+   
 }
 
 .news .card-image {
@@ -78,6 +81,62 @@
 .news .card-body {
     margin-top: 10px;
     font-size: 1rem;
+}
+
+/*//////////////////////////////////       fixture        //////////////////////////////////////*/
+
+.fixture-card {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.fixture-card:hover {
+    background-color: rgba(255, 255, 255, 1);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.8);
+}
+
+.fixture-date {
+    text-align: center;
+    background-color: #f0f0f0;
+    padding: 10px;
+    border-radius: 5px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.fixture-teams {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.team {
+    display: flex;
+    align-items: center;
+}
+
+.team-logo {
+    width: 30px;
+    height: 30px;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.vs {
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.fixture-venue {
+    text-align: center;
+    background-color: #f0f0f0;
+    padding: 10px;
+    border-radius: 5px;
 }
 
 @media (max-width: 1280px) {

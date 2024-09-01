@@ -120,10 +120,39 @@ const Homepage = () => {
         </div>
         <div className="fixture">
           {latestFixture ? (
-            <>
-              <p>{latestFixture.team1} vs {latestFixture.team2}</p>
-              <p>{latestFixture.venue}</p>
-            </>
+            <div className="fixture-card">
+              <div className="fixture-date">
+                <p>{latestFixture.date}</p>
+              </div>
+              <div className="fixture-teams">
+                <div className="team">
+                  <p>
+                    {latestFixture.team1}{" "}
+                    <img 
+                      src={latestFixture.team1Logo} 
+                      alt={`${latestFixture.team1} logo`} 
+                      className="team-logo"
+                    />
+                  </p>
+                </div>
+                <div className="vs">
+                  <p>VS</p>
+                </div>
+                <div className="team">
+                  <p>
+                    <img 
+                      src={latestFixture.team2Logo} 
+                      alt={`${latestFixture.team2} logo`} 
+                      className="team-logo"
+                    />{" "}
+                    {latestFixture.team2}
+                  </p>
+                </div>
+              </div>
+              <div className="fixture-venue">
+                <p>{latestFixture.venue}</p>
+              </div>
+            </div>
           ) : (
             <p>No fixtures available</p>
           )}
