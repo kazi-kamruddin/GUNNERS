@@ -22,8 +22,12 @@ const NavBar = () => {
       console.log('admin detected');
       isAdmin = true;
   }
-  else{
+  else if(user){
     console.log('general user detected');
+    isAdmin = false;
+  }
+  else {
+    console.log('no user detected');
     isAdmin = false;
   }
 

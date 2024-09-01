@@ -3,6 +3,7 @@
     grid-template-columns: 7fr 4fr; 
     gap: 20px; 
     padding: 20px;
+    padding-top: 40px;
     background-image: url('https://images5.alphacoders.com/115/thumb-1920-1157178.png'); 
     background-size: cover; 
     background-position: center; 
@@ -20,18 +21,122 @@
     z-index: 1; 
 }
 
-.news1, .news2, .score, .fixture {
+.news .card, .score, .fixture {
     background-color: rgba(224, 224, 224, 0.9); 
-    padding: 20px;
     border: 1px solid #ddd;
     border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.news1:hover, .news2:hover, .score:hover, .fixture:hover {
+.news .card:hover, .score:hover, .fixture:hover {
     background-color: rgba(255, 255, 255, 0.9);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.6); 
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.8); 
+}
+
+/*//////////////////////////////////       news        //////////////////////////////////////*/
+
+.news .card {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    padding: 0; 
+    cursor: pointer;
+}
+
+.news .card-media {
+    position: relative;
+   
+}
+
+.news .card-image {
+    width: 100%;
+    height: auto;
+    transition: transform 0.5s ease; 
+}
+
+.news .card:hover .card-image {
+    transform: scale(1.1); 
+}
+
+.news .card-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 20px;
+    background: rgba(0, 0, 0, 0.5); 
+    color: white;
+    text-align: left;
+}
+
+.news .card-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.news .card-body {
+    margin-top: 10px;
+    font-size: 1rem;
+}
+
+/*//////////////////////////////////       fixture        //////////////////////////////////////*/
+
+.fixture-card {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.fixture-card:hover {
+    background-color: rgba(255, 255, 255, 1);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.8);
+}
+
+.fixture-date {
+    text-align: center;
+    background-color: #f0f0f0;
+    padding: 10px;
+    border-radius: 5px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.fixture-teams {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.team {
+    display: flex;
+    align-items: center;
+}
+
+.team-logo {
+    width: 30px;
+    height: 30px;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.vs {
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.fixture-venue {
+    text-align: center;
+    background-color: #f0f0f0;
+    padding: 10px;
+    border-radius: 5px;
 }
 
 @media (max-width: 1280px) {
@@ -46,7 +151,7 @@
         padding-top: 18px;
     }
 
-    .news1, .news2, .score, .fixture {
+    .news, .score, .fixture {
         width: 100%; 
         box-sizing: border-box; 
     }
