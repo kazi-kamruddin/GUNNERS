@@ -5,10 +5,10 @@ const fixtureModel = require('../models/fixtureModel');
 const createFixture = async (req,res) => {
     console.log(req.body);
     
-    const {date,competition,team1,team1Logo,team2,team2Logo,venue,form} = req.body;
+    const {date,competition,team1,team2,venue,form} = req.body;
     
     try{
-        const fixture = await fixtureModel.create({date,competition,team1,team1Logo,team2,team2Logo,venue,form});
+        const fixture = await fixtureModel.create({date,competition,team1,team2,venue,form});
         res.status(200).json(fixture);
     }
     catch (error){

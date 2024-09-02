@@ -7,9 +7,7 @@ const EditFixture = () => {
     const [date, setDate] = useState('');
     const [competition, setCompetition] = useState('');
     const [team1, setTeam1] = useState('');
-    const [team1Logo, setTeam1Logo] = useState('');
     const [team2, setTeam2] = useState('');
-    const [team2Logo, setTeam2Logo] = useState('');
     const [venue, setVenue] = useState('');
     const [form, setForm] = useState('');
     const [error, setError] = useState(null);
@@ -21,7 +19,7 @@ const EditFixture = () => {
     const clickedAddFixture = async (e) => {
         e.preventDefault();
 
-        const fixtureData = { date, competition, team1, team1Logo, team2, team2Logo, venue, form };
+        const fixtureData = { date, competition, team1, team2, venue, form };
 
         const response = await fetch('http://localhost:4000/api/adminDashboard/editFixture', {
             method: 'POST',
@@ -42,9 +40,7 @@ const EditFixture = () => {
             setDate('');
             setCompetition('');
             setTeam1('');
-            setTeam1Logo('');
             setTeam2('');
-            setTeam2Logo('');
             setVenue('');
             setForm('');
             setError(null);
@@ -139,18 +135,8 @@ const EditFixture = () => {
                 </div>
 
                 <div>
-                    <label>Team 1 Logo:</label>
-                    <input type="text" value={team1Logo} onChange={(e) => setTeam1Logo(e.target.value)} required />
-                </div>
-
-                <div>
                     <label>Team 2:</label>
                     <input type="text" value={team2} onChange={(e) => setTeam2(e.target.value)} required />
-                </div>
-
-                <div>
-                    <label>Team 2 Logo:</label>
-                    <input type="text" value={team2Logo} onChange={(e) => setTeam2Logo(e.target.value)} required />
                 </div>
 
                 <div>
@@ -177,9 +163,7 @@ const EditFixture = () => {
                         <p>{fixture.date}</p>
                         <p>{fixture.competition}</p>
                         <p>{fixture.team1}</p>
-                        <img src={fixture.team1Logo} alt="team1" className="image1" />
                         <p>{fixture.team2}</p>
-                        <img src={fixture.team2Logo} alt="team2" className="image2" />
                         <p>{fixture.venue}</p>
                         <p>{fixture.form}</p>
                         <button className="deleteButton" onClick={() => handleDeleteClick(fixture)}>

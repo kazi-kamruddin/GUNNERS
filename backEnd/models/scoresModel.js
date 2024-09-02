@@ -17,11 +17,6 @@ const scoresSchema = new schema({
         required: true,
     },
 
-    team1Logo: {
-        type: String,
-        required: true,
-    },
-
     team1Score: {
         type: String,
         required: true,
@@ -33,11 +28,6 @@ const scoresSchema = new schema({
     },
 
     team2: {
-        type: String,
-        required: true,
-    },
-
-    team2Logo: {
         type: String,
         required: true,
     },
