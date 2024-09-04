@@ -21,14 +21,25 @@ const Fixture = () => {
   }, [])
 
   return (
-    <div className="fixturePage">
-        <div className="pageTitle">
+    <div className="fixture-page">
+        <div className="title">
                 Fixtures
         </div>
-        <div className="allFixture">
-            {allFixtures && allFixtures.map(fixture => (
-                <FixtureList fixture={fixture} key={fixture._id} />
-            ))}
+
+        <div className="all-fixtures">
+                {allFixtures ? (
+                    allFixtures.map(fixture => (
+                        <FixtureList fixture={fixture} key={fixture._id} />
+                    ))
+                ):(
+                    <div className="err">
+                            <p>No fixtures available</p>
+                            <p>No fixtures available</p>
+                            <p>No fixtures available</p>
+                            <p>No fixtures available</p>
+                            <p>No fixtures available</p>
+                    </div>
+                )}
         </div>
     </div>
   );

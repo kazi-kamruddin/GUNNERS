@@ -1,17 +1,28 @@
 import React from "react";
+import '../allCss/fixtureList.css';
 
 const FixtureList = ({ fixture }) => {
 
   return (
-    <div className="whole">
-      <div className="title">
-        <p>{fixture.date}</p>
-        <p>{fixture.competition}</p>
-        <p>{fixture.team1}</p>
-        <p>{fixture.team2}</p>
-        <p>{fixture.venue}</p>
-        <p>{fixture.form}</p>
-      </div>
+    <div className="single-fixture-card">
+        <div className="single-fixture-info">
+            <div className="info-header">
+                eikhane date, competition.
+            </div>
+            <div className="info-body">
+                <div className="gg">{fixture.form}</div>
+                <div className="gg">{fixture.form}</div>
+                <div className="gg">{fixture.form}</div>
+                <div className="gg">{fixture.form}</div>
+                <div className="gg">{fixture.form}</div>
+            </div>
+            <div className="info-footer">
+                news button
+            </div>
+            
+        </div>
+        
+        <div className="divider"></div>
     </div>
   );
 };

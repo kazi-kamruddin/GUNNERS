@@ -1,0 +1,38 @@
+.single-fixture-card {
+    padding: 0;
+    margin: 0;
+}
+
+.single-fixture-info {
+    padding: 10px;
+    margin: 0;
+    background-color: bisque;
+    border-right: 9px solid rgb(207, 27, 27);
+    border-left: 9px solid rgb(207, 27, 27);   
+}
+
+.single-fixture-info .info-header {
+    background-color: green;
+}
+
+.single-fixture-info .info-body {
+    background-color: blue;
+}
+
+.single-fixture-info .info-footer {
+    background-color: hotpink;
+}
+
+.divider {
+    height: 60px;
+    margin: 0;
+    padding: 0;
+    background-color: transparent;
+}
+
+.gg {
+    display: inline-block;
+    width: 95%; 
+    margin-bottom: 5px;
+    background-color: aqua;
+}

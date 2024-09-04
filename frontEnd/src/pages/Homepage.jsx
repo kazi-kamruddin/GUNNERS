@@ -194,31 +194,3 @@ const Homepage = () => {
 };
 
 export default Homepage;
-
-{/* <div className="fixture-teams">
-                <div className="team">
-                  <p>
-                    <p className="team-name">
-                        {latestFixture.team1}{"   "}
-                    </p>
-                    <img 
-                      src={latestFixture.team1Logo} 
-                      alt={`${latestFixture.team1} logo`} 
-                      className="team-logo"
-                    />
-                  </p>
-                </div>
-                <div className="vs">
-                  <p>VS</p>
-                </div>
-                <div className="team">
-                  <p>
-                    <img 
-                      src={latestFixture.team2Logo} 
-                      alt={`${latestFixture.team2} logo`} 
-                      className="team-logo"
-                    />{"   "}
-                    {latestFixture.team2}
-                  </p>
-                </div>
-              </div> */}
