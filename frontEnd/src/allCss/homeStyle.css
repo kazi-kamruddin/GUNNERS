@@ -55,7 +55,8 @@
 
 .news .card-media {
     position: relative;
-   
+    margin-bottom: -6px;
+    margin-top: -3px;
 }
 
 .news .card-image {
@@ -63,11 +64,11 @@
     padding: 0;
     margin: 0;
     height: auto;
-    transition: transform 0.5s ease; 
+    transition: transform 0.6s ease; 
 }
 
 .news .card:hover .card-image {
-    transform: scale(1.1); 
+    transform: scale(1.125); 
 }
 
 .news .card-content {

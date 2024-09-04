@@ -1,38 +1,113 @@
 .single-fixture-card {
     padding: 0;
-    margin: 0;
+    margin: 0 0 40px 0;
 }
 
 .single-fixture-info {
-    padding: 10px;
+    padding: 0;
     margin: 0;
     background-color: bisque;
     border-right: 9px solid rgb(207, 27, 27);
-    border-left: 9px solid rgb(207, 27, 27);   
+    border-left: 9px solid rgb(207, 27, 27);
 }
 
-.single-fixture-info .info-header {
-    background-color: green;
+
+/*///////////////////////////////     body     ///////////////////////////////*/
+
+
+.info-header {
+    background-color: rgb(193, 193, 193);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.2), 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
-.single-fixture-info .info-body {
-    background-color: blue;
+.header-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    flex: 1;
+    padding-left: 10px;
 }
 
-.single-fixture-info .info-footer {
-    background-color: hotpink;
+.match-date, .match-venue {
+    font-family: 'Fjalla One', sans-serif;
+    font-size: 1.5rem;
+    margin: 5px 0;
 }
 
-.divider {
-    height: 60px;
-    margin: 0;
-    padding: 0;
-    background-color: transparent;
+.match-venue {
+    font-size: 3rem;
 }
 
-.gg {
-    display: inline-block;
-    width: 95%; 
-    margin-bottom: 5px;
-    background-color: aqua;
+.header-image {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.header-comp-logo {
+    width: 190px;
+    height: auto;
+}
+
+
+/*///////////////////////////////     body     ///////////////////////////////*/
+
+
+.info-body {
+    background-color: rgb(255, 255, 255);
+    display: grid;
+    grid-template-columns: 3fr 2fr 1fr 2fr 3fr;
+    gap: 10px;
+    align-items: center;
+    justify-items: center;
+    padding: 20px;
+}
+
+.single-fixture-team-name, .single-fixture-team-logo, .single-fixture-versus {
+    text-align: center;
+    word-wrap: break-word;
+}
+
+.single-fixture-team-name {
+    font-size: 4.2rem;
+    max-width: 100%;
+    word-break: break-word;
+}
+
+.single-fixture-team-logo {
+    height: auto;
+    width: auto;
+}
+
+.single-fixture-teamLogo-itself {
+    height: 180px;
+    width: auto;
+}
+
+.single-fixture-versus {
+    font-size: 3rem;
+}
+
+
+/*///////////////////////////////     footer     ///////////////////////////////*/
+
+
+.info-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px;
+    background-color: rgb(200, 200, 200);
+}
+
+.footer-button {
+    font-size: 1.2rem;
+    padding: 10px 20px;
+    background-color: darkred;
+    color: white;
+    border: none;
+    cursor: pointer;
 }
