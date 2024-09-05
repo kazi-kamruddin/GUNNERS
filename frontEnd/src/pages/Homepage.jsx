@@ -89,7 +89,7 @@ const Homepage = () => {
               </div>
               <div className="card-content">
                 <h3 className="card-title">{latestNews.title}</h3>
-                <p className="card-body">{latestNews.body}</p>
+                <p className="card-details">{latestNews.body}</p>
               </div>
             </div>
           ) : (
@@ -111,7 +111,7 @@ const Homepage = () => {
               </div>
               <div className="card-content">
                 <h3 className="card-title">{secondLatestNews.title}</h3>
-                <p className="card-body">{secondLatestNews.body}</p>
+                <p className="card-details">{secondLatestNews.body}</p>
               </div>
             </div>
           ) : (

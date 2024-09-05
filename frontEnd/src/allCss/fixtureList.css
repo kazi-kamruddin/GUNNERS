@@ -1,12 +1,12 @@
 .single-fixture-card {
     padding: 0;
-    margin: 0 0 40px 0;
+    margin: 20px 0 60px 0;
 }
 
 .single-fixture-info {
     padding: 0;
     margin: 0;
-    background-color: bisque;
+    background-color: white;
     border-right: 9px solid rgb(207, 27, 27);
     border-left: 9px solid rgb(207, 27, 27);
 }
@@ -61,10 +61,9 @@
     background-color: rgb(255, 255, 255);
     display: grid;
     grid-template-columns: 3fr 2fr 1fr 2fr 3fr;
-    gap: 10px;
     align-items: center;
     justify-items: center;
-    padding: 20px;
+    padding: 40px 5px 40px 5px;
 }
 
 .single-fixture-team-name, .single-fixture-team-logo, .single-fixture-versus {
@@ -76,6 +75,7 @@
     font-size: 4.2rem;
     max-width: 100%;
     word-break: break-word;
+    font-family: 'Fjalla One', sans-serif;
 }
 
 .single-fixture-team-logo {
@@ -90,8 +90,64 @@
 
 .single-fixture-versus {
     font-size: 3rem;
+    font-family: 'Fjalla One', sans-serif;
 }
 
+
+/*///////////////////////////////     form     //////////////////////////////*/
+
+.single-fixture-form {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgb(240, 240, 240); 
+    border-radius: 20px; 
+    padding: 0;
+    gap: 10px;
+    margin: 20px auto;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    width: 50%; 
+    max-width: 800px; 
+}
+
+.form-text {
+    font-size: 1.4rem;
+    font-family: 'Fjalla One', sans-serif;
+    text-align: right;
+    width: auto; 
+    margin-right: 20px; 
+}
+
+.form-results {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-start;
+}
+  
+.form-result {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    color: white;
+}
+  
+.form-result.w {
+    background-color: green;
+}
+  
+.form-result.d {
+    background-color: yellow;
+    color: black;
+}
+  
+.form-result.l {
+    background-color: red;
+}
+  
 
 /*///////////////////////////////     footer     ///////////////////////////////*/
 
@@ -110,4 +166,130 @@
     color: white;
     border: none;
     cursor: pointer;
+}
+
+
+/*///////////////////////////////     responsive     ///////////////////////////////*/
+
+@media screen and (max-width: 1500px) {
+   .single-fixture-team-name {
+     font-size: 3.9rem;
+   }
+ 
+   .match-date, .match-venue {
+     font-size: 1.3rem;
+   }
+ 
+   .match-venue {
+     font-size: 2.7rem;
+   }
+   .single-fixture-teamLogo-itself {
+       height: 160px;
+       width: auto;
+   }
+ 
+   .single-fixture-form {
+     width: 60%;
+   }
+}
+
+@media screen and (max-width: 1200px) {
+   .single-fixture-team-name {
+     font-size: 3.4rem;
+   }
+ 
+   .match-date, .match-venue {
+     font-size: 1.2rem;
+   }
+ 
+   .match-venue {
+     font-size: 2.2rem;
+   }
+   .single-fixture-teamLogo-itself {
+       height: 140px;
+       width: auto;
+   }
+ 
+   .single-fixture-form {
+     width: 70%;
+   }
+}
+
+@media screen and (max-width: 1030px) {
+   .header-comp-logo {
+     width: 140px;
+   }
+   .match-venue {
+       font-size: 1.9rem;
+   }
+ 
+   .single-fixture-team-name {
+     font-size: 2.8rem;
+   }
+ 
+   .single-fixture-teamLogo-itself {
+       height: 120px;
+       width: auto;
+   }
+ 
+   .single-fixture-form {
+     width: 80%; 
+   }
+ 
+   .info-body {
+     grid-template-columns: 2fr 1fr 1fr 1fr 2fr; 
+     padding: 30px 10px; 
+   }
+ 
+   .form-text {
+     font-size: 1.2rem;
+     margin-right: 15px;
+   }
+ 
+   .form-result {
+     width: 25px;
+     height: 25px;
+     font-size: 1rem;
+   }
+}
+
+@media screen and (max-width: 900px) {
+   .header-comp-logo {
+     width: 120px;
+   }
+   .match-venue {
+       font-size: 1.6rem;
+   }
+ 
+   .single-fixture-team-name {
+     font-size: 2.3rem;
+   }
+ 
+   .single-fixture-teamLogo-itself {
+       height: 110px;
+       width: auto;
+   }
+   .single-fixture-versus {
+       font-size: 2.5rem;
+   }
+ 
+   .single-fixture-form {
+     width: 80%; 
+   }
+ 
+   .info-body {
+     grid-template-columns: 2fr 1fr 1fr 1fr 2fr; 
+     padding: 30px 10px; 
+   }
+ 
+   .form-text {
+     font-size: 1.2rem;
+     margin-right: 15px;
+   }
+ 
+   .form-result {
+     width: 25px;
+     height: 25px;
+     font-size: 1rem;
+   }
 }

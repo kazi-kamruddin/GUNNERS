@@ -83,6 +83,11 @@
     font-family: 'Fjalla One', sans-serif;
 }
 
+.card-content:hover .card-title,
+.card-content:hover .card-details {
+    text-decoration: underline;
+}
+
 .news .card-title {
     margin: 0;
     font-size: 1.5rem;
@@ -90,7 +95,7 @@
     font-family: 'Fjalla One', sans-serif;
 }
 
-.news .card-body {
+.news .card-details {
     margin-top: 10px;
     font-size: 1rem;
     font-family: 'Fjalla One', sans-serif;
