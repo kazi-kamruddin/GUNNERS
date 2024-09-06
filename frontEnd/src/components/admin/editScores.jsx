@@ -94,11 +94,6 @@ const EditScores = () => {
                 </div>
 
                 <div>
-                    <label>Team 1 Logo:</label>
-                    <input type="text" value={team1Logo} onChange={(e) => setTeam1Logo(e.target.value)} required />
-                </div>
-
-                <div>
                     <label>Team 1 Score:</label>
                     <input type="number" value={team1Score} onChange={(e) => setTeam1Score(e.target.value)} required />
                 </div>
@@ -117,11 +112,6 @@ const EditScores = () => {
                 <div>
                     <label>Team 2:</label>
                     <input type="text" value={team2} onChange={(e) => setTeam2(e.target.value)} required />
-                </div>
-
-                <div>
-                    <label>Team 2 Logo:</label>
-                    <input type="text" value={team2Logo} onChange={(e) => setTeam2Logo(e.target.value)} required />
                 </div>
 
                 <div>
@@ -158,13 +148,11 @@ const EditScores = () => {
                         <p>{score.competition}</p>
                         <div className="teamInfo">
                             <p>{score.team1}</p>
-                            <img src={score.team1Logo} alt="team1" className="image1" />
                             <p>Score: {score.team1Score}</p>
                             <p>Scorers: {score.team1Scorers.join(', ')}</p>
                         </div>
                         <div className="teamInfo">
                             <p>{score.team2}</p>
-                            <img src={score.team2Logo} alt="team2" className="image2" />
                             <p>Score: {score.team2Score}</p>
                             <p>Scorers: {score.team2Scorers.join(', ')}</p>
                         </div>

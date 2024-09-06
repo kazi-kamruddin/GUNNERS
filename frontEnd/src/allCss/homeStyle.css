@@ -1,3 +1,6 @@
+@import url('https://fonts.googleapis.com/css2?family=Fjalla+One&family=New+Amsterdam&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fjalla+One&display=swap');
+
 .home {
     display: grid;
     grid-template-columns: 7fr 4fr; 
@@ -9,7 +12,8 @@
     background-position: center; 
     background-repeat: no-repeat;
     position: relative;
-    height: 100vh;
+    min-height: 100vh;
+    background-attachment: fixed;
     box-sizing: border-box;
     background: cover;
 }
@@ -43,6 +47,7 @@
     display: block;
     overflow: hidden;
     text-decoration: none;
+    font-family: 'Fjalla One', sans-serif;
     color: inherit;
     padding: 0; 
     cursor: pointer;
@@ -50,17 +55,20 @@
 
 .news .card-media {
     position: relative;
-   
+    margin-bottom: -6px;
+    margin-top: -3px;
 }
 
 .news .card-image {
     width: 100%;
+    padding: 0;
+    margin: 0;
     height: auto;
-    transition: transform 0.5s ease; 
+    transition: transform 0.6s ease; 
 }
 
 .news .card:hover .card-image {
-    transform: scale(1.1); 
+    transform: scale(1.125); 
 }
 
 .news .card-content {
@@ -72,17 +80,25 @@
     background: rgba(0, 0, 0, 0.5); 
     color: white;
     text-align: left;
+    font-family: 'Fjalla One', sans-serif;
+}
+
+.card-content:hover .card-title,
+.card-content:hover .card-details {
+    text-decoration: underline;
 }
 
 .news .card-title {
     margin: 0;
     font-size: 1.5rem;
     font-weight: bold;
+    font-family: 'Fjalla One', sans-serif;
 }
 
-.news .card-body {
+.news .card-details {
     margin-top: 10px;
     font-size: 1rem;
+    font-family: 'Fjalla One', sans-serif;
 }
 
 /*//////////////////////////////////       fixture        //////////////////////////////////////*/
@@ -103,42 +119,236 @@
 
 .fixture-date {
     text-align: center;
-    background-color: #f0f0f0;
+    background-color: #cfcfcf;
     padding: 10px;
     border-radius: 5px;
     font-weight: bold;
     margin-bottom: 10px;
+    font-family: 'Fjalla One', sans-serif;
+    font-size: 1.2rem;
 }
 
 .fixture-teams {
-    display: flex;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: 5fr 2fr 5fr;
+    justify-content: center;
     align-items: center;
-    margin-bottom: 10px;
+    margin: 0;
 }
 
 .team {
     display: flex;
     align-items: center;
+    vertical-align: middle;
+}
+
+.team-name {
+    display: flex;
+    align-items: center; 
+    justify-content: center; 
+    flex-direction: column; 
+    text-align: center; 
+    font-family: 'Fjalla One', sans-serif;
+    font-size: 2rem;
+    font-weight: bold;
 }
 
 .team-logo {
-    width: 30px;
-    height: 30px;
+    display: flex;
+    align-items: center; 
+    justify-content: center; 
+    flex-direction: column; 
+    text-align: center;
+    width: 100px;
+    height: 100px;
     margin-left: 10px;
+    margin-right: 10px;
+    margin-bottom: 13px;
+}
+
+.versus {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 3.2rem; 
+    color: #030202; 
+}
+
+.fixture-competition {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 10px;
+    padding-top: 0px;
+    border-radius: 5px;
+    font-family: 'Fjalla One', sans-serif;
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.competition-logo {
+    height: 40px;
+    width: auto;
     margin-right: 10px;
 }
 
-.vs {
-    font-weight: bold;
-    font-size: 1.2rem;
+.competition-name {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .fixture-venue {
     text-align: center;
-    background-color: #f0f0f0;
+    background-color: #cfcfcf;
     padding: 10px;
     border-radius: 5px;
+    font-family: 'Fjalla One', sans-serif;
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.go-to-all-fixture {
+    display: block;
+    width: 100%; 
+    padding: 10px; 
+    box-sizing: border-box;
+    text-align: center; 
+    background-color: #c61717;
+    color: #f0f0f0;
+    border-radius: 5px;
+    font-family: 'Fjalla One', sans-serif; 
+    font-size: 1.2rem; 
+    margin-top: 13px; 
+    height: 50px;
+    overflow: hidden;
+    transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, font-size 0.25s ease-in-out;
+}
+
+.go-to-all-fixture:hover {
+    color: #c61717;
+    background-color: #f0f0f0;
+    border-radius: 7px;
+    font-size: 1.4rem; 
+    cursor: pointer;
+}
+
+/*//////////////////////////////////       score        //////////////////////////////////////*/
+
+.score-card {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 15px;
+    transition: background-color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.score-card:hover {
+    background-color: rgba(255, 255, 255, 1);
+    box-shadow: 0 6px 10px rgba(0, 0, 0, 0.8);
+}
+
+.score-date {
+    text-align: center;
+    background-color: #cfcfcf;
+    padding: 10px;
+    border-radius: 5px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    font-family: 'Fjalla One', sans-serif;
+    font-size: 1.2rem;
+}
+
+.score-teams {
+    display: grid;
+    grid-template-columns: 5fr 2fr 5fr;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+}
+
+.team-name {
+    display: flex;
+    align-items: center; 
+    justify-content: center; 
+    flex-direction: column; 
+    text-align: center; 
+    font-family: 'Fjalla One', sans-serif;
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+.team-logo {
+    display: flex;
+    align-items: center; 
+    justify-content: center; 
+    flex-direction: column; 
+    text-align: center;
+    width: 100px;
+    height: 100px;
+    margin-left: 10px;
+    margin-right: 10px;
+    margin-bottom: 13px;
+}
+
+.result {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 3.2rem; 
+    color: #030202; 
+}
+
+.score-competition {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 10px;
+    padding-top: 0px;
+    border-radius: 5px;
+    font-family: 'Fjalla One', sans-serif;
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.score-venue {
+    text-align: center;
+    background-color: #cfcfcf;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: 'Fjalla One', sans-serif;
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.go-to-all-score {
+    display: block;
+    width: 100%; 
+    padding: 10px; 
+    box-sizing: border-box;
+    text-align: center; 
+    background-color: #c61717;
+    color: #f0f0f0;
+    border-radius: 5px;
+    font-family: 'Fjalla One', sans-serif; 
+    font-size: 1.2rem; 
+    margin-top: 13px; 
+    height: 50px;
+    overflow: hidden;
+    transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out, border-radius 0.25s ease-in-out, font-size 0.25s ease-in-out;
+}
+
+.go-to-all-score:hover {
+    color: #c61717;
+    background-color: #f0f0f0;
+    border-radius: 7px;
+    font-size: 1.4rem; 
+    cursor: pointer;
 }
 
 @media (max-width: 1280px) {

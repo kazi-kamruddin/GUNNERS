@@ -1,0 +1,29 @@
+.admin-dashboard-page {
+    display: flex;
+    flex-direction: column;
+    justify-content: center; 
+    align-items: center;  
+    height: 100vh; 
+}
+
+.edit-options {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    margin: 20px 30px 50px 30px;
+}
+
+.edit-buttons {
+    margin: 10px 30px 10px 30px;
+}
+
+.chart-area {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.line-chart {
+    width: 80%;  
+    max-width: 600px;  
+}

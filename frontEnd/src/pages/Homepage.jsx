@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom'; 
+import { getLogo } from "../hook/getClubLogo";
+import { getCompLogo } from "../hook/getCompLogo";
 import "../allCss/homeStyle.css";
 
 const Homepage = () => {
@@ -59,6 +61,16 @@ const Homepage = () => {
       navigate(`/news/${secondLatestNews._id}`);
   };
 
+  const clickedAllFixture = () => {
+    console.log("clicked all fixture");
+    navigate(`/fixture`);
+  };
+
+  const clickedAllScore = () => {
+    console.log("clicked all score");
+    navigate(`/scores`);
+  };
+
   return (
     <div className="home">
       <div className="left-column">
@@ -77,7 +89,7 @@ const Homepage = () => {
               </div>
               <div className="card-content">
                 <h3 className="card-title">{latestNews.title}</h3>
-                <p className="card-body">{latestNews.body}</p>
+                <p className="card-details">{latestNews.body}</p>
               </div>
             </div>
           ) : (
@@ -99,7 +111,7 @@ const Homepage = () => {
               </div>
               <div className="card-content">
                 <h3 className="card-title">{secondLatestNews.title}</h3>
-                <p className="card-body">{secondLatestNews.body}</p>
+                <p className="card-details">{secondLatestNews.body}</p>
               </div>
             </div>
           ) : (
@@ -108,50 +120,69 @@ const Homepage = () => {
         </div>
       </div>
       <div className="right-column">
-        <div className="score">
-          {latestScore ? (
-            <>
-              <p>{latestScore.team1} vs {latestScore.team2}</p>
-              <p>{latestScore.venue}</p>
-            </>
-          ) : (
-            <p>No scores available</p>
-          )}
-        </div>
-        <div className="fixture">
+      <div className="fixture">
           {latestFixture ? (
             <div className="fixture-card">
-              <div className="fixture-date">
-                <p>{latestFixture.date}</p>
+              <div className="fixture-date">  
+                   Upcoming match on {latestFixture.date}
               </div>
               <div className="fixture-teams">
-                <div className="team">
-                  <p>
-                    {latestFixture.team1}{" "}
-                    <img 
-                      src={latestFixture.team1Logo} 
-                      alt={`${latestFixture.team1} logo`} 
-                      className="team-logo"
-                    />
-                  </p>
-                </div>
-                <div className="vs">
-                  <p>VS</p>
-                </div>
-                <div className="team">
-                  <p>
-                    <img 
-                      src={latestFixture.team2Logo} 
-                      alt={`${latestFixture.team2} logo`} 
-                      className="team-logo"
-                    />{" "}
-                    {latestFixture.team2}
-                  </p>
-                </div>
+                  <div className="team-name">
+                      <img src={getLogo(latestFixture.team1)} alt={`${latestFixture.team2} logo`} className="team-logo"/>
+                      {latestFixture.team1}
+                  </div>
+                  <div className="versus">VS</div>
+                  <div className="team-name">
+                      <img src={getLogo(latestFixture.team2)} alt={`${latestFixture.team2} logo`} className="team-logo"/>
+                      {latestFixture.team2}
+                  </div>
+              </div>
+              <div className="fixture-competition">
+                    <img src={getCompLogo(latestFixture.competition)} alt={`${latestFixture.competition} logo`} className="competition-logo"/>
+                    <div className="competition-name">
+                    </div>
               </div>
               <div className="fixture-venue">
-                <p>{latestFixture.venue}</p>
+                    Venue : &nbsp;{latestFixture.venue}
               </div>
+              <button className="go-to-all-fixture" onClick={() => clickedAllFixture()}>
+                  Explore all the fixtures &#x27A1;
+              </button>
+            </div>
+          ) : (
+            <p>No fixtures available</p>
+          )}
+        </div>
+        <div className="score">
+          {latestScore ? (
+            <div className="score-card">
+              <div className="score-date">  
+                   {latestScore.date}
+              </div>
+              <div className="score-teams">
+                  <div className="team-name">
+                      <img src={getLogo(latestScore.team1)} alt={`${latestScore.team2} logo`} className="team-logo"/>
+                      {latestScore.team1}
+                  </div>
+                  <div className="result">
+                      {latestScore.team1Score}-{latestScore.team2Score}
+                  </div>
+                  <div className="team-name">
+                      <img src={getLogo(latestScore.team2)} alt={`${latestScore.team2} logo`} className="team-logo"/>
+                      {latestScore.team2}
+                  </div>
+              </div>
+              <div className="score-competition">
+                    <img src={getCompLogo(latestScore.competition)} alt={`${latestScore.competition} logo`} className="competition-logo"/>
+                    <div className="competition-name">
+                    </div>
+              </div>
+              <div className="score-venue">
+                    Venue : &nbsp;{latestScore.venue}
+              </div>
+              <button className="go-to-all-score" onClick={() => clickedAllScore()}>
+                  Explore all the scores &#x27A1;
+              </button>
             </div>
           ) : (
             <p>No fixtures available</p>

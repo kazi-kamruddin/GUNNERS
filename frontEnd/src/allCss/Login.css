@@ -8,8 +8,8 @@
   font-family: "Poppins", sans-serif;
 }
 
-.login {
-    /* background-color: #ff6666; */
+.login-form {
+    background-color: transparent;
 }
 
 .login-body{

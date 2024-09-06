@@ -17,29 +17,18 @@ const fixtureSchema = new schema({
         required: true,
     },
 
-    team1Logo: {
-        type: String,
-        required: true,
-    },
-
     team2: {
         type: String,
         required: true,
     },
-
-    team2Logo: {
-        type: String,
-        required: true,
-    },
-
     venue: {
         type: String,
         required: true,
     },
 
     form: {
-        type: String,
-        required: true,
+        type: String, 
+        required: false,
     },
     
 }, {timestamps: true})
