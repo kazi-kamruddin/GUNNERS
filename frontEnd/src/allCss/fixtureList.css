@@ -100,9 +100,9 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    background-color: rgb(240, 240, 240); 
+    background-color: rgb(202, 202, 202); 
     border-radius: 20px; 
-    padding: 0;
+    padding: 10px 0px 10px 0px;
     gap: 10px;
     margin: 20px auto;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -136,16 +136,16 @@
 }
   
 .form-result.w {
-    background-color: green;
+    background-color: rgb(49, 173, 49);
 }
   
 .form-result.d {
-    background-color: yellow;
+    background-color: rgb(249, 249, 84);
     color: black;
 }
   
 .form-result.l {
-    background-color: red;
+    background-color: rgb(196, 33, 33);
 }
   
 

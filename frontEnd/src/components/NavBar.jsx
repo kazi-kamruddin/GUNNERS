@@ -2,17 +2,17 @@ import React from "react";
 import config from "../config";
 import { Link } from "react-router-dom";
 import { useLocation } from "react-router-dom";
-import '../allCss/NavBar.css';
 import { useLogout } from "../hook/useLogout";
 import { useAuthContext } from "../hook/useAuthContext";
+import '../allCss/NavBar.css';
+
 
 const NavBar = () => {
-  let location = useLocation();
-
   const { logout } = useLogout();
   const { user } = useAuthContext();
   
   let isAdmin = false;
+  let location = useLocation();
 
   const handleLogout = () => {
     logout();

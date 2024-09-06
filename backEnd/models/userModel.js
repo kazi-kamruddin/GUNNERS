@@ -15,7 +15,7 @@ const userSchema = new schema({
         type: String,
         required: true,
     }
-})
+}, { timestamps: true });
 
 //static method
 //cant use arrow func for this, cause 'this' is used inside

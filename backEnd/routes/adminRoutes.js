@@ -18,6 +18,10 @@ const {
     getAllScores,
     createScore,
 } = require('../controllers/scoresController');
+
+const {
+    getUserCount
+} = require('../controllers/adminController');
 const router = express.Router();
 
 //newsBlock
@@ -33,6 +37,9 @@ router.delete('/editFixture/:id', deleteSingleFixture);
 //scoreBlock
 router.get('/editScores', getAllScores)
 router.post('/editScores', createScore)
+
+//chart-stuff
+router.get('/', getUserCount)
 
 
 module.exports = router;

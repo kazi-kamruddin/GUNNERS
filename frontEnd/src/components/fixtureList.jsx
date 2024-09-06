@@ -42,7 +42,7 @@ const FixtureList = ({ fixture }) => {
                 </div>
         </div>
         <div className="info-footer">
-          news button
+            news button
         </div>
       </div>
     </div>
