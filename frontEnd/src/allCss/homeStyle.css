@@ -372,3 +372,8 @@
         margin-bottom: 20px;
     }
 }
+
+.dummy{
+    background-color: rgba(230, 222, 222, 0.833);
+    color: #333;
+}

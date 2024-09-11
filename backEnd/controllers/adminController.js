@@ -6,17 +6,21 @@ const getUserCount = async (req, res) => {
     try {
         const currentDate = new Date();
         const pastWeekDate = new Date();
-        pastWeekDate.setDate(currentDate.getDate() - 7);
+        pastWeekDate.setDate(currentDate.getDate() - 6); 
+
+        const formatDate = (date) => date.toISOString().split('T')[0];
+        const formattedCurrentDate = formatDate(currentDate);
+        const formattedPastWeekDate = formatDate(pastWeekDate);
 
         const userCount = await userModel.aggregate([
             {
                 $match: {
-                    createdAt: { $gte: pastWeekDate, $lt: currentDate }  
+                    createdAt: { $gte: new Date(formattedPastWeekDate), $lt: new Date(formattedCurrentDate + 'T23:59:59.999Z') }
                 }
             },
             {
                 $group: {
-                    _id: { $dayOfWeek: "$createdAt" },
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
                     count: { $sum: 1 }
                 }
             },
@@ -31,7 +35,6 @@ const getUserCount = async (req, res) => {
         res.status(500).json({ error: 'Error fetching user count' });
     }
 };
-
 
 
 module.exports = {

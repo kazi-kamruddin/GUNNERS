@@ -1,29 +1,100 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+
+
 .admin-dashboard-page {
-    display: flex;
-    flex-direction: column;
-    justify-content: center; 
-    align-items: center;  
-    height: 100vh; 
+    display: grid;
+    grid-template-columns: 3fr 3fr;
+    align-items:flex-start;
+    justify-content: center;
+    padding:  25px 20px 0px 20px;
+    margin: 15px 0px 0px 0px;
+    background-image: url('https://images4.alphacoders.com/132/thumb-1920-1325414.jpeg'); 
+    background-size: cover; 
+    background-position: center; 
+    background-repeat: no-repeat;
+    min-height: 100vh;
 }
 
+/*//////////////////////////        columm1      /////////////////////*/
 .edit-options {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
+    gap: 25px;
+    justify-content: center;
     align-items: center;
-    margin: 20px 30px 50px 30px;
+    vertical-align: middle;
+    width: 100%;
+    padding-bottom: 20px;
+    margin: 60px 0px 10px 0px;
 }
 
 .edit-buttons {
-    margin: 10px 30px 10px 30px;
+    background-color: transparent;
+    color: white;
+    padding: 8px 4px;
+    margin: 0 10px;
+    border: 2px solid #ffffff;
+    border-radius: 10px;
+    width: 70%;
+    cursor: pointer;
+    font-family: "Bebas Neue", sans-serif;
+    font-size: 3.5rem;
+    font-weight: normal;
+    color: white;
+    overflow: hidden; 
+    text-align: center;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
-.chart-area {
-    display: flex;
+.edit-buttons .button-text {
+    font-family: "Bebas Neue", sans-serif;
+    transition: transform 0.3s ease;
+    display: inline-block;
+}
+
+.edit-buttons:hover .button-text {
+    transform: scale(1.2);
+    background-image: url(https://static.vecteezy.com/system/resources/previews/024/123/854/large_2x/abstract-glitch-dark-and-light-red-with-orange-color-background-broken-and-distorted-digital-art-with-futuristic-cyberpunk-aesthetics-photo.jpg);
+    background-size: cover;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+}
+
+.edit-buttons:hover {
+    background-color: rgba(232, 228, 228, 0.111);
+    box-shadow: 0 0 5px rgba(230, 35, 35, 1), 0 0 25px rgba(230, 35, 35, 0.965),
+                0 0 50px rgba(230, 35, 35, 0.712), 0 0 100px rgba(230, 35, 35, 0.598);
+}
+
+
+/*//////////////////////////        columm2      /////////////////////*/
+.chart-section{
+    display: grid;
+    grid-template-columns: 1fr;
+    padding:  0px 30px 0px 10px;
+}
+
+.chart-background {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
     justify-content: center;
-    width: 100%;
+    align-items: center;
+    vertical-align: middle;
+    background-color: rgba(0, 0, 0, 0.333);
+    padding: 0px 15px 0px 15px;
+    border-radius: 15px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    margin-top: 20px;
+    
 }
 
 .line-chart {
-    width: 80%;  
-    max-width: 600px;  
+    position: relative;
+    height: 270px;
+    width: auto;
+    display: inline-block;
 }
+
