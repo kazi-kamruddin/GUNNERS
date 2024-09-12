@@ -18,6 +18,7 @@ import EditFixture from "./components/admin/editFixture.jsx";
 import EditScores from "./components/admin/editScores.jsx";
 import Login from "./pages/loginPage.jsx";
 import SignUp from "./pages/signUpPage.jsx";
+import Achievements from "./pages/achievement.jsx";
 
 const App = () => {
 
@@ -45,6 +46,7 @@ const App = () => {
           <Route path="/login" element={!user ? <Login /> : <Navigate to={"/"}/>} />
           <Route path="/signUp" element={!user  ? <SignUp /> : <Navigate to={"/"}/>} />
           <Route path="/" element={<Homepage />} /> 
+          <Route path="/achievements" element={<Achievements />} />
         </Routes>
       </div>
     </>

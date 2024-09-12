@@ -34,6 +34,9 @@ nav a:hover, nav button.logout:hover {
     color: black;
 }
 
+nav a:hover, nav button.logout:active{
+    color: green;
+}
 nav li:first-child {
     margin-right: auto;
 }
