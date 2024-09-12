@@ -1,6 +1,7 @@
 import NavBar from "./components/NavBar";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthContext } from "./hook/useAuthContext.jsx";
+import config from "./config.jsx";
 import AdminDashboard from "./pages/adminDashboard.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Homepage from "./pages/Homepage.jsx";
@@ -22,29 +23,44 @@ import SignUp from "./pages/signUpPage.jsx";
 const App = () => {
 
   const { user } = useAuthContext();
+  let isAdmin = false;
+
+  if(user && user.email === config.ADMIN_EMAIL){
+    console.log('admin detected');
+    isAdmin = true;
+  }
+  else if(user){
+    console.log('general user detected');
+    isAdmin = false;
+  }
+  else {
+    console.log('no user detected');
+    isAdmin = false;
+  }
 
   return (
     <>
       <NavBar />
       <div className="content">
         <Routes>
-          <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to={"/login"}/>} />
-          <Route path="/adminDashboard/editNews" element={user ? <EditNews /> : <Navigate to={"/login"}/>} />
-          <Route path="/adminDashboard/editNews/:id" element={user ? <EditSingleNews /> : <Navigate to={"/login"}/>} />
-          <Route path="/adminDashboard/editShop" element={user ? <EditShopItem /> : <Navigate to={"/login"}/>} />
-          <Route path="/adminDashboard/editPlayers" element={user ? <EditPlayerList /> : <Navigate to={"/login"}/>} />
-          <Route path="/adminDashboard/editFixture" element={user ? <EditFixture /> : <Navigate to={"/login"}/>} />
-          <Route path="/adminDashboard/editScores" element={user ? <EditScores /> : <Navigate to={"/login"}/>} />
-          <Route path="/adminDashboard" element={user ? <AdminDashboard /> : <Navigate to={"/login"}/>} />
+          <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to={"/login"} />} />
           <Route path="/teams" element={<Teams />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/news" element={<NewsPage />} />
           <Route path="/fixture" element={<Fixture />} />
           <Route path="/scores" element={<Scores />} />
           <Route path="/news/:id" element={<SingleNews />} />
-          <Route path="/login" element={!user ? <Login /> : <Navigate to={"/"}/>} />
-          <Route path="/signUp" element={!user  ? <SignUp /> : <Navigate to={"/"}/>} />
+          <Route path="/login" element={!user ? <Login /> : <Navigate to={"/"} />} />
+          <Route path="/signUp" element={!user ? <SignUp /> : <Navigate to={"/"} />} />
           <Route path="/" element={<Homepage />} /> 
+
+          <Route path="/adminDashboard" element={isAdmin ? <AdminDashboard /> : <Navigate to={"/login"} />} />
+          <Route path="/adminDashboard/editNews" element={isAdmin ? <EditNews /> : <Navigate to={"/login"} />} />
+          <Route path="/adminDashboard/editNews/:id" element={isAdmin ? <EditSingleNews /> : <Navigate to={"/login"} />} />
+          <Route path="/adminDashboard/editShop" element={isAdmin ? <EditShopItem /> : <Navigate to={"/login"} />} />
+          <Route path="/adminDashboard/editPlayers" element={isAdmin ? <EditPlayerList /> : <Navigate to={"/login"} />} />
+          <Route path="/adminDashboard/editFixture" element={isAdmin ? <EditFixture /> : <Navigate to={"/login"} />} />
+          <Route path="/adminDashboard/editScores" element={isAdmin ? <EditScores /> : <Navigate to={"/login"} />} />
         </Routes>
       </div>
     </>

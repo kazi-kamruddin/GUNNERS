@@ -4,7 +4,7 @@
 .home {
     display: grid;
     grid-template-columns: 7fr 4fr; 
-    gap: 20px; 
+    gap: 25px; 
     padding: 20px;
     padding-top: 40px;
     background-image: url('https://images5.alphacoders.com/115/thumb-1920-1157178.png'); 
@@ -159,8 +159,8 @@
     justify-content: center; 
     flex-direction: column; 
     text-align: center;
-    width: 100px;
-    height: 100px;
+    height: 112px !important;
+    width: auto !important;
     margin-left: 10px;
     margin-right: 10px;
     margin-bottom: 13px;

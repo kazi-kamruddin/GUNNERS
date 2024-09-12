@@ -88,6 +88,7 @@ const AdminDashboard = () => {
                     font: {
                         size: 16,
                         weight: 'bold',
+                        family: 'Bebas Neue', 
                     },
                     color: '#333',
                 },
@@ -98,13 +99,16 @@ const AdminDashboard = () => {
                 titleFont: {
                     size: 16,
                     weight: 'bold',
+                    family: 'Bebas Neue', 
                 },
                 bodyFont: {
                     size: 14,
+                    family: 'Bebas Neue',
                 },
                 footerFont: {
                     size: 12,
                     style: 'italic',
+                    family: 'Bebas Neue',
                 },
                 padding: 10, 
                 caretSize: 6, 
@@ -118,6 +122,7 @@ const AdminDashboard = () => {
                     font: {
                         size: 16,
                         weight: 'bold',
+                        family: 'Bebas Neue', 
                     },
                     color: 'rgba(230, 222, 222, 0.833)',
                 },
@@ -128,6 +133,7 @@ const AdminDashboard = () => {
                     color: 'rgba(230, 222, 222, 0.833)',
                     font: {
                         size: 14,
+                        family: 'Bebas Neue', 
                     },
                 },
             },
@@ -138,6 +144,7 @@ const AdminDashboard = () => {
                     font: {
                         size: 16,
                         weight: 'bold',
+                        family: 'Bebas Neue', 
                     },
                     color: 'rgba(230, 222, 222, 0.833)',
                 },
@@ -152,6 +159,7 @@ const AdminDashboard = () => {
                     color: 'rgba(230, 222, 222, 0.833)',
                     font: {
                         size: 14,
+                        family: 'Bebas Neue', 
                     },
                 },
             },
