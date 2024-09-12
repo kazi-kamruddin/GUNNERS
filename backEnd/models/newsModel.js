@@ -2,7 +2,6 @@ const mongoose = require('mongoose');
 
 const schema = mongoose.Schema;
 
-//document model for database
 const newsSchema = new schema({
     title: {
         type: String,

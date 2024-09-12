@@ -41,9 +41,6 @@ const FixtureList = ({ fixture }) => {
                     {formResults}
                 </div>
         </div>
-        <div className="info-footer">
-            news button
-        </div>
       </div>
     </div>
   );
