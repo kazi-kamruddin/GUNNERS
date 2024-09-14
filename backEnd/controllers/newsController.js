@@ -67,7 +67,7 @@ const updateNews = async (req,res) => {
 
     try{
         const patchNews = await newsModel.findOneAndUpdate({_id : id}, {
-            ...req.body                //destructuring the request body to edit fields
+            ...req.body                
         });
         if(!patchNews)
             return res.status(400).json({error : "no such news"});
