@@ -1,4 +1,5 @@
 import NavBar from "./components/NavBar";
+import Footer from "./components/footer"; 
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthContext } from "./hook/useAuthContext.jsx";
 import AdminDashboard from "./pages/adminDashboard.jsx";
@@ -49,6 +50,7 @@ const App = () => {
           <Route path="/achievements" element={<Achievements />} />
         </Routes>
       </div>
+      <Footer />
     </>
   );
 };
