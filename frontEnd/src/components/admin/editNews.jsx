@@ -111,32 +111,29 @@ const EditNews = () => {
     };
 
     return (
-        <div className="adminAddNews">
-            <p>hail {user.email}</p>
-            <p>add news page</p>
-
-            <form onSubmit={clickedAddNews}>
-                <div>
+        <div className="admin-edit-news">
+            <form onSubmit={clickedAddNews} className='edit-news-form'>
+                <div className='edit-news-form-title'>
                     <label>title:</label>
                     <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
                 </div>
 
-                <div>
+                <div  className='edit-news-form-body'>
                     <label>body:</label>
                     <textarea value={body} onChange={(e) => setBody(e.target.value)} required />
                 </div>
 
-                <div>
+                <div className='edit-news-form-mainBody'>
                     <label>main body:</label>
                     <textarea value={mainBody} onChange={(e) => setMainBody(e.target.value)} required />
                 </div>
 
-                <div>
+                <div  className='edit-news-form-imageLink'>
                     <label>image link:</label>
                     <input type="text" value={imageLink} onChange={(e) => setImageLink(e.target.value)} required />
                 </div>
 
-                <button type="submit">add news</button>
+                <button type="submit"  className='edit-news-form-submit-button'>add news</button>
             </form>
 
             
@@ -144,34 +141,32 @@ const EditNews = () => {
             {success && <p>{success}</p>} 
             news delete/add korte gele success/error message eikhane show korbe.
 
-            <div className="divider"></div>
-
-            <div className="allNews">
+            <div className="edit-news-all-news">
                 {allNews && allNews.map(news => (
-                    <div className="newsCard" key={news._id}>
-                        <div className="title">
+                    <div className="edit-news-card" key={news._id}>
+                        <div className="edit-news-card-title">
                             <h2>{news.title}</h2>
                         </div>
-                        <div className="body">
+                        <div className="edit-news-card-body">
                             <img src={news.imageLink} alt="News" className="image" />
-                            <p>{news.body}</p>
+                            <p className="edit-news-card-body-text">{news.body}</p>
                         </div>
-                        <button className="editButton" onClick={() => navigate(`/adminDashboard/editNews/${news._id}`, { state: { news } })}>
+                        <button className="edit-news-card-editButton" onClick={() => navigate(`/adminDashboard/editNews/${news._id}`, { state: { news } })}>
                             Edit &#8594;
                         </button>
-                        <button className="deleteButton" onClick={() => handleDeleteClick(news)}>
+                        <button className="edit-news-card-deleteButton" onClick={() => handleDeleteClick(news)}>
                             delete this article &#8594;
                         </button>
 
                         {deleteTargetId === news._id && (
-                            <div className="confirmDeleteButtons">
-                                <button onClick={() => handleConfirmDelete(news)} className="yesButton">yes</button>
-                                <button onClick={() => handleCancelDelete(news)} className="noButton">no</button>
+                            <div className="edit-news-card-delete-confirmation">
+                                <button onClick={() => handleConfirmDelete(news)} className="edit-news-confirm-delete">YES</button>
+                                <button onClick={() => handleCancelDelete(news)} className="edit-news-decline-delete">NO</button>
                             </div>
                         )}
 
-                        <div className="footer">
-                            <p className="date">{new Date(news.createdAt).toLocaleDateString()}</p>
+                        <div className="edit-news-card-footer">
+                            <p className="edit-news-card-footer-date">{new Date(news.createdAt).toLocaleDateString()}</p>
                         </div>
                     </div>
                 ))}

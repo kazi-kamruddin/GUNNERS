@@ -314,3 +314,24 @@ body {
         font-size: 1rem;
     }
 }
+
+@media screen and (max-width: 708px) {
+    .all-fixtures {
+        margin: 15px 25px 15px 25px;
+    }
+    .info-body {
+        padding: 20px 8px;
+    }
+    .match-venue {
+        font-size: 1.3rem;
+    }
+    .single-fixture-team-name {
+        font-size: 2rem;
+    }
+    .single-fixture-versus {
+        font-size: 2.1rem;
+    }
+    .single-fixture-teamLogo-itself {
+        height: 90px;
+    }
+}   

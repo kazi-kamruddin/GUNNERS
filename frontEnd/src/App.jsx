@@ -63,7 +63,6 @@ const App = () => {
           <Route path="/adminDashboard/editPlayers" element={isAdmin ? <EditPlayerList /> : <Navigate to={"/login"} />} />
           <Route path="/adminDashboard/editFixture" element={isAdmin ? <EditFixture /> : <Navigate to={"/login"} />} />
           <Route path="/adminDashboard/editScores" element={isAdmin ? <EditScores /> : <Navigate to={"/login"} />} />
-
         </Routes>
       </div>
       <Footer />

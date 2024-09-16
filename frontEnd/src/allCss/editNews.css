@@ -1,32 +1,183 @@
-.divider {
-    height: 10px;
-    background-color: black;
-    margin: 20px 0px 20px 0px; 
+body {
+    font-family: 'Inria Sans', sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f5f5f5;
 }
 
-.allNews{
-    background-color: white;
-    max-width: 600px;
-    overflow: hidden;  /*max-width exceed korle baki part dekhbe naa eita dewate*/
-    display: block; 
+/*///////////////////////// whole page ////////////////////////*/
+.admin-edit-news {
+    padding: 20px;
 }
 
-.editButton {
-    background-color: #90EE90;
-    color: rgb(6, 5, 5);
-    border: 2px solid #008000;
+
+/*///////////////////////// the form ////////////////////////*/
+.edit-news-form {
+    width: 100%;
+    background-color: #fff;
     border-radius: 8px;
-    padding: 10px 20px;
-    cursor: pointer;
-    display: block;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+    box-sizing: border-box;
+    margin-bottom: 20px;
 }
 
-.deleteButton {
-    background-color: #90EE90;
-    color: rgb(6, 5, 5);
-    border: 2px solid #008000;
-    border-radius: 8px;
-    padding: 10px 20px;
-    cursor: pointer;
+.edit-news-form-title,
+.edit-news-form-body,
+.edit-news-form-mainBody,
+.edit-news-form-imageLink {
+    margin-bottom: 15px;
+}
+
+.edit-news-form label {
     display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.edit-news-form input[type="text"],
+.edit-news-form textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.edit-news-form textarea {
+    height: 100px;
+    resize: vertical;
+}
+
+.edit-news-form-submit-button {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.edit-news-form-submit-button:hover {
+    background-color: #0056b3;
+}
+
+
+/*///////////////////////// news cards ////////////////////////*/
+.edit-news-card-body-text {
+    font-size: 16px;
+    color: #333;
+    margin: 10px 0;
+}
+
+.edit-news-card-body-text.error {
+    color: #ff4d4d;
+}
+
+.edit-news-card-body-text.success {
+    color: #4caf50;
+}
+
+.edit-news-all-news {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.edit-news-card {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    padding: 15px;
+    box-sizing: border-box;
+}
+
+.edit-news-card-title h2 {
+    margin: 0 0 10px;
+    font-size: 18px;
+    color: #333;
+}
+
+.edit-news-card-body {
+    margin-bottom: 10px;
+}
+
+.edit-news-card-body .image {
+    width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.edit-news-card-body p {
+    font-size: 16px;
+    color: #666;
+}
+
+/*///////////////////////// cart buttons ////////////////////////*/
+.edit-news-card-editButton,
+.edit-news-card-deleteButton {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-right: 10px;
+}
+
+.edit-news-card-editButton:hover,
+.edit-news-card-deleteButton:hover {
+    background-color: #0056b3;
+}
+
+.edit-news-card-deleteButton {
+    background-color: #dc3545;
+}
+
+.edit-news-card-deleteButton:hover {
+    background-color: #c82333;
+}
+
+.edit-news-card-delete-confirmation {
+    margin-top: 10px;
+}
+
+.edit-news-confirm-delete,
+.edit-news-decline-delete {
+    background-color: #28a745;
+    color: #fff;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-right: 5px;
+}
+
+.edit-news-decline-delete {
+    background-color: #dc3545;
+}
+
+.edit-news-confirm-delete:hover {
+    background-color: #218838;
+}
+
+.edit-news-decline-delete:hover {
+    background-color: #c82333;
+}
+
+/*///////////////////////// card footer ////////////////////////*/
+.edit-news-card-footer {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #999;
+}
+
+.edit-news-card-footer-date {
+    text-align: right;
 }
