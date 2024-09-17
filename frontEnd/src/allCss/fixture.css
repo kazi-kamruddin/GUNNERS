@@ -8,8 +8,7 @@ body {
 .fixture-page {
     padding-top: 25px; 
     min-height: 100vh;
-    /* background: linear-gradient(56deg, rgba(150,0,0,1) 0%, rgba(255,255,255,1) 100%); */
-    background-color: rgb(125, 6, 6);
+    background-color: rgb(89, 3, 3);
 }
 
 .fixture-page .title {
@@ -314,3 +313,24 @@ body {
         font-size: 1rem;
     }
 }
+
+@media screen and (max-width: 708px) {
+    .all-fixtures {
+        margin: 15px 25px 15px 25px;
+    }
+    .info-body {
+        padding: 20px 8px;
+    }
+    .match-venue {
+        font-size: 1.3rem;
+    }
+    .single-fixture-team-name {
+        font-size: 2rem;
+    }
+    .single-fixture-versus {
+        font-size: 2.1rem;
+    }
+    .single-fixture-teamLogo-itself {
+        height: 90px;
+    }
+}   

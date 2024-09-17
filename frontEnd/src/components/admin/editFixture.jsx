@@ -15,7 +15,6 @@ const EditFixture = () => {
     const [allFixture, setFixture] = useState(null);
     const [deleteTargetId, setDeleteTargetId] = useState(null);
 
-    // triggers when adding news
     const clickedAddFixture = async (e) => {
         e.preventDefault();
 
@@ -48,7 +47,6 @@ const EditFixture = () => {
         }
     };
 
-    //triggers when presses yes to delete a fixture
     const clickedYesToDelete = async (fixture) => {
         console.log("delete him", fixture._id);
     
@@ -114,72 +112,66 @@ const EditFixture = () => {
     };
 
     return (
-        <div className="adminEditFixture">
-            <p>hail {user.email}</p>
-            <p>edit Fixture page</p>
+        <div className="admin-edit-fixture">
 
-            <form onSubmit={clickedAddFixture}>
-                <div>
+            <form onSubmit={clickedAddFixture} className='edit-fixture-form'>
+                <div className='edit-fixture-form-date'>
                     <label>Date:</label>
-                    <input type="text" value={date} onChange={(e) => setDate(e.target.value)} required />
+                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
                 </div>
 
-                <div>
+                <div className='edit-fixture-form-competition'>
                     <label>Competition:</label>
                     <input type="text" value={competition} onChange={(e) => setCompetition(e.target.value)} required />
                 </div>
 
-                <div>
+                <div className='edit-fixture-form-team1'>
                     <label>Team 1:</label>
                     <input type="text" value={team1} onChange={(e) => setTeam1(e.target.value)} required />
                 </div>
 
-                <div>
+                <div className='edit-fixture-form-team2'>
                     <label>Team 2:</label>
                     <input type="text" value={team2} onChange={(e) => setTeam2(e.target.value)} required />
                 </div>
 
-                <div>
+                <div className='edit-fixture-form-venue'>
                     <label>Venue:</label>
                     <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} required />
                 </div>
 
-                <div>
+                <div className='edit-fixture-form-recent-form'>
                     <label>Form:</label>
                     <input type="text" value={form} onChange={(e) => setForm(e.target.value)} required />
                 </div>
 
-                <button type="submit">Add Fixture</button>
+                <button type="submit"  className='edit-fixture-form-submit'>Add Fixture</button>
             </form>
 
-
-            {error && <p>{error}</p>}
-            {success && <p>{success}</p>} 
+            {error && <p className='status-messages'>{error}</p>}
+            {success && <p className='status-messages'>{success}</p>} 
             fixture delete/add korte gele success/error message eikhane show korbe.
 
-            <div className="allFixtures">
+            <div className="edit-fixture-all-fixtures">
                 {allFixture && allFixture.map(fixture => (
-                    <div className="fixtureCard" key={fixture._id}>
-                        <p>{fixture.date}</p>
-                        <p>{fixture.competition}</p>
-                        <p>{fixture.team1}</p>
-                        <p>{fixture.team2}</p>
-                        <p>{fixture.venue}</p>
-                        <p>{fixture.form}</p>
-                        <button className="deleteButton" onClick={() => handleDeleteClick(fixture)}>
+                    <div className="edit-fixture-card" key={fixture._id}>
+                        <div className="edit-fixture-card-header-date">{new Date(fixture.date).toLocaleDateString()}</div>
+                        <div className="edit-fixture-card-header">
+                            <div className="edit-fixture-card-header-team1">{fixture.team1}</div>
+                            <div className="edit-fixture-card-header-versus">VS</div>
+                            <div className="edit-fixture-card-header-team2">{fixture.team2}</div>
+                        </div>
+
+                        <button className="edit-fixture-card-delete-button" onClick={() => handleDeleteClick(fixture)}>
                             delete this fixture &#8594;
                         </button>
 
                         {deleteTargetId === fixture._id && (
                             <div className="confirmDeleteButtons">
-                                <button onClick={() => handleConfirmDelete(fixture)} className="yesButton">yes</button>
-                                <button onClick={() => handleCancelDelete(fixture)} className="noButton">no</button>
+                                <button onClick={() => handleConfirmDelete(fixture)} className="edit-fixture-card-delete-confirm">yes</button>
+                                <button onClick={() => handleCancelDelete(fixture)} className="edit-fixture-card-delete-decline">no</button>
                             </div>
                         )}
-
-                        <div className="footer">
-                            <p className="date">{new Date(fixture.createdAt).toLocaleDateString()}</p>
-                        </div>
                     </div>
                 ))}
             </div>

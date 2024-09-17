@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import '../../allCss/editFixture.css';
+import '../../allCss/editScores.css';
 import { useAuthContext } from "../../hook/useAuthContext";
 
 const EditScores = () => {
@@ -74,31 +74,28 @@ const EditScores = () => {
 
     return (
         <div className="adminEditScores">
-            <p>hail {user.email}</p>
-            <p>edit scores page</p>
-
-            <form onSubmit={clickedAddScore}>
-                <div>
+            <form onSubmit={clickedAddScore} className='edit-score-form'>
+            <div className='edit-score-form-date'>
                     <label>Date:</label>
-                    <input type="text" value={date} onChange={(e) => setDate(e.target.value)} required />
+                    <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
                 </div>
 
-                <div>
+                <div className='edit-score-form-competition'>
                     <label>Competition:</label>
                     <input type="text" value={competition} onChange={(e) => setCompetition(e.target.value)} required />
                 </div>
 
-                <div>
+                <div className='edit-score-form-team1'>
                     <label>Team 1:</label>
                     <input type="text" value={team1} onChange={(e) => setTeam1(e.target.value)} required />
                 </div>
 
-                <div>
+                <div className='edit-score-form-team1-score'>
                     <label>Team 1 Score:</label>
                     <input type="number" value={team1Score} onChange={(e) => setTeam1Score(e.target.value)} required />
                 </div>
 
-                <div>
+                <div className='edit-score-form-team1-scorers'>
                     <label>Team 1 Scorers:</label>
                     <input
                         type="text"
@@ -109,17 +106,17 @@ const EditScores = () => {
                     <small>Separate names with hyphens</small>
                 </div>
 
-                <div>
+                <div className='edit-score-form-team2'>
                     <label>Team 2:</label>
                     <input type="text" value={team2} onChange={(e) => setTeam2(e.target.value)} required />
                 </div>
 
-                <div>
+                <div className='edit-score-form-team2-score'>
                     <label>Team 2 Score:</label>
                     <input type="number" value={team2Score} onChange={(e) => setTeam2Score(e.target.value)} required />
                 </div>
 
-                <div>
+                <div className='edit-score-form-team2-scorers'>
                     <label>Team 2 Scorers:</label>
                     <input
                         type="text"
@@ -130,35 +127,27 @@ const EditScores = () => {
                     <small>Separate names with hyphens</small>
                 </div>
 
-                <div>
+                <div className='edit-score-form-venue'>
                     <label>Venue:</label>
                     <input type="text" value={venue} onChange={(e) => setVenue(e.target.value)} required />
                 </div>
 
-                <button type="submit">Add score</button>
+                <button type="submit"  className='edit-score-form-button'>Add score</button>
             </form>
 
             {error && <p>{error}</p>}
             {success && <p>{success}</p>}
 
-            <div className="allScores">
+            <div className="edit-score-all-scores">
                 {allScores && allScores.map(score => (
-                    <div className="fixtureCard" key={score._id}>
-                        <p>{score.date}</p>
-                        <p>{score.competition}</p>
-                        <div className="teamInfo">
-                            <p>{score.team1}</p>
-                            <p>Score: {score.team1Score}</p>
-                            <p>Scorers: {score.team1Scorers.join(', ')}</p>
-                        </div>
-                        <div className="teamInfo">
-                            <p>{score.team2}</p>
-                            <p>Score: {score.team2Score}</p>
-                            <p>Scorers: {score.team2Scorers.join(', ')}</p>
-                        </div>
-                        <p>{score.venue}</p>
-                        <div className="footer">
-                            <p className="date">{new Date(score.createdAt).toLocaleDateString()}</p>
+                    <div className="edit-score-card" key={score._id}>
+                        <div className="edit-score-card-header-date">{new Date(score.date).toLocaleDateString()}</div>
+                        <div className="edit-score-card-header">
+                            <div className="edit-score-card-header-team1">{score.team1}</div>
+                            <div className="edit-score-card-header-team1">{score.team1Score}</div>
+                            <div className="edit-score-card-header-hyphen"> - </div>
+                            <div className="edit-score-card-header-team1">{score.team2Score}</div>
+                            <div className="edit-score-card-header-team2">{score.team2}</div>
                         </div>
                     </div>
                 ))}

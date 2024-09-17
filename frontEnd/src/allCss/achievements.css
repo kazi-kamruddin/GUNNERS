@@ -46,12 +46,14 @@
     background-color: rgba(255,255,255,0.05);
 }
 
+
 .cards-achieve{
     display: grid;
     grid-template-columns: repeat(3,1fr);
     gap: 30px;
     margin-top: 80px;
 }
+
 
 .card-achieve{
     height: 350px;
@@ -110,15 +112,14 @@
     margin-top: 30px;
 }
 
-
 @media screen and (max-width:1260px){
-    .cards{
+    .trophy-cards{
         grid-template-columns: repeat(2,1fr);
     }
 }
 
 @media screen and (max-width:900px) {
-    .cards{
+    .trophy-cards{
         grid-template-columns: repeat(1,1fr);
     }
     h1{
