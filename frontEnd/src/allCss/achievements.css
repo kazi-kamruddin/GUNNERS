@@ -21,11 +21,12 @@
     align-items: center;
 }
 
-h1{
+.achievement-title{
     color: #fff;
     font-size: 5rem;
     -webkit-text-stroke-width: 2px;
     -webkit-text-stroke-color: transparent;
+    font-size: 70px;
     letter-spacing: 2px;
     background-color: rgb(4, 52, 83);
     background: linear-gradient(8deg, rgba(8,52,83,1) 0%, rgba(0,230,173,1) 41%, rgba(41,17,45,1) 100%);
@@ -34,7 +35,7 @@ h1{
     position: relative;
 }
 
-h1:after{
+.achievement-title:after{
     content: "";
     position: absolute;
     top: 100%;
@@ -45,14 +46,16 @@ h1:after{
     background-color: rgba(255,255,255,0.05);
 }
 
-.trophy-cards{
+
+.cards-achieve{
     display: grid;
     grid-template-columns: repeat(3,1fr);
     gap: 30px;
     margin-top: 80px;
 }
 
-.trophy-card{
+
+.card-achieve{
     height: 350px;
     width: 370px;
     background-color: #1c2335;
@@ -67,7 +70,7 @@ h1:after{
     position: relative;
 }
 
-.trophy-card:after{
+.card-achieve:after{
     content: "";
     position: absolute;
     top: 150%;
@@ -81,26 +84,26 @@ h1:after{
     transition: 1s;
 }
 
-.trophy-card:hover:after {
+.card-achieve:hover:after {
     width: 225%;
     top: -100%;
 }
 
-.trophy-card h2{
+.card-achieve h2{
     color: #fff;
     font-size: 20px;
     font-weight: 600;
     letter-spacing: 1px;
 }
 
-.trophy-card p{
+.card-achieve p{
     text-align: center;
     width: 100%;
     margin: 12px 0;
     color: rgba(255,255,255,0.6);
 }
 
-.trophy-card:hover{
+.card-achieve:hover{
     background-color: transparent;
     transform: translateY(-8px);
     border-color: red;
