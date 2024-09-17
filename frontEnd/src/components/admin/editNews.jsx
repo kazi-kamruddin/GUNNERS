@@ -15,7 +15,6 @@ const EditNews = () => {
     const [allNews, setNews] = useState(null);
     const [deleteTargetId, setDeleteTargetId] = useState(null);
 
-    // triggers when adding news
     const clickedAddNews = async (e) => {
         e.preventDefault();
 
@@ -46,7 +45,6 @@ const EditNews = () => {
         }
     };
 
-    // triggers when presses yes to delete a news
     const clickedYesToDelete = async (news) => {
         console.log("delete him", news._id);
     

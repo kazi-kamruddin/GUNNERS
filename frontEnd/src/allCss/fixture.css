@@ -8,8 +8,7 @@ body {
 .fixture-page {
     padding-top: 25px; 
     min-height: 100vh;
-    /* background: linear-gradient(56deg, rgba(150,0,0,1) 0%, rgba(255,255,255,1) 100%); */
-    background-color: rgb(125, 6, 6);
+    background-color: rgb(89, 3, 3);
 }
 
 .fixture-page .title {

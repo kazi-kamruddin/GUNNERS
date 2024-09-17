@@ -109,7 +109,6 @@ h1:after{
     margin-top: 30px;
 }
 
-
 @media screen and (max-width:1260px){
     .trophy-cards{
         grid-template-columns: repeat(2,1fr);

@@ -14,8 +14,6 @@ import NewsPage from './pages/news.jsx';
 import SingleNews from "./components/singleNews.jsx";
 import EditNews from "./components/admin/editNews.jsx";
 import EditSingleNews from "./components/admin/editSingleNews.jsx";
-import EditPlayerList from "./components/admin/editPlayerList.jsx";
-import EditShopItem from "./components/admin/editShopItem.jsx";
 import EditFixture from "./components/admin/editFixture.jsx";
 import EditScores from "./components/admin/editScores.jsx";
 import Login from "./pages/loginPage.jsx";
@@ -59,8 +57,6 @@ const App = () => {
           <Route path="/adminDashboard" element={isAdmin ? <AdminDashboard /> : <Navigate to={"/login"} />} />
           <Route path="/adminDashboard/editNews" element={isAdmin ? <EditNews /> : <Navigate to={"/login"} />} />
           <Route path="/adminDashboard/editNews/:id" element={isAdmin ? <EditSingleNews /> : <Navigate to={"/login"} />} />
-          <Route path="/adminDashboard/editShop" element={isAdmin ? <EditShopItem /> : <Navigate to={"/login"} />} />
-          <Route path="/adminDashboard/editPlayers" element={isAdmin ? <EditPlayerList /> : <Navigate to={"/login"} />} />
           <Route path="/adminDashboard/editFixture" element={isAdmin ? <EditFixture /> : <Navigate to={"/login"} />} />
           <Route path="/adminDashboard/editScores" element={isAdmin ? <EditScores /> : <Navigate to={"/login"} />} />
         </Routes>

@@ -52,7 +52,7 @@ const Fixture = () => {
             <div className="single-fixture-team-name">{fixture.team2}</div>
           </div>
           <div className="single-fixture-form">
-            <div className="form-text">Form against {opponent} :</div>
+            <div className="form-text">Recent form :   </div>
             <div className="form-results">
               {formResults}
             </div>

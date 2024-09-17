@@ -1,5 +1,5 @@
 const config = {
-    ADMIN_EMAIL: "admin@gg.com"
+    ADMIN_EMAIL: "adminGunner@gmail.com"
 };
 
 export default config;

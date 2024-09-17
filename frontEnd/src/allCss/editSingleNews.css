@@ -1,0 +1,95 @@
+.edit-single-news-form {
+    width: 80%;
+    margin: 20px auto;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    background-color: #f9f9f9;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    font-family: 'Inria Sans', sans-serif;
+}
+
+.edit-single-news-form div {
+    margin-bottom: 20px;
+}
+
+.edit-single-news-form label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.edit-single-news-form input[type="text"],
+.edit-single-news-form textarea {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-sizing: border-box;
+}
+
+.edit-single-news-form textarea {
+    height: 80px;
+    resize: vertical; 
+}
+
+.edit-single-news-form-submit {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    font-size: 18px;
+    color: white;
+    background-color: #007bff;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.edit-single-news-form-submit:hover {
+    background-color: #0056b3;
+}
+
+.edit-single-news-error {
+    color: red;
+    font-weight: bold;
+    margin-top: 10px;
+    text-align: center;
+}
+
+.edit-single-news-success {
+    color: green;
+    font-weight: bold;
+    margin-top: 10px;
+    text-align: center;
+}
+
+.back-button {
+    display: inline-block;
+    margin-top: 20px;
+    margin-left: 50px;
+    padding: 10px 15px;
+    background-color: #ddd;
+    color: #333;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: center;
+}
+
+.back-button:hover {
+    background-color: #bbb;
+}
+
+@media (max-width: 600px) {
+    .edit-single-news-form {
+        padding: 15px;
+        margin: 10px;
+    }
+
+    .edit-single-news-form-submit {
+        font-size: 16px;
+        padding: 10px;
+    }
+}
