@@ -54,6 +54,7 @@ const NavBar = () => {
         <li><Link to="/fixtures">Fixtures</Link></li>
         <li><Link to="/achievements">Achievements</Link></li>
         <li><Link to="/news">News</Link></li>
+        <li><Link to="/score">Scores</Link></li>
         {!user && <li><Link to="/login">Login</Link></li>}
         {!user && <li><Link to="/signUp">Signup</Link></li>}
         {user && <li><button onClick={handleLogout}>Logout</button></li>}
@@ -71,6 +72,7 @@ const NavBar = () => {
         <li className={`hideOnMobile ${location.pathname === "/fixtures" && "active"}`}><Link to="/fixtures">Fixtures</Link></li>
         <li className={`hideOnMobile ${location.pathname === "/achievements" && "active"}`}><Link to="/achievements">Achievements</Link></li>
         <li className={`hideOnMobile ${location.pathname === "/news" && "active"}`}><Link to="/news">News</Link></li>
+        <li className={`hideOnMobile ${location.pathname === "/score" && "active"}`}><Link to="/score">Scores</Link></li>
         {!user && (
           <>
             <li className={`hideOnMobile ${location.pathname === "/login" && "active"}`}><Link to="/login">Login</Link></li>

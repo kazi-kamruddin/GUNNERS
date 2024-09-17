@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import '../allCss/singleNews.css'
+import '../allCss/singleNews.css';
 
 const SingleNews = () => {
     const currentUrl = window.location.href; 
@@ -20,14 +20,16 @@ const SingleNews = () => {
     }, [modifiedUrl]);
 
     return (
-        <div> 
-            {news && <p>{news.title}</p>}
-            {news && <p>{news.title}</p>}
-            {news && <img src={news.imageLink}/>}
-            {news && <p>{news.mainBody}</p>}
-            <button onClick={() => window.history.back()} className="back-button">Back</button>
+        <div className="single-news-body">
+        <div className="single-news-container"> 
+            {news && <h1 className="single-news-title">{news.title}</h1>}
+            {news && <img className="single-news-image" src={news.imageLink} alt="News" />}
+            {news && <p className="single-news-body">{news.mainBody}</p>}
+            <button onClick={() => window.history.back()} className="single-news-back-button">Back</button>
+        </div>
         </div>
     );
+
 };
 
 export default SingleNews;
