@@ -28,7 +28,6 @@ app.use('/api/adminDashboard', adminRoutes);
 app.use('/api/fixture', fixtureRoutes);
 app.use('/api/scores', scoreRoutes);
 
-
 //connect to mongo
 mongoose.connect(process.env.DB_URI)
     .then(() => {

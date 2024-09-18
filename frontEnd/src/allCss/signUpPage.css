@@ -1,18 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 
 
-*{
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  font-family: "Poppins", sans-serif;
-}
 
-.login-form {
+.signup-form {
     background-color: transparent;
 }
 
-.login-body{
+.signup-body{
   display: flex;
   justify-content: center;
   box-sizing: border-box;
@@ -24,7 +18,7 @@
 
 }
 
-.wrapper{
+.signup-wrapper{
   border-radius: 20px;
   width: 340px;
   background: transparent;
@@ -35,19 +29,19 @@
   padding: 30px 40px;
 }
 
-.wrapper h1{
+.signup-wrapper h1{
   color: rgb(255, 255, 255);
   font-size: 36px;
   text-align: center;
 }
 
-.wrapper .input-box{
+.signup-wrapper .signup-input-box{
   width: 100%;
   height: 50px;
   margin: 30px 0;
 }
 
-.input-box input{
+.signup-input-box input{
   width: 100%;
   height: 100%;
   background: transparent;
@@ -57,23 +51,24 @@
   font-size: 16px;
   color: #fff;
   padding: 20px 45px 20px 20px;
+  gap: 20px;
 }
 
-.input-box input::placeholder{
+.signup-input-box input::placeholder{
   color: #ffffff;
 }
 
-.wrapper a{
+.signup-wrapper a{
   color: #fff;
   padding: 20px;
   text-decoration: none;
 }
 
-.wrapper a:hover{
+.signup-wrapper a:hover{
   text-decoration: underline;
 }
 
-.wrapper .btn{
+.signup-wrapper .signup-btn{
   margin-top: 10%;
   width: 100%;
   height: 45px;
@@ -89,41 +84,26 @@
 
 }
 
-.wrapper .btn:hover{
+.signup-wrapper .signup-btn:hover{
   color: #fff;
   background: #333;
 }
 
-.wrapper .signup-link {
+.signup-wrapper .login-link {
   font-size: 15px;
   margin-top: 20px;
   text-align: center;
 }
 
-.signup-link p a{
+.login-link p a{
   color: #fff;
   font-weight: 600;
   text-decoration: none;
 }
 
-.signup-link p a:hover{
+.login-link p a:hover{
   color: red;
   text-decoration: underline;
 }
 
-.show-password {
-  display: flex;
-  align-items:flex-start;
-  margin-top: 10px;
-  font-size: 14px;
-  color: #fff;
-}
 
-.show-password input[type="checkbox"] {
-  margin-right: 10px;
-  transform: scale(1.2);
-}
-
-show-pass-text{
-    align-items: center;
-}

@@ -8,10 +8,11 @@ const Achievements = () => {
     <div className="container">
         <div className="service-wrapper">
             <div className="service">
-                <h1> HONOURS <span></span></h1>
-                <div className="cards">
-                    <div className="card">
-                        {/* Replace the icon with an image */}
+             
+                <h1 className="achievement-title"> HONOURS </h1>
+                <div className="cards-achieve">
+                    <div className="card-achieve">
+                      
                         <img 
                           src="E:\GUNNERS\frontEnd\src\assets\achivementsAssets\UCL.jpg" 
                         />
@@ -20,8 +21,8 @@ const Achievements = () => {
                             eligendi fuga nemo aut, ad quis culpa cum recusandae. Ducimus, eos fuga!
                         </p>
                     </div>
-                    <div className="card">
-                        {/* Replace the icon with an image */}
+
+                    <div className="card-achieve">
                         <img 
                           src="E:\GUNNERS\frontEnd\src\assets\achivementsAssets\UCL.jpg" 
                           className="img-style"
@@ -31,8 +32,7 @@ const Achievements = () => {
                             eligendi fuga nemo aut, ad quis culpa cum recusandae. Ducimus, eos fuga!
                         </p>
                     </div>
-                    <div className="card">
-                        
+                    <div className="card-achieve">        
                         <img 
                           src="E:\GUNNERS\frontEnd\src\assets\achivementsAssets\UCL.jpg" 
                         />
@@ -41,7 +41,8 @@ const Achievements = () => {
                             eligendi fuga nemo aut, ad quis culpa cum recusandae. Ducimus, eos fuga!
                         </p>
                     </div>
-                    <div className="card">
+
+                    <div className="card-achieve">
                         <img 
                           src="E:\GUNNERS\frontEnd\src\assets\achivementsAssets\UCL.jpg" 
                         />
@@ -50,7 +51,7 @@ const Achievements = () => {
                             eligendi fuga nemo aut, ad quis culpa cum recusandae. Ducimus, eos fuga!
                         </p>
                     </div>
-                    <div className="card">
+                    <div className="card-achieve">
                         <img 
                           src="E:\GUNNERS\frontEnd\src\assets\achivementsAssets\UCL.jpg" 
                         />
@@ -59,7 +60,8 @@ const Achievements = () => {
                             eligendi fuga nemo aut, ad quis culpa cum recusandae. Ducimus, eos fuga!
                         </p>
                     </div>
-                    <div className="card">
+
+                    <div className="card-achieve">
                         <img 
                           src="E:\GUNNERS\frontEnd\src\assets\achivementsAssets\UCL.jpg" 
                         />
@@ -68,8 +70,8 @@ const Achievements = () => {
                             eligendi fuga nemo aut, ad quis culpa cum recusandae. Ducimus, eos fuga!
                         </p>
                     </div>
-                    <div className="card">
-                        {/* Replace the icon with an image */}
+
+                    <div className="card-achieve">
                         <img 
                           src="E:\GUNNERS\frontEnd\src\assets\achivementsAssets\UCL.jpg" 
                         />

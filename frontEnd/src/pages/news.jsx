@@ -23,7 +23,7 @@ const NewsPage = () => {
             <div className="pageTitle">
                     NEWS
             </div>
-            <div className="allNews">
+            <div className="news-grid">
                 {allNews && allNews.map(news => (
                     <NewsDetails news={news} key={news._id}/>
                 ))}

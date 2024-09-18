@@ -79,7 +79,7 @@ const AdminDashboard = () => {
     
     const options = {
         responsive: true,
-        maintainAspectRatio: false,
+        maintainAspectRatio: false, 
         plugins: {
             legend: {
                 display: true,
@@ -88,7 +88,7 @@ const AdminDashboard = () => {
                     font: {
                         size: 16,
                         weight: 'bold',
-                        family: 'Bebas Neue', 
+                        family: 'Bebas Neue',
                     },
                     color: '#333',
                 },
@@ -99,7 +99,7 @@ const AdminDashboard = () => {
                 titleFont: {
                     size: 16,
                     weight: 'bold',
-                    family: 'Bebas Neue', 
+                    family: 'Bebas Neue',
                 },
                 bodyFont: {
                     size: 14,
@@ -110,8 +110,8 @@ const AdminDashboard = () => {
                     style: 'italic',
                     family: 'Bebas Neue',
                 },
-                padding: 10, 
-                caretSize: 6, 
+                padding: 10,
+                caretSize: 6,
             },
         },
         scales: {
@@ -122,7 +122,7 @@ const AdminDashboard = () => {
                     font: {
                         size: 16,
                         weight: 'bold',
-                        family: 'Bebas Neue', 
+                        family: 'Bebas Neue',
                     },
                     color: 'rgba(230, 222, 222, 0.833)',
                 },
@@ -133,7 +133,7 @@ const AdminDashboard = () => {
                     color: 'rgba(230, 222, 222, 0.833)',
                     font: {
                         size: 14,
-                        family: 'Bebas Neue', 
+                        family: 'Bebas Neue',
                     },
                 },
             },
@@ -144,31 +144,32 @@ const AdminDashboard = () => {
                     font: {
                         size: 16,
                         weight: 'bold',
-                        family: 'Bebas Neue', 
+                        family: 'Bebas Neue',
                     },
                     color: 'rgba(230, 222, 222, 0.833)',
                 },
                 beginAtZero: true,
                 grid: {
-                    borderColor: '#e0e0e0', 
+                    borderColor: '#e0e0e0',
                     borderWidth: 1,
-                    color: 'rgba(0, 0, 0, 0.1)', 
+                    color: 'rgba(0, 0, 0, 0.1)',
                 },
                 ticks: {
                     stepSize: 1,
                     color: 'rgba(230, 222, 222, 0.833)',
                     font: {
                         size: 14,
-                        family: 'Bebas Neue', 
+                        family: 'Bebas Neue',
                     },
                 },
             },
         },
         animation: {
-            duration: 1000, 
-            easing: 'easeOutQuart', 
+            duration: 1000,
+            easing: 'easeOutQuart',
         },
     };
+    
     
     
 
@@ -180,10 +181,10 @@ const AdminDashboard = () => {
         console.log("navigate to edit Fixture");
         navigate('/adminDashboard/editFixture');
     }
-    const editShop =() => {
-        console.log("item added");
-        navigate('/adminDashboard/editShop');
-    }
+    // const editShop =() => {
+    //     console.log("item added");
+    //     navigate('/adminDashboard/editShop');
+    // }
     const editScores =() => {
         console.log("to edit scores page");
         navigate('/adminDashboard/editScores');
@@ -194,7 +195,7 @@ const AdminDashboard = () => {
             <div className="edit-options">
                 <button onClick={editNews} className="edit-buttons"><text className='button-text'>EDIT NEWS</text></button>
                 <button onClick={editFixture} className="edit-buttons"><text className='button-text'>EDIT FIXTURES</text></button>
-                <button onClick={editShop} className="edit-buttons"><text className='button-text'>EDIT SHOP</text></button>
+                {/* <button onClick={editShop} className="edit-buttons"><text className='button-text'>EDIT SHOP</text></button> */}
                 <button onClick={editScores} className="edit-buttons"><text className='button-text'>EDIT SCORES</text></button>
             </div>
 

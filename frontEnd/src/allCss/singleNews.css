@@ -1,0 +1,91 @@
+/* ../allCss/singleNews.css */
+
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&display=swap');
+
+.single-news-body{
+    background-color: #2f211e;
+    padding-bottom: 40px;
+    padding-top: 40px;
+}
+
+.single-news-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+    padding-bottom: 20px;
+    background-color: transparent;
+    border-radius: 8px;
+    box-shadow: 0px 4px 12px rgba(231, 224, 224, 0.1);
+    
+}
+
+.single-news-title {
+    padding-top: 30px;
+    font-family: "Oswald", sans-serif;
+    font-size: 28px;
+    font-weight: bold;
+    color: #ffffff;
+    margin-bottom: 20px;
+    text-align: center;
+    
+}
+
+
+.single-news-image {
+    display: block;
+    width: 70%;
+    height: auto;
+    margin: 20px auto;
+    border-radius: 8px;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+
+.single-news-body {
+    font-family: "Noto Sans", sans-serif;
+    font-size: 18px;
+    line-height: 1.6;
+    color: #ffffff;
+    margin-bottom: 20px;
+    padding-left: 25px;
+    padding-right: 25px;
+}
+
+.single-news-back-button {
+    display:block;
+    padding: 12px ;
+    background-color: #713529;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin: 20px auto; 
+}
+
+.single-news-back-button:hover {
+    background-color: #55221c;
+}
+
+@media screen and (max-width: 480px) {
+    .single-news-container {
+        padding: 10px;
+    }
+
+    .single-news-title {
+        font-size: 20px;
+    }
+    .single-news-image{
+        width: 70%;
+    }
+    .single-news-body {
+        font-size: 14px;
+    }
+
+    .single-news-back-button {
+        padding: 8px;         
+        font-size: 12px;
+    }
+}
