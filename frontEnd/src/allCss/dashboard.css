@@ -1,0 +1,129 @@
+/* Dashboard container */
+.dashboard {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    font-family: 'Arial', sans-serif;
+}
+
+/* Title styling */
+.dashboard-title {
+    font-size: 40px;
+    font-weight: 800;
+    color: #ff0000;
+    text-align: center;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #ccc;
+    padding-bottom: 10px;
+}
+
+/* Text inside dashboard */
+
+
+/* Loading message styling */
+
+
+/* Edit button styling */
+.edit-button {
+    display: block;
+    width: 100%;
+    max-width: 100px;
+    margin: 10px auto;
+    padding: 10px;
+    font-size: 16px;
+    color: #fff;
+    background-color: #e30613;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.edit-button:hover {
+    background-color: #b30510;; /* Darker red */
+    transform: scale(1.05); /* Slightly increase button size */
+}
+
+/* Logout button styling */
+.logout-button {
+    display: block;
+    width: 100%;
+    max-width: 100px;
+    margin: 10px auto;
+    padding: 10px;
+    font-size: 16px;
+    color: #000000;
+    background-color: #ffffff;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.logout-button:hover {
+    background-color: #d0d0d0; /* Darker red */
+    transform: scale(1.05); /* Slightly increase button size */
+}
+
+/* Form styling */
+.edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* Form group styling */
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-size: 14px;
+    margin-bottom: 5px;
+}
+
+.form-group input {
+    padding: 8px;
+    font-size: 14px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+/* Submit button styling */
+.submit-button {
+    padding: 10px;
+    font-size: 16px;
+    color: #fff;
+    background-color: #f90000;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.submit-button:hover {
+    background-color: #ff0000; /* Darker green */
+    transform: scale(1.05); /* Slightly increase button size */
+}
+
+/* Cancel button styling */
+.cancel-button {
+    padding: 10px;
+    font-size: 16px;
+    color: #000000;
+    background-color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.cancel-button:hover {
+    background-color: #d6d6d6; /* Darker red */
+    transform: scale(1.05); /* Slightly increase button size */
+}
