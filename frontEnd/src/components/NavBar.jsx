@@ -5,6 +5,7 @@ import { useLocation } from "react-router-dom";
 import { useLogout } from "../hook/useLogout";
 import { useAuthContext } from "../hook/useAuthContext";
 import '../allCss/NavBar.css';
+import logo from '../assets/gunner.png';
 
 const NavBar = () => {
   const { logout } = useLogout();
@@ -62,7 +63,12 @@ const NavBar = () => {
       </ul>
 
       <ul>
-        <li><Link to="/">Arsenal</Link></li>
+        {/* <li><Link to="/"><img src="../assets/gunner.png"></img></Link></li> */}
+        <div className="nav-logo">
+          <Link to="/">
+            <img src={logo} alt="Logo" className="logo-image" />
+          </Link>
+        </div>
         <li className={`hideOnMobile ${location.pathname === "/" && "active"}`}><Link to="/">Home</Link></li>
         {user && isAdmin && (
           <li className={`hideOnMobile ${location.pathname === "/adminDashboard" && "active"}`}>

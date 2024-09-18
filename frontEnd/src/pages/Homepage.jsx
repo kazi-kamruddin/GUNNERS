@@ -157,7 +157,7 @@ const Homepage = () => {
           {latestScore ? (
             <div className="score-card">
               <div className="score-date">  
-                   {latestScore.date}
+                   Last match on {latestScore.date}
               </div>
               <div className="score-teams">
                   <div className="team-name">

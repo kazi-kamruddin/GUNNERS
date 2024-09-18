@@ -15,6 +15,17 @@ nav li {
     height: 50px;
 }
 
+.nav-logo { 
+    left: 0;
+    height: auto;
+    width: auto;
+}
+
+.logo-image {
+    height: 40px;
+    width: auto;
+}
+
 nav a, nav button.logout {
     height: 100%;
     padding: 0 30px;
