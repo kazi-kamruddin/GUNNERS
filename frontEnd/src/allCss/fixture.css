@@ -13,7 +13,8 @@ body {
 
 .fixture-page .title {
     background-color: rgb(183, 46, 46);
-    font-size: 2.9rem;
+    font-size: 2.4rem;
+    color: white;
     margin: 10px 0;
     padding: 8px 0 8px 58px;
     font-family: 'Fjalla One', sans-serif;
@@ -32,7 +33,7 @@ body {
 .single-fixture-info {
     padding: 0;
     margin-bottom: 20px;
-    background-color: rgba(255, 255, 255, 0.374);
+    background-color: rgba(255, 255, 255, 0.666);
     /* border-right: 9px solid rgb(207, 27, 27);
     border-left: 9px solid rgb(207, 27, 27);
     border-bottom: 7px solid rgb(6, 6, 6); */
@@ -61,12 +62,12 @@ body {
 
 .match-date, .match-venue {
     font-family: 'Fjalla One', sans-serif;
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     margin: 5px 0;
 }
 
 .match-venue {
-    font-size: 3rem;
+    font-size: 2rem;
 }
 
 .header-image {
@@ -87,29 +88,30 @@ body {
 }
 
 .info-body {
-    background-color: transparent;
     display: grid;
-    grid-template-columns: 3fr 2fr 1fr 2fr 3fr;
+    grid-template-columns: 1fr 1fr 1fr; /* Now 3 equal columns */
     align-items: center;
     justify-items: center;
     padding: 40px 5px;
 }
 
-.single-fixture-team-name, .single-fixture-team-logo, .single-fixture-versus {
-    text-align: center;
-    word-wrap: break-word;
+.team-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .single-fixture-team-name {
-    font-size: 4.2rem;
-    max-width: 100%;
-    word-break: break-word;
+    font-size: 1rem;
     font-family: 'Fjalla One', sans-serif;
+    text-align: center;
 }
 
 .single-fixture-team-logo {
     height: auto;
     width: auto;
+    margin-bottom: 10px; /* Add spacing between logo and name */
 }
 
 .single-fixture-teamLogo-itself {
@@ -120,6 +122,7 @@ body {
 .single-fixture-versus {
     font-size: 3rem;
     font-family: 'Fjalla One', sans-serif;
+    text-align: center;
 }
 
 .single-fixture-form {
@@ -149,7 +152,7 @@ body {
     gap: 8px;
     justify-content: flex-start;
 }
-  
+
 .form-result {
     display: flex;
     align-items: center;
@@ -160,16 +163,16 @@ body {
     font-size: 1.2rem;
     color: white;
 }
-  
+
 .form-result.w {
     background-color: rgb(49, 173, 49);
 }
-  
+
 .form-result.d {
     background-color: rgb(249, 249, 84);
     color: black;
 }
-  
+
 .form-result.l {
     background-color: rgb(196, 33, 33);
 }
@@ -197,16 +200,16 @@ body {
 
 @media screen and (max-width: 1500px) {
     .all-fixtures {
-        margin: 40px 130px 10px 130px;
+        margin: 40px 160px 10px 160px;
     }
     .single-fixture-team-name {
-        font-size: 3.9rem;
+        font-size: 2.5rem;
     }
     .match-date, .match-venue {
-        font-size: 1.3rem;
+        font-size: 1rem;
     }
     .match-venue {
-        font-size: 2.7rem;
+        font-size: 2rem;
     }
     .single-fixture-teamLogo-itself {
         height: 160px;

@@ -1,45 +1,42 @@
 const { default: mongoose } = require('mongoose');
 const jwt = require('jsonwebtoken');
 const userModel = require('../models/userModel');
+const adminEmail = process.env.ADMIN_EMAIL;
 
-//generateToken
-const generateToken = (_id) => {
+const generateToken = (_id, role) => {
     //header, payload, signature
     //payload, secret sauce, token options 
-    return jwt.sign({_id}, process.env.SECRET, {expiresIn:'2d'});
+    return jwt.sign({_id, role}, process.env.SECRET, {expiresIn:'2d'});
 }
 
-const loginUser = async (req,res) => {
-    const {email,password} = req.body;
-    
-    try{
-        const user = await userModel.login(email,password);
+const loginUser = async (req, res) => {
+    const { email, password } = req.body;
 
-        //token creation
-        const token = generateToken(user._id);
+    try {
+        const user = await userModel.login(email, password);
+        const role = (email === adminEmail) ? 'admin' : 'regular';
 
-        res.status(200).json({email,token,user,message:"you're logged in"});
+        const token = generateToken(user._id, role);
+        res.status(200).json({ email, token, user, role, message: "You're logged in" });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
     }
-    catch (error){
-        res.status(400).json({error : error.message});
-    }
-}
+};
 
-const signUpUser = async (req,res) => {
-    const {email,password} = req.body;
-    
-    try{
-        const user = await userModel.signUp(email,password);
+const signUpUser = async (req, res) => {
+    const { email, password } = req.body;
 
-        //token creation
-        const token = generateToken(user._id);
+    try {
+        const user = await userModel.signUp(email, password);
+        const role = (email === adminEmail) ? 'admin' : 'regular';
 
-        res.status(200).json({email,token,user,message:"you're signed up"});
+        const token = generateToken(user._id, role);
+        res.status(200).json({ email, token, user, role, message: "You're signed up" });
+    } catch (error) {
+        res.status(400).json({ error: error.message });
     }
-    catch (error){
-        res.status(400).json({error : error.message});
-    }
-}
+};
+
 
 
 module.exports = {

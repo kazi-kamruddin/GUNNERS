@@ -12,7 +12,6 @@ const adminRoutes = require('./routes/adminRoutes.js');
 const fixtureRoutes = require('./routes/fixtureRoutes.js');
 const scoreRoutes = require('./routes/scoreRoutes.js');
 
-//middleware
 app.use(cors({
     origin: 'http://localhost:5173'     
 }));
@@ -28,10 +27,8 @@ app.use('/api/adminDashboard', adminRoutes);
 app.use('/api/fixture', fixtureRoutes);
 app.use('/api/scores', scoreRoutes);
 
-//connect to mongo
 mongoose.connect(process.env.DB_URI)
     .then(() => {
-        //listen to request
         console.log("connceted to DB");
         app.listen(process.env.PORT, () => {
             console.log(`listening on port`, process.env.PORT);

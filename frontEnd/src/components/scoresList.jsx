@@ -10,7 +10,6 @@ const ScoresList = ({ score }) => {
         <p className="score-list-scoredate">{score.date}</p>
         <p className="score-list-venue">{score.venue}</p>
         <div className="score-list-competition">
-          <p>{score.competition}</p>
           <img src={getCompLogo(score.competition)} alt="comp logo" className="header-comp-logo" />
         </div>
         <div className="score-grid">
