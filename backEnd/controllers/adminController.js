@@ -1,8 +1,9 @@
 const { default: mongoose } = require('mongoose');
 const userModel = require('../models/userModel');
-
+const jwt = require('jsonwebtoken');
 
 const getUserCount = async (req, res) => {
+    console.log("Authorization Header:", req.headers.authorization);
     try {
         const currentDate = new Date();
         const pastWeekDate = new Date();

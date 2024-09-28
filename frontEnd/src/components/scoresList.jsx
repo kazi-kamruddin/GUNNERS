@@ -19,13 +19,13 @@ const ScoresList = ({ score }) => {
             <img src={getLogo(score.team1)} alt={`${score.team1} logo`} className="single-fixture-teamLogo-itself" />
             <p className="score-list-scorer-list">
 
-  {score.team1Scorers.map((scorer, index) => (
-    <span key={index}>
-      {scorer}
-      <br />
-    </span>
-  ))}
-</p>
+              {score.team1Scorers.map((scorer, index) => (
+                <span key={index}>
+                  {scorer}
+                  <br />
+                </span>
+              ))}
+            </p>
 
           </div>
           <div className="score">
@@ -38,13 +38,13 @@ const ScoresList = ({ score }) => {
             
             <p className="score-list-scorer-list">
  
-  {score.team2Scorers.map((scorer, index) => (
-    <span key={index}>
-      {scorer}
-      <br />
-    </span>
-  ))}
-</p>
+              {score.team2Scorers.map((scorer, index) => (
+                <span key={index}>
+                  {scorer}
+                  <br />
+                </span>
+              ))}
+            </p>
 
           </div>
         </div>
