@@ -151,22 +151,6 @@
 /*///////////////////////////////     footer     ///////////////////////////////*/
 
 
-.info-footer {
-    display: flex;
-    justify-content: flex-end;
-    padding: 10px;
-    background-color: rgb(200, 200, 200);
-}
-
-.footer-button {
-    font-size: 1.2rem;
-    padding: 10px 20px;
-    background-color: darkred;
-    color: white;
-    border: none;
-    cursor: pointer;
-}
-
 
 /*///////////////////////////////     responsive     ///////////////////////////////*/
 

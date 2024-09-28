@@ -149,8 +149,7 @@ const EditFixture = () => {
             </form>
 
             {error && <p className='status-messages'>{error}</p>}
-            {success && <p className='status-messages'>{success}</p>} 
-            fixture delete/add korte gele success/error message eikhane show korbe.
+            {success && <p className='status-messages'>{success}</p>}
 
             <div className="edit-fixture-all-fixtures">
                 {allFixture && allFixture.map(fixture => (

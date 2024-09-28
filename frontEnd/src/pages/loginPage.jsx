@@ -36,20 +36,12 @@ const Login = () => {
           </div>
           <div className="input-box">
             <input 
-              type={showPassword ? "text" : "password"} // Toggle between text and password
+              type={showPassword ? "text" : "password"} 
               onChange={(e) => setPassword(e.target.value)} 
               value={password} 
               placeholder="Password" 
               required
             />
-            <div className="show-password">
-              <input 
-                type="checkbox" 
-                checked={showPassword}
-                onChange={() => setShowPassword(!showPassword)}
-              />
-              <p>Show Password</p>
-            </div>
           </div>
   
           <br />

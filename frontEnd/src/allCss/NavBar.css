@@ -71,6 +71,11 @@ nav li:first-child {
     padding: 20px;
 }
 
+.logo-image{
+    height: 40px;
+    width: auto;
+}
+
 
 @media(max-width:1109px) {
     .hideOnMobile {

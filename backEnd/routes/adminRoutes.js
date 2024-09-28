@@ -27,18 +27,18 @@ const router = express.Router();
 
 
 //newsBlock
-router.post('/addNews', createNews)
-router.delete('/editNews/:id', deleteSingleNews);
+router.post('/addNews', requireAdmin, createNews)
+router.delete('/editNews/:id', requireAdmin, deleteSingleNews);
 router.patch('/editNews/:id', updateNews);
 
 //fixtureBlock
-router.post('/editFixture', createFixture)
+router.post('/editFixture', requireAdmin, createFixture)
 router.get('/editFixture', getAllFixture)
-router.delete('/editFixture/:id', deleteSingleFixture);
+router.delete('/editFixture/:id', requireAdmin, deleteSingleFixture);
 
 //scoreBlock
 router.get('/editScores', getAllScores)
-router.post('/editScores', createScore)
+router.post('/editScores', requireAdmin, createScore)
 
 //chart-stuff
 router.get('/', requireAdmin, getUserCount);
