@@ -57,7 +57,7 @@ const NavBar = () => {
         <li><Link to="/achievements">Achievements</Link></li>
         <li><Link to="/news">News</Link></li>
 
-        <li><Link to="/dashboard">Profile</Link></li>
+        {user && <li><Link to="/dashboard">Profile</Link></li>}
 
 
         {!user && <li><Link to="/login">Login</Link></li>}
@@ -72,7 +72,6 @@ const NavBar = () => {
             <img src={logo} alt="Logo" className="logo-image" />
           </Link>
         </div>
-        <li className={`hideOnMobile ${location.pathname === "/" && "active"}`}><Link to="/">Home</Link></li>
         {user && isAdmin && (
           <li className={`hideOnMobile ${location.pathname === "/adminDashboard" && "active"}`}>
             <Link to="/adminDashboard">Admin Dashboard</Link>
@@ -84,7 +83,7 @@ const NavBar = () => {
         <li className={`hideOnMobile ${location.pathname === "/achievements" && "active"}`}><Link to="/achievements">Achievements</Link></li>
         <li className={`hideOnMobile ${location.pathname === "/news" && "active"}`}><Link to="/news">News</Link></li>
 
-        <li className={`hideOnMobile ${location.pathname === "/dashboard" && "active"}`}><Link to="/dashboard">Profile</Link></li>
+        {user && <li className={`hideOnMobile ${location.pathname === "/dashboard" && "active"}`}><Link to="/dashboard">Profile</Link></li>}
 
         {!user && (
           <>

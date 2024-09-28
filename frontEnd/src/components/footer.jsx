@@ -18,7 +18,7 @@ import { BsSinaWeibo } from "react-icons/bs";
 
 const Footer = () => {
   return (
-    <footer>
+    <footer className='foot'>
       <div className="footer-logos">
 
         <div className="footer-row-social">
