@@ -1,5 +1,4 @@
 const express = require('express');
-const newsModel = require('../models/newsModel');
 const {
     getAllNews,
     createNews,
@@ -22,7 +21,10 @@ const {
 const {
     getUserCount
 } = require('../controllers/adminController');
-const router = express.Router();
+
+const requireAdmin = require('../middleware/checkAdmin');
+const router = express.Router();   
+
 
 //newsBlock
 router.post('/addNews', createNews)
@@ -39,7 +41,7 @@ router.get('/editScores', getAllScores)
 router.post('/editScores', createScore)
 
 //chart-stuff
-router.get('/', getUserCount)
+router.get('/', requireAdmin, getUserCount);
 
 
 module.exports = router;

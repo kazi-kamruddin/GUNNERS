@@ -27,8 +27,22 @@ const AdminDashboard = () => {
 
         const fetchUserCount = async () => {
             try {
-                const response = await fetch('http://localhost:4000/api/adminDashboard');
+
+                const user = JSON.parse(localStorage.getItem('user'));
+                const token = user ? user.token : null;
+
+                const response = await fetch('http://localhost:4000/api/adminDashboard', {
+                    method: 'GET',
+                    headers: {
+                        Authorization: `Bearer ${token}`, 
+                    },
+                });
                 const data = await response.json();
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Failed to fetch user count');
+                }
         
                 console.log('Fetched Data:', data); 
         

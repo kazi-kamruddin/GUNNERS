@@ -41,16 +41,23 @@ const Fixture = () => {
             </div>
           </div>
           <div className="info-body">
-            <div className="single-fixture-team-name">{fixture.team1}</div>
-            <div className="single-fixture-team-logo">
-              <img src={getLogo(fixture.team1)} alt="team logo" className="single-fixture-teamLogo-itself" />
+            <div className="team-info">
+              <div className="single-fixture-team-logo">
+                <img src={getLogo(fixture.team1)} alt="team logo" className="single-fixture-teamLogo-itself" />
+              </div>
+              <div className="single-fixture-team-name">{fixture.team1}</div>
             </div>
+            
             <div className="single-fixture-versus">VS</div>
-            <div className="single-fixture-team-logo">
-              <img src={getLogo(fixture.team2)} alt="team logo" className="single-fixture-teamLogo-itself" />
+            
+            <div className="team-info">
+              <div className="single-fixture-team-logo">
+                <img src={getLogo(fixture.team2)} alt="team logo" className="single-fixture-teamLogo-itself" />
+              </div>
+              <div className="single-fixture-team-name">{fixture.team2}</div>
             </div>
-            <div className="single-fixture-team-name">{fixture.team2}</div>
           </div>
+
           <div className="single-fixture-form">
             <div className="form-text">Recent form :   </div>
             <div className="form-results">
