@@ -195,6 +195,11 @@ body {
     cursor: pointer;
 }
 
+@media screen and (max-width: 2490px) {
+    .all-fixtures {
+        margin: 40px 400px 10px 400px;
+    }
+}
 
 @media screen and (max-width: 1500px) {
     .all-fixtures {
