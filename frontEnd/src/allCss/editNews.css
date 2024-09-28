@@ -25,7 +25,8 @@ body {
 .edit-news-form-title,
 .edit-news-form-body,
 .edit-news-form-mainBody,
-.edit-news-form-imageLink {
+.edit-news-form-imageLink
+.edit-news-form-news-tag {
     margin-bottom: 15px;
 }
 
@@ -51,7 +52,7 @@ body {
 }
 
 .edit-news-form-submit-button {
-    background-color: #007bff;
+    background-color: #1b436e;
     color: #fff;
     border: none;
     padding: 10px 20px;
@@ -61,7 +62,7 @@ body {
 }
 
 .edit-news-form-submit-button:hover {
-    background-color: #0056b3;
+    background-color: #021529;
 }
 
 
@@ -120,7 +121,7 @@ body {
 /*///////////////////////// cart buttons ////////////////////////*/
 .edit-news-card-editButton,
 .edit-news-card-deleteButton {
-    background-color: #007bff;
+    background-color: #2f5986;
     color: #fff;
     border: none;
     padding: 8px 12px;

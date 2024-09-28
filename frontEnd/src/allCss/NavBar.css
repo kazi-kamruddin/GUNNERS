@@ -15,18 +15,7 @@ nav li {
     height: 50px;
 }
 
-.nav-logo { 
-    left: 0;
-    height: auto;
-    width: auto;
-}
-
-.logo-image {
-    height: 40px;
-    width: auto;
-}
-
-nav a, nav button.logout {
+nav a, nav button {
     height: 100%;
     padding: 0 30px;
     text-decoration: none;
@@ -36,8 +25,8 @@ nav a, nav button.logout {
     background: none;
     border: none;
     cursor: pointer;
-    font-size: inherit;
-    font-family: inherit;
+    font-size: 15px;
+    font-family: "Oswald";
     text-align: left;
 }
 

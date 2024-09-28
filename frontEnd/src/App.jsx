@@ -19,6 +19,9 @@ import EditScores from "./components/admin/editScores.jsx";
 import Login from "./pages/loginPage.jsx";
 import SignUp from "./pages/signUpPage.jsx";
 import Achievements from "./pages/achievement.jsx";
+import MenNewsPage from './pages/MenNewsPage.jsx';
+import WomenNewsPage from './pages/WomenNewsPage.jsx';
+import YouthNewsPage from './pages/YouthNewsPage.jsx';
 
 const App = () => {
 
@@ -59,6 +62,9 @@ const App = () => {
           <Route path="/adminDashboard/editNews/:id" element={isAdmin ? <EditSingleNews /> : <Navigate to={"/login"} />} />
           <Route path="/adminDashboard/editFixture" element={isAdmin ? <EditFixture /> : <Navigate to={"/login"} />} />
           <Route path="/adminDashboard/editScores" element={isAdmin ? <EditScores /> : <Navigate to={"/login"} />} />
+          <Route path="/news/men" element={<MenNewsPage />} />
+          <Route path="/news/women" element={<WomenNewsPage />} />
+          <Route path="/news/youth" element={<YouthNewsPage />} />
         </Routes>
       </div>
       <Footer />
