@@ -135,8 +135,8 @@ const EditScores = () => {
                 <button type="submit"  className='edit-score-form-button'>Add score</button>
             </form>
 
-            {error && <p>{error}</p>}
-            {success && <p>{success}</p>}
+            {error && <p className='status-messages'>{error}</p>}
+            {success && <p className='status-messages'>{success}</p>}
 
             <div className="edit-score-all-scores">
                 {allScores && allScores.map(score => (

@@ -22,6 +22,7 @@ import newcastle from '../assets/ClubLogos/newcastle.png';
 import astonVilla from '../assets/ClubLogos/aston villa.png';
 import wolves from '../assets/ClubLogos/wolves.png';
 import juventus from '../assets/ClubLogos/juventus.png';
+import leicester from '../assets/ClubLogos/leicester.png';
 
 const logos = {
     'Arsenal': arsenalLogo,
@@ -42,6 +43,9 @@ const logos = {
     'Man United': manUnitedLogo,
     'man united': manUnitedLogo,
     'MAN UNITED': manUnitedLogo,
+    'Leicester City': leicester,
+    'leicester city': leicester,
+    'LEICESTER CITY': leicester,
     'AC Milan': milanLogo,
     'ac milan': milanLogo,
     'AC MILAN': milanLogo,

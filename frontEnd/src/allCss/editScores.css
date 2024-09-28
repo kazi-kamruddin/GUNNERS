@@ -87,10 +87,24 @@ body {
     background-color: #0056b3;
 }
 
+.status-messages {
+    font-size: 16px;
+    color: #333;
+    margin: 10px 0;
+}
+
+.status-messages.error {
+    color: #ff4d4d;
+}
+
+.status-messages.success {
+    color: #4caf50;
+}
+
 /*///////////////////////// the score cards ////////////////////////*/
 .edit-score-all-scores {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
     justify-items: center;
     gap: 20px;
     margin-top: 30px;
