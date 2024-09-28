@@ -74,7 +74,8 @@
 
 /* Team section with names and logos */
 .team1, .team2 {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr , auto;
     flex-direction: row;
     align-items: center;
     justify-content: center;
@@ -86,7 +87,11 @@
     height: 40px;
     object-fit: contain;
     margin: 0 10px;
-}
+    display: flex;
+    justify-content: center; /* Centers content horizontally */
+    align-items: center;     /* Centers content vertically */
+  }
+  
 
 /* Team names */
 .score-list-team-name {
@@ -137,7 +142,7 @@
     }
 
     .score-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr 1fr;
     }
 
     .score-list-team-name {
@@ -152,5 +157,6 @@
 
     .score {
         font-size: 20px;
+        display: inline-block;
     }
 }
