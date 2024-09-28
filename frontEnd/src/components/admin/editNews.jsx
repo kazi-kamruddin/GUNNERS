@@ -10,6 +10,7 @@ const EditNews = () => {
     const [body, setBody] = useState('');
     const [mainBody, setMainBody] = useState('');
     const [imageLink, setImageLink] = useState('');
+    const [news_tag, setNewsTag] = useState('');
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
     const [allNews, setNews] = useState(null);
@@ -18,7 +19,7 @@ const EditNews = () => {
     const clickedAddNews = async (e) => {
         e.preventDefault();
 
-        const newsData = { title, body, mainBody, imageLink };
+        const newsData = { title, body, mainBody, imageLink, news_tag };
 
         const response = await fetch('http://localhost:4000/api/adminDashboard/addNews', {
             method: 'POST',
@@ -40,6 +41,7 @@ const EditNews = () => {
             setBody('');
             setMainBody('');
             setImageLink('');
+            setNewsTag('');
             setError(null);
             setSuccess('News added successfully!');
         }
@@ -115,7 +117,7 @@ const EditNews = () => {
                     <label>title:</label>
                     <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} required />
                 </div>
-
+            
                 <div  className='edit-news-form-body'>
                     <label>body:</label>
                     <textarea value={body} onChange={(e) => setBody(e.target.value)} required />
@@ -130,6 +132,12 @@ const EditNews = () => {
                     <label>image link:</label>
                     <input type="text" value={imageLink} onChange={(e) => setImageLink(e.target.value)} required />
                 </div>
+<br />
+                <div  className='edit-news-form-news-tag'>
+                    <label>Tag(Men/Women/Youth):</label>
+                    <input type="text" value={news_tag} onChange={(e) => setNewsTag(e.target.value)} required />
+                </div>
+                <br />
 
                 <button type="submit"  className='edit-news-form-submit-button'>add news</button>
             </form>
@@ -137,7 +145,6 @@ const EditNews = () => {
             
             {error && <p>{error}</p>}
             {success && <p>{success}</p>} 
-            news delete/add korte gele success/error message eikhane show korbe.
 
             <div className="edit-news-all-news">
                 {allNews && allNews.map(news => (

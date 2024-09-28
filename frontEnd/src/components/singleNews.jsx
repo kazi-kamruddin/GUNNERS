@@ -25,6 +25,7 @@ const SingleNews = () => {
             {news && <h1 className="single-news-title">{news.title}</h1>}
             {news && <img className="single-news-image" src={news.imageLink} alt="News" />}
             {news && <p className="single-news-body">{news.mainBody}</p>}
+            {news && <h1 className="single-news-title">{news.news_tag}</h1>}
             <button onClick={() => window.history.back()} className="single-news-back-button">Back</button>
         </div>
         </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import '../allCss/newsPage.css';
-import NewsDetails from "../components/newsDetails.jsx"
+import NewsDetails from "../components/newsDetails.jsx";
+import NewsNavBar from "../components/NewsNavBar.jsx"; // Import the new NewsNavBar
 
 const NewsPage = () => {
     const [allNews, setNews] = useState(null)
@@ -20,8 +21,9 @@ const NewsPage = () => {
 
     return (
         <div className="newsPage">
+            <NewsNavBar /> 
             <div className="pageTitle">
-                    NEWS
+                NEWS
             </div>
             <div className="news-grid">
                 {allNews && allNews.map(news => (
