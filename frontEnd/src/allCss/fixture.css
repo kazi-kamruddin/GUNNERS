@@ -27,12 +27,12 @@ body {
 
 .single-fixture-card {
     padding: 0;
-    margin: 20px 0 60px 0;
+    margin: 20px 0 0px 0;
 }
 
 .single-fixture-info {
     padding: 0;
-    margin-bottom: 20px;
+    margin-top: 40px;
     background-color: rgba(255, 255, 255, 0.666);
     /* border-right: 9px solid rgb(207, 27, 27);
     border-left: 9px solid rgb(207, 27, 27);
@@ -82,17 +82,15 @@ body {
 }
 
 .header-comp-logo:hover {
-    
-    
     transition: 0.3s;
 }
 
 .info-body {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr; /* Now 3 equal columns */
+    grid-template-columns: 2.5fr 1fr 2.5fr; 
     align-items: center;
     justify-items: center;
-    padding: 40px 5px;
+    padding: 30px 5px 20px 5px;
 }
 
 .team-info {
@@ -103,7 +101,7 @@ body {
 }
 
 .single-fixture-team-name {
-    font-size: 1rem;
+    font-size: 3rem;
     font-family: 'Fjalla One', sans-serif;
     text-align: center;
 }
@@ -111,7 +109,7 @@ body {
 .single-fixture-team-logo {
     height: auto;
     width: auto;
-    margin-bottom: 10px; /* Add spacing between logo and name */
+    margin-bottom: 10px; 
 }
 
 .single-fixture-teamLogo-itself {
@@ -132,8 +130,8 @@ body {
     background-color: rgb(234, 233, 233);
     border-radius: 20px; 
     padding: 10px 0;
-    gap: 10px;
-    margin: 20px auto;
+    gap: 0px;
+    margin: 10px auto 20px auto;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     width: 50%; 
     max-width: 800px; 
@@ -200,43 +198,100 @@ body {
 
 @media screen and (max-width: 1500px) {
     .all-fixtures {
-        margin: 40px 160px 10px 160px;
+        margin: 40px 300px 10px 300px;
     }
-    .single-fixture-team-name {
-        font-size: 2.5rem;
-    }
-    .match-date, .match-venue {
+    .match-date{
         font-size: 1rem;
     }
     .match-venue {
-        font-size: 2rem;
+        font-size: 1.7rem;
+    }
+    .header-comp-logo {
+        width: 170px;
+    }
+    .single-fixture-team-name {
+        font-size: 2.4rem;
     }
     .single-fixture-teamLogo-itself {
-        height: 160px;
+        height: 150px;
+    }
+    .single-fixture-versus {
+        font-size: 2.8rem;
     }
     .single-fixture-form {
         width: 60%;
+    }
+    .form-text {
+        font-size: 1.2rem;
+    }
+    .form-result {
+        font-size: 1.1rem;
+    }
+}
+
+@media screen and (max-width: 1300px) {
+    .all-fixtures {
+        margin: 40px 240px 10px 240px;
+    }
+    .match-date{
+        font-size: 1rem;
+    }
+    .match-venue {
+        font-size: 1.7rem;
+    }
+    .header-comp-logo {
+        width: 170px;
+    }
+    .single-fixture-team-name {
+        font-size: 2.4rem;
+    }
+    .single-fixture-teamLogo-itself {
+        height: 150px;
+    }
+    .single-fixture-versus {
+        font-size: 2.8rem;
+    }
+    .single-fixture-form {
+        width: 60%;
+    }
+    .form-text {
+        font-size: 1.2rem;
+    }
+    .form-result {
+        font-size: 1.1rem;
     }
 }
 
 @media screen and (max-width: 1200px) {
     .all-fixtures {
-        margin: 30px 110px 10px 110px;
+        margin: 40px 200px 10px 200px;
     }
-    .single-fixture-team-name {
-        font-size: 3.4rem;
-    }
-    .match-date, .match-venue {
-        font-size: 1.2rem;
+    .match-date{
+        font-size: 1rem;
     }
     .match-venue {
-        font-size: 2.2rem;
+        font-size: 1.7rem;
+    }
+    .header-comp-logo {
+        width: 170px;
+    }
+    .single-fixture-team-name {
+        font-size: 2.4rem;
     }
     .single-fixture-teamLogo-itself {
-        height: 140px;
+        height: 150px;
+    }
+    .single-fixture-versus {
+        font-size: 2.8rem;
     }
     .single-fixture-form {
-        width: 70%;
+        width: 60%;
+    }
+    .form-text {
+        font-size: 1.2rem;
+    }
+    .form-result {
+        font-size: 1.1rem;
     }
 }
 
@@ -248,68 +303,39 @@ body {
 
 @media screen and (max-width: 1030px) {
     .all-fixtures {
-        margin: 20px 60px 10px 60px;
+        margin: 40px 90px 10px 90px;
     }
-    .header-comp-logo {
-        width: 140px;
-    }
-    .match-venue {
-        font-size: 1.9rem;
-    }
-    .single-fixture-team-name {
-        font-size: 2.8rem;
-    }
-    .single-fixture-teamLogo-itself {
-        height: 120px;
-    }
-    .single-fixture-form {
-        width: 80%; 
-    }
-    .info-body {
-        grid-template-columns: 2fr 1fr 1fr 1fr 2fr; 
-        padding: 30px 10px; 
-    }
-    .form-text {
-        font-size: 1.2rem;
-        margin-right: 15px;
-    }
-    .form-result {
-        width: 25px;
-        height: 25px;
+    .match-date{
         font-size: 1rem;
     }
-}
-
-@media screen and (max-width: 900px) {
-    .all-fixtures {
-        margin: 20px 45px 10px 45px;
+    .match-venue {
+        font-size: 1.5rem;
     }
     .header-comp-logo {
-        width: 120px;
-    }
-    .match-venue {
-        font-size: 1.6rem;
+        width: 160px;
     }
     .single-fixture-team-name {
-        font-size: 2.3rem;
+        font-size: 2.2rem;
     }
     .single-fixture-teamLogo-itself {
-        height: 110px;
+        height: 140px;
     }
     .single-fixture-versus {
-        font-size: 2.5rem;
+        font-size: 2.6rem;
     }
     .single-fixture-form {
-        width: 80%; 
-    }
-    .info-body {
-        grid-template-columns: 2fr 1fr 1fr 1fr 2fr; 
-        padding: 30px 10px; 
+        width: 60%;
     }
     .form-text {
-        font-size: 1.2rem;
-        margin-right: 15px;
+        font-size: 1.1rem;
     }
+    .form-result {
+        font-size: 1.0rem;
+    }
+    .form-results {
+        gap: 6px;
+    }
+    
     .form-result {
         width: 25px;
         height: 25px;
@@ -317,23 +343,105 @@ body {
     }
 }
 
-@media screen and (max-width: 708px) {
+@media screen and (max-width: 710px) {
     .all-fixtures {
-        margin: 15px 25px 15px 25px;
+        margin: 40px 70px 10px 70px;
     }
-    .info-body {
-        padding: 20px 8px;
+    .match-date{
+        font-size: 0.9rem;
     }
     .match-venue {
         font-size: 1.3rem;
     }
+    .header-comp-logo {
+        width: 130px;
+    }
     .single-fixture-team-name {
         font-size: 2rem;
     }
+    .single-fixture-teamLogo-itself {
+        height: 120px;
+    }
     .single-fixture-versus {
-        font-size: 2.1rem;
+        font-size: 2.2rem;
+    }
+    .single-fixture-form {
+        width: 70%;
+    }
+    .form-text {
+        font-size: 1.0rem;
+    }
+    .form-result {
+        font-size: 0.9rem;
+    }
+}
+
+@media screen and (max-width: 710px) {
+    .all-fixtures {
+        margin: 40px 40px 10px 40px;
+    }
+    .match-date{
+        font-size: 0.7rem;
+    }
+    .match-venue {
+        font-size: 1.0rem;
+    }
+    .header-comp-logo {
+        width: 105px;
+    }
+    .single-fixture-team-name {
+        font-size: 1.6rem;
     }
     .single-fixture-teamLogo-itself {
         height: 90px;
     }
-}   
+    .single-fixture-versus {
+        font-size: 1.7rem;
+    }
+    .single-fixture-form {
+        width: 80%;
+    }
+    .form-text {
+        font-size: 0.8rem;
+    }
+    .form-result {
+        font-size: 0.7rem;
+    }
+
+    
+}
+
+@media screen and (max-width: 450px){
+    .form-result {
+        width: 20px;
+        height: 20px;
+        font-size: 0.8rem;
+    }
+    .form-results {
+        gap: 3px;
+    }
+    .header-comp-logo {
+        width: 85px;
+    }
+}
+
+@media screen and (max-width: 390px){
+    .match-date{
+        font-size: 0.6rem;
+    }
+    .match-venue {
+        font-size: 0.7rem;
+    }
+    .header-comp-logo {
+        width: 80px;
+    }
+    .single-fixture-team-name {
+        font-size: 1.3rem;
+    }
+    .single-fixture-teamLogo-itself {
+        height: 70px;
+    }
+    .single-fixture-versus {
+        font-size: 1.3rem;
+    }
+}
