@@ -544,7 +544,7 @@ function PlayerInfoPage() {
   const midfielders = players.filter(player => player.position === "Midfielder");
   const forwards = players.filter(player => player.position === "Forward");
   const onLoan = players.filter(player => player.onLoan === true);
-
+/*  main code */
   return (
     <div className="white-section">
       <h1 className="centered-title">Players</h1>
@@ -573,7 +573,7 @@ function PlayerInfoPage() {
           </li>
         ))}
       </ul>
-  
+      
       <h2 className="centered-title">Defenders</h2>
       <ul className="player-list">
         {defenders.map(player => (
