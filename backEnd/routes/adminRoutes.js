@@ -29,7 +29,7 @@ const router = express.Router();
 //newsBlock
 router.post('/addNews', requireAdmin, createNews)
 router.delete('/editNews/:id', requireAdmin, deleteSingleNews);
-router.patch('/editNews/:id', requireAdmin, updateNews);
+router.patch('/editNews/:id', updateNews);
 
 //fixtureBlock
 router.post('/editFixture', requireAdmin, createFixture)
