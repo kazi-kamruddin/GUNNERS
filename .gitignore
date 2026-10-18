@@ -1,0 +1,48 @@
+# Dependencies & Virtual Envs
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.svelte-kit/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & local files
+.env
+.env*.local
+*.local
+
+# Production build outputs
+dist/
+dist-ssr/
+build/
+
+# Editor & OS files
+.vscode/
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# ==========================================
+# AI Agent files and local skill packages
+# ==========================================
+.agents/
+.agent/
+_agents/
+_agent/
+skills/
+AGENTS.md
+AGENT.md
+agent.md
+GEMINI.md
+
+# ==========================================
+# Local reference materials (private / ignored)
+# ==========================================
+reference/
+references/
+
