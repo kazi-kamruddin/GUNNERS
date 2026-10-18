@@ -1,4 +1,15 @@
-import type { Club, Match, MatchSummary, SyncStatus, AnalyticsResponse, Insight, InsightCreatePayload } from '$lib/types/football';
+import type {
+	Club,
+	Match,
+	MatchSummary,
+	SyncStatus,
+	AnalyticsResponse,
+	Insight,
+	InsightCreatePayload,
+	Post,
+	PostComment,
+	PostCreatePayload
+} from '$lib/types/football';
 
 const API_BASE = (import.meta.env.PUBLIC_API_URL as string) || 'http://localhost:8000/api/v1';
 
@@ -296,6 +307,232 @@ export async function fetchInsights(clubId?: string): Promise<Insight[]> {
 			}
 		];
 	}
+}
+
+export async function fetchPosts(clubId?: string, currentUserId?: string): Promise<Post[]> {
+	try {
+		const query = new URLSearchParams();
+		if (clubId && clubId !== 'global') query.set('club_id', clubId);
+		if (currentUserId) query.set('current_user_id', currentUserId);
+
+		const url = `${API_BASE}/terrace/posts?${query.toString()}`;
+		const res = await fetch(url);
+		if (!res.ok) throw new Error(`Failed to fetch posts: ${res.status}`);
+		return await res.json();
+	} catch (err) {
+		console.warn('API error fetching posts, returning local fallback terrace feed');
+		return getLocalFallbackPosts(clubId);
+	}
+}
+
+export async function createPost(payload: PostCreatePayload): Promise<Post | null> {
+	try {
+		const res = await fetch(`${API_BASE}/terrace/posts`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+		if (!res.ok) throw new Error('Failed to create post');
+		return await res.json();
+	} catch (err) {
+		console.warn('API error creating post, returning mock post');
+		return {
+			id: `post_${Math.random().toString(36).substring(2, 10)}`,
+			author_name: payload.author_name || 'Supporter',
+			author_club_id: payload.author_club_id || 'arsenal',
+			club_id: payload.club_id || null,
+			content: payload.content,
+			insight_id: payload.insight_id || null,
+			created_at: new Date().toISOString(),
+			reactions_count: 0,
+			comments_count: 0,
+			user_reacted: false
+		};
+	}
+}
+
+export async function toggleReaction(
+	postId: string,
+	userId: string,
+	reactionType: string = 'cheer'
+): Promise<{ action: string; total_reactions: number }> {
+	try {
+		const res = await fetch(`${API_BASE}/terrace/posts/${postId}/react`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ user_id: userId, reaction_type: reactionType })
+		});
+		if (!res.ok) throw new Error('Failed to toggle reaction');
+		return await res.json();
+	} catch (err) {
+		return { action: 'added', total_reactions: 1 };
+	}
+}
+
+export async function fetchComments(postId: string): Promise<PostComment[]> {
+	try {
+		const res = await fetch(`${API_BASE}/terrace/posts/${postId}/comments`);
+		if (!res.ok) throw new Error('Failed to fetch comments');
+		return await res.json();
+	} catch (err) {
+		return [];
+	}
+}
+
+export async function createComment(
+	postId: string,
+	content: string,
+	authorName: string = 'Supporter',
+	authorClubId: string = 'arsenal'
+): Promise<PostComment | null> {
+	try {
+		const res = await fetch(`${API_BASE}/terrace/posts/${postId}/comments`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ content, author_name: authorName, author_club_id: authorClubId })
+		});
+		if (!res.ok) throw new Error('Failed to create comment');
+		return await res.json();
+	} catch (err) {
+		return {
+			id: `cmt_${Math.random().toString(36).substring(2, 10)}`,
+			post_id: postId,
+			author_name: authorName,
+			author_club_id: authorClubId,
+			content,
+			created_at: new Date().toISOString()
+		};
+	}
+}
+
+function getLocalFallbackPosts(clubId?: string): Post[] {
+	const allPosts: Post[] = [
+		{
+			id: 'post_demo_1',
+			author_name: 'TacticsGooner',
+			author_club_id: 'arsenal',
+			club_id: 'arsenal',
+			content: 'Our defensive structure at home has been rock solid this season. 83.3% win rate at the Emirates speaks volumes!',
+			insight_id: 'ins_demo_1',
+			insight: {
+				id: 'ins_demo_1',
+				author_name: 'TacticsGooner',
+				author_club_id: 'arsenal',
+				title: "Arsenal Home Win Rate 2024/25",
+				description: 'Emirates Stadium home record across all competitions.',
+				metric: 'win_rate',
+				team_ids: ['arsenal'],
+				venue: 'home',
+				chart_type: 'bar',
+				snapshot: {
+					metric: 'win_rate',
+					formula: '(wins / matches_played) * 100',
+					venue_filter: 'home',
+					series: [{
+						team_id: 'arsenal',
+						team_name: 'Arsenal FC',
+						matches_played: 6,
+						wins: 5,
+						draws: 1,
+						losses: 0,
+						clean_sheets: 3,
+						goals_for: 14,
+						goals_against: 4,
+						goal_difference: 10,
+						metric_value: 83.3,
+						unit: '%'
+					}],
+					computed_at: new Date().toISOString(),
+					disclaimer: 'Calculated strictly across eligible completed matches.'
+				},
+				is_public: true,
+				created_at: new Date(Date.now() - 3600000).toISOString()
+			},
+			created_at: new Date(Date.now() - 3600000).toISOString(),
+			reactions_count: 14,
+			comments_count: 3,
+			user_reacted: false
+		},
+		{
+			id: 'post_demo_2',
+			author_name: 'MadridistaAnalytics',
+			author_club_id: 'real-madrid',
+			club_id: 'real-madrid',
+			content: 'Interesting head-to-head points per game metrics between Real Madrid and Barcelona. Only 0.1 PPG separating the two giants!',
+			insight_id: 'ins_demo_2',
+			insight: {
+				id: 'ins_demo_2',
+				author_name: 'MadridistaAnalytics',
+				author_club_id: 'real-madrid',
+				title: 'Real Madrid vs Barcelona PPG Comparison',
+				description: 'Points per game comparison across current campaign matches.',
+				metric: 'points_per_game',
+				team_ids: ['real-madrid', 'barcelona'],
+				venue: 'all',
+				chart_type: 'comparison',
+				snapshot: {
+					metric: 'points_per_game',
+					formula: '((wins * 3) + draws) / matches_played',
+					venue_filter: 'all',
+					series: [
+						{
+							team_id: 'real-madrid',
+							team_name: 'Real Madrid CF',
+							matches_played: 10,
+							wins: 7,
+							draws: 2,
+							losses: 1,
+							clean_sheets: 4,
+							goals_for: 21,
+							goals_against: 11,
+							goal_difference: 10,
+							metric_value: 2.3,
+							unit: 'ppg'
+						},
+						{
+							team_id: 'barcelona',
+							team_name: 'FC Barcelona',
+							matches_played: 10,
+							wins: 8,
+							draws: 0,
+							losses: 2,
+							clean_sheets: 3,
+							goals_for: 31,
+							goals_against: 11,
+							goal_difference: 20,
+							metric_value: 2.4,
+							unit: 'ppg'
+						}
+					],
+					computed_at: new Date().toISOString(),
+					disclaimer: 'Calculated strictly across eligible completed matches.'
+				},
+				is_public: true,
+				created_at: new Date(Date.now() - 7200000).toISOString()
+			},
+			created_at: new Date(Date.now() - 7200000).toISOString(),
+			reactions_count: 22,
+			comments_count: 7,
+			user_reacted: false
+		},
+		{
+			id: 'post_demo_3',
+			author_name: 'MilanFanatic',
+			author_club_id: 'milan',
+			club_id: 'milan',
+			content: 'Derby della Madonnina victory was the turning point for our momentum. Still need to be more clinical against lower-table opposition.',
+			insight_id: null,
+			created_at: new Date(Date.now() - 14400000).toISOString(),
+			reactions_count: 9,
+			comments_count: 2,
+			user_reacted: false
+		}
+	];
+
+	if (clubId && clubId !== 'global') {
+		return allPosts.filter((p) => p.club_id === clubId);
+	}
+	return allPosts;
 }
 
 function getLocalFallbackMatches(clubId?: string): Match[] {

@@ -104,3 +104,36 @@ export interface InsightCreatePayload {
 	author_club_id?: string;
 	snapshot?: AnalyticsResponse;
 }
+
+export interface Post {
+	id: string;
+	author_id?: string | null;
+	author_name: string;
+	author_club_id: string;
+	club_id?: string | null;
+	content: string;
+	insight_id?: string | null;
+	insight?: Insight | null;
+	created_at: string;
+	reactions_count: number;
+	comments_count: number;
+	user_reacted: boolean;
+}
+
+export interface PostComment {
+	id: string;
+	post_id: string;
+	author_id?: string | null;
+	author_name: string;
+	author_club_id: string;
+	content: string;
+	created_at: string;
+}
+
+export interface PostCreatePayload {
+	content: string;
+	club_id?: string | null;
+	insight_id?: string | null;
+	author_name?: string;
+	author_club_id?: string;
+}

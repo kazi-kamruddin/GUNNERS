@@ -4,27 +4,12 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from app.main import app
 from app.core.database import Base, get_db
-from app.models.football import Club, Competition, Season, Match, SyncRun
+from app.models import Club, Competition, Season, Match, SyncRun, Insight, Post, PostComment, PostReaction
 from app.services.ingestion import FootballIngestionService
 
-TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
-
-test_engine = create_async_engine(TEST_DATABASE_URL, echo=False)
-TestSessionLocal = async_sessionmaker(bind=test_engine, class_=AsyncSession, expire_on_commit=False)
-
-async def override_get_db():
-    async with TestSessionLocal() as session:
-        yield session
-
-app.dependency_overrides[get_db] = override_get_db
-
 @pytest.fixture(autouse=True)
-async def setup_test_db():
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    # Seed data
-    async with TestSessionLocal() as session:
+async def seed_matches_data(session_factory):
+    async with session_factory() as session:
         arsenal = Club(
             id="arsenal",
             slug="arsenal",
@@ -129,9 +114,6 @@ async def setup_test_db():
 
     yield
 
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
 @pytest.mark.asyncio
 async def test_get_matches():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -173,8 +155,8 @@ async def test_get_sync_status():
     assert "matches_synced" in data
 
 @pytest.mark.asyncio
-async def test_ingestion_service_mock_sync():
-    async with TestSessionLocal() as session:
+async def test_ingestion_service_mock_sync(session_factory):
+    async with session_factory() as session:
         result = await FootballIngestionService.run_sync(db=session, force_mock=True)
     assert result["status"] == "SUCCESS"
     assert result["matches_synced"] >= 40
