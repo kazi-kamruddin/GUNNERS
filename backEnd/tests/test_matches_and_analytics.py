@@ -215,3 +215,70 @@ async def test_analytics_win_rate_home_venue():
     assert series["losses"] == 0
     # 2/2 * 100 = 100.0%
     assert series["metric_value"] == 100.0
+
+@pytest.mark.asyncio
+async def test_analytics_clean_sheet_rate():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        payload = {
+            "metric": "clean_sheet_rate",
+            "team_ids": ["arsenal"],
+            "venue": "all"
+        }
+        response = await ac.post("/api/v1/matches/query", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["metric"] == "clean_sheet_rate"
+    series = data["series"][0]
+    # m2 had Barcelona score 0 -> 1 clean sheet out of 3 matches -> 33.3%
+    assert series["clean_sheets"] == 1
+    assert series["metric_value"] == 33.3
+
+@pytest.mark.asyncio
+async def test_analytics_head_to_head_comparison():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        payload = {
+            "metric": "points_per_game",
+            "team_ids": ["arsenal", "barcelona"],
+            "venue": "all"
+        }
+        response = await ac.post("/api/v1/matches/query", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["series"]) == 2
+    assert data["series"][0]["team_id"] == "arsenal"
+    assert data["series"][1]["team_id"] == "barcelona"
+
+@pytest.mark.asyncio
+async def test_create_and_get_insight():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        payload = {
+            "title": "Arsenal Home Dominance Analysis",
+            "description": "Evaluating Arsenal's win rate at Emirates Stadium.",
+            "metric": "win_rate",
+            "team_ids": ["arsenal"],
+            "venue": "home",
+            "chart_type": "bar",
+            "author_name": "Gooner99",
+            "author_club_id": "arsenal"
+        }
+        create_res = await ac.post("/api/v1/insights", json=payload)
+        assert create_res.status_code == 201
+        created = create_res.json()
+        assert created["title"] == "Arsenal Home Dominance Analysis"
+        assert created["snapshot"]["metric"] == "win_rate"
+        insight_id = created["id"]
+
+        get_res = await ac.get(f"/api/v1/insights/{insight_id}")
+        assert get_res.status_code == 200
+        fetched = get_res.json()
+        assert fetched["id"] == insight_id
+        assert fetched["author_name"] == "Gooner99"
+
+@pytest.mark.asyncio
+async def test_list_insights():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/api/v1/insights")
+        assert res.status_code == 200
+        insights = res.json()
+        assert isinstance(insights, list)
+

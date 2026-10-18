@@ -50,7 +50,7 @@ class SyncStatusResponse(BaseModel):
     error_message: Optional[str] = None
 
 class AnalyticsQueryRequest(BaseModel):
-    metric: str = Field(..., pattern="^(win_rate|goals_per_match|points_per_game|goal_difference)$")
+    metric: str = Field(..., pattern="^(win_rate|goals_per_match|points_per_game|goal_difference|clean_sheet_rate|loss_rate)$")
     team_ids: List[str] = Field(..., min_length=1, max_length=2)
     competition_id: Optional[str] = None
     season_id: Optional[str] = None
@@ -63,6 +63,7 @@ class AnalyticsSeriesItem(BaseModel):
     wins: int
     draws: int
     losses: int
+    clean_sheets: int = 0
     goals_for: int
     goals_against: int
     goal_difference: int

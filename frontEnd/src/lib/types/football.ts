@@ -58,6 +58,7 @@ export interface AnalyticsSeriesItem {
 	wins: number;
 	draws: number;
 	losses: number;
+	clean_sheets?: number;
 	goals_for: number;
 	goals_against: number;
 	goal_difference: number;
@@ -72,4 +73,34 @@ export interface AnalyticsResponse {
 	series: AnalyticsSeriesItem[];
 	computed_at: string;
 	disclaimer: string;
+}
+
+export interface Insight {
+	id: string;
+	user_id?: string | null;
+	author_name: string;
+	author_club_id: string;
+	title: string;
+	description?: string | null;
+	metric: string;
+	team_ids: string[];
+	venue: string;
+	competition_id?: string | null;
+	chart_type: string;
+	snapshot: AnalyticsResponse;
+	is_public: boolean;
+	created_at: string;
+}
+
+export interface InsightCreatePayload {
+	title: string;
+	description?: string;
+	metric: string;
+	team_ids: string[];
+	venue: string;
+	competition_id?: string;
+	chart_type?: string;
+	author_name?: string;
+	author_club_id?: string;
+	snapshot?: AnalyticsResponse;
 }

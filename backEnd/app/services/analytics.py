@@ -39,6 +39,7 @@ class AnalyticsEngine:
             wins = 0
             draws = 0
             losses = 0
+            clean_sheets = 0
             goals_for = 0
             goals_against = 0
 
@@ -52,6 +53,9 @@ class AnalyticsEngine:
 
                 goals_for += t_score
                 goals_against += opp_score
+
+                if opp_score == 0:
+                    clean_sheets += 1
 
                 if t_score > opp_score:
                     wins += 1
@@ -72,6 +76,16 @@ class AnalyticsEngine:
                 formula_desc = "(wins / matches_played) * 100"
                 if matches_played > 0:
                     metric_val = round((wins / matches_played) * 100, 1)
+            elif query.metric == "loss_rate":
+                unit = "%"
+                formula_desc = "(losses / matches_played) * 100"
+                if matches_played > 0:
+                    metric_val = round((losses / matches_played) * 100, 1)
+            elif query.metric == "clean_sheet_rate":
+                unit = "%"
+                formula_desc = "(clean_sheets / matches_played) * 100"
+                if matches_played > 0:
+                    metric_val = round((clean_sheets / matches_played) * 100, 1)
             elif query.metric == "goals_per_match":
                 unit = "goals/match"
                 formula_desc = "goals_for / matches_played"
@@ -96,6 +110,7 @@ class AnalyticsEngine:
                     wins=wins,
                     draws=draws,
                     losses=losses,
+                    clean_sheets=clean_sheets,
                     goals_for=goals_for,
                     goals_against=goals_against,
                     goal_difference=goal_diff,
