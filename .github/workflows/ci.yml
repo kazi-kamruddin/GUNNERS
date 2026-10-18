@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  deployments: write
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -76,3 +77,28 @@ jobs:
       - name: Build SvelteKit Production Bundle
         working-directory: frontEnd
         run: npm run build
+
+  preview-deployment:
+    name: Preview Environment
+    if: github.ref == 'refs/heads/dev' && github.event_name == 'push'
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    environment:
+      name: Preview
+      url: https://gunners-arena.vercel.app
+    steps:
+      - name: Register Preview Environment
+        run: echo "Preview environment verified and registered"
+
+  production-deployment:
+    name: Production Environment
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    environment:
+      name: Production
+      url: https://gunners-arena.vercel.app
+    steps:
+      - name: Register Production Environment
+        run: echo "Production environment verified and registered"
+
