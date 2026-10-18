@@ -14,6 +14,8 @@ yarn-error.log*
 .env
 .env*.local
 *.local
+*.db
+*.sqlite
 
 # Production build outputs
 dist/
