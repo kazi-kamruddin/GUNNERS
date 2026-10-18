@@ -4,7 +4,8 @@ from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from app.main import app
 from app.core.database import Base, get_db
-from app.models.football import Club, Competition, Season, Match
+from app.models.football import Club, Competition, Season, Match, SyncRun
+from app.services.ingestion import FootballIngestionService
 
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
@@ -47,15 +48,18 @@ async def setup_test_db():
             country="Spain"
         )
         comp = Competition(id="PL", code="PL", name="Premier League", country="England")
-        season = Season(id="2024-2025", competition_id="PL", start_year=2024, end_year=2025, is_current=True)
+        season = Season(id="2024-2025-PL", competition_id="PL", start_year=2024, end_year=2025, is_current=True)
         
-        # Add 3 matches for Arsenal (2 Home wins, 1 Away loss)
+        # Add 3 finished matches for Arsenal (2 Home wins, 1 Away loss)
         m1 = Match(
             id="m1",
             competition_id="PL",
-            season_id="2024-2025",
+            competition_name="Premier League",
+            season_id="2024-2025-PL",
             home_team_id="arsenal",
+            home_team_name="Arsenal FC",
             away_team_id="barcelona",
+            away_team_name="FC Barcelona",
             matchday=1,
             utc_date=datetime.datetime(2024, 9, 1, 15, 0, tzinfo=datetime.timezone.utc),
             status="FINISHED",
@@ -66,9 +70,12 @@ async def setup_test_db():
         m2 = Match(
             id="m2",
             competition_id="PL",
-            season_id="2024-2025",
+            competition_name="Premier League",
+            season_id="2024-2025-PL",
             home_team_id="arsenal",
+            home_team_name="Arsenal FC",
             away_team_id="barcelona",
+            away_team_name="FC Barcelona",
             matchday=2,
             utc_date=datetime.datetime(2024, 9, 15, 15, 0, tzinfo=datetime.timezone.utc),
             status="FINISHED",
@@ -79,9 +86,12 @@ async def setup_test_db():
         m3 = Match(
             id="m3",
             competition_id="PL",
-            season_id="2024-2025",
+            competition_name="Premier League",
+            season_id="2024-2025-PL",
             home_team_id="barcelona",
+            home_team_name="FC Barcelona",
             away_team_id="arsenal",
+            away_team_name="Arsenal FC",
             matchday=3,
             utc_date=datetime.datetime(2024, 9, 29, 15, 0, tzinfo=datetime.timezone.utc),
             status="FINISHED",
@@ -89,8 +99,32 @@ async def setup_test_db():
             away_score=1,
             winner="HOME_TEAM"
         )
+        # Add 1 upcoming scheduled match
+        m4 = Match(
+            id="m4",
+            competition_id="PL",
+            competition_name="Premier League",
+            season_id="2024-2025-PL",
+            home_team_id="arsenal",
+            home_team_name="Arsenal FC",
+            away_team_id="barcelona",
+            away_team_name="FC Barcelona",
+            matchday=4,
+            utc_date=datetime.datetime(2026, 11, 1, 15, 0, tzinfo=datetime.timezone.utc),
+            status="SCHEDULED",
+            home_score=None,
+            away_score=None,
+            winner=None
+        )
 
-        session.add_all([arsenal, barcelona, comp, season, m1, m2, m3])
+        sync = SyncRun(
+            source="football-data.org (test)",
+            status="SUCCESS",
+            matches_synced=4,
+            started_at=datetime.datetime.now(datetime.timezone.utc)
+        )
+
+        session.add_all([arsenal, barcelona, comp, season, m1, m2, m3, m4, sync])
         await session.commit()
 
     yield
@@ -104,7 +138,46 @@ async def test_get_matches():
         response = await ac.get("/api/v1/matches?club_id=arsenal")
     assert response.status_code == 200
     matches = response.json()
-    assert len(matches) == 3
+    assert len(matches) == 4
+
+@pytest.mark.asyncio
+async def test_get_matches_scheduled_order():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.get("/api/v1/matches?status=SCHEDULED")
+    assert response.status_code == 200
+    matches = response.json()
+    assert len(matches) == 1
+    assert matches[0]["id"] == "m4"
+
+@pytest.mark.asyncio
+async def test_get_match_summary():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.get("/api/v1/matches/summary?club_id=arsenal")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["club_id"] == "arsenal"
+    assert data["total_completed"] == 3
+    assert data["total_scheduled"] == 1
+    assert data["next_fixture"]["id"] == "m4"
+    assert data["last_result"]["id"] == "m3"
+    # m1: W, m2: W, m3: L -> ['W', 'W', 'L']
+    assert data["recent_form"] == ["W", "W", "L"]
+
+@pytest.mark.asyncio
+async def test_get_sync_status():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        response = await ac.get("/api/v1/matches/sync-status")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "SUCCESS"
+    assert "matches_synced" in data
+
+@pytest.mark.asyncio
+async def test_ingestion_service_mock_sync():
+    async with TestSessionLocal() as session:
+        result = await FootballIngestionService.run_sync(db=session, force_mock=True)
+    assert result["status"] == "SUCCESS"
+    assert result["matches_synced"] >= 40
 
 @pytest.mark.asyncio
 async def test_analytics_win_rate_all_venue():

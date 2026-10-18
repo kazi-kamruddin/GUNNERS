@@ -1,3 +1,3 @@
-from .football import Club, Competition, Season, Match
+from .football import Club, Competition, Season, Match, SyncRun
 
-__all__ = ["Club", "Competition", "Season", "Match"]
+__all__ = ["Club", "Competition", "Season", "Match", "SyncRun"]

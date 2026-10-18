@@ -8,14 +8,21 @@ export interface Club {
 	accent_color: string;
 	league: string;
 	country: string;
+	crest_url?: string;
+	is_foundation?: boolean;
 }
 
 export interface Match {
 	id: string;
-	competition_id: string;
+	competition_id?: string;
+	competition_name?: string;
 	season_id: string;
 	home_team_id: string;
+	home_team_name: string;
+	home_team_crest?: string;
 	away_team_id: string;
+	away_team_name: string;
+	away_team_crest?: string;
 	matchday?: number;
 	utc_date: string;
 	status: string;
@@ -23,6 +30,25 @@ export interface Match {
 	home_score?: number;
 	away_score?: number;
 	winner?: string;
+	source?: string;
+}
+
+export interface MatchSummary {
+	club_id: string;
+	club_name: string;
+	next_fixture?: Match | null;
+	last_result?: Match | null;
+	recent_form: string[];
+	total_completed: number;
+	total_scheduled: number;
+}
+
+export interface SyncStatus {
+	latest_sync?: string;
+	status: string;
+	source: string;
+	matches_synced: number;
+	error_message?: string;
 }
 
 export interface AnalyticsSeriesItem {
