@@ -8,7 +8,9 @@ import type {
 	InsightCreatePayload,
 	Post,
 	PostComment,
-	PostCreatePayload
+	PostCreatePayload,
+	DirectMessage,
+	Conversation
 } from '$lib/types/football';
 
 const API_BASE = (import.meta.env.PUBLIC_API_URL as string) || 'http://localhost:8000/api/v1';
@@ -400,6 +402,96 @@ export async function createComment(
 			author_name: authorName,
 			author_club_id: authorClubId,
 			content,
+			created_at: new Date().toISOString()
+		};
+	}
+}
+
+export async function fetchConversations(userId: string): Promise<Conversation[]> {
+	try {
+		const res = await fetch(`${API_BASE}/messages/conversations?user_id=${encodeURIComponent(userId)}`);
+		if (!res.ok) throw new Error('Failed to fetch conversations');
+		return await res.json();
+	} catch (err) {
+		console.warn('API error fetching conversations, returning empty list');
+		return [];
+	}
+}
+
+export async function createConversation(payload: {
+	initiator_id: string;
+	recipient_id: string;
+	initiator_name?: string;
+	initiator_club_id?: string;
+	initial_message?: string;
+}): Promise<Conversation | null> {
+	try {
+		const res = await fetch(`${API_BASE}/messages/conversations`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+		if (!res.ok) throw new Error('Failed to create conversation');
+		return await res.json();
+	} catch (err) {
+		console.warn('API error creating conversation, returning mock conversation');
+		return {
+			id: `conv_${Math.random().toString(36).substring(2, 10)}`,
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
+			members: [payload.initiator_id, payload.recipient_id],
+			last_message: payload.initial_message
+				? {
+						id: `msg_${Math.random().toString(36).substring(2, 10)}`,
+						conversation_id: 'conv_local',
+						sender_id: payload.initiator_id,
+						sender_name: payload.initiator_name || 'Supporter',
+						sender_club_id: payload.initiator_club_id || 'arsenal',
+						content: payload.initial_message,
+						created_at: new Date().toISOString()
+				  }
+				: null
+		};
+	}
+}
+
+export async function fetchMessages(conversationId: string): Promise<DirectMessage[]> {
+	try {
+		const res = await fetch(`${API_BASE}/messages/conversations/${conversationId}/messages`);
+		if (!res.ok) throw new Error('Failed to fetch messages');
+		return await res.json();
+	} catch (err) {
+		console.warn('API error fetching messages, returning empty list');
+		return [];
+	}
+}
+
+export async function sendMessage(
+	conversationId: string,
+	payload: {
+		sender_id: string;
+		sender_name?: string;
+		sender_club_id?: string;
+		content: string;
+	}
+): Promise<DirectMessage | null> {
+	try {
+		const res = await fetch(`${API_BASE}/messages/conversations/${conversationId}/messages`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+		if (!res.ok) throw new Error('Failed to send message');
+		return await res.json();
+	} catch (err) {
+		console.warn('API error sending message, returning optimistic mock message');
+		return {
+			id: `msg_${Math.random().toString(36).substring(2, 10)}`,
+			conversation_id: conversationId,
+			sender_id: payload.sender_id,
+			sender_name: payload.sender_name || 'Supporter',
+			sender_club_id: payload.sender_club_id || 'arsenal',
+			content: payload.content,
 			created_at: new Date().toISOString()
 		};
 	}

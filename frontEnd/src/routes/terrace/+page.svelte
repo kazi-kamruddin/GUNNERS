@@ -295,6 +295,14 @@
 							<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/40 border border-[#1e2430] text-gray-400">
 								{authorClub.short_name}
 							</span>
+							<a
+								href="/messages?recipient={encodeURIComponent(post.author_id || post.author_name)}&name={encodeURIComponent(post.author_name)}&club={encodeURIComponent(post.author_club_id)}"
+								class="text-[10px] text-gray-400 hover:text-amber-400 font-semibold transition flex items-center gap-0.5 ml-1"
+								title="Challenge {post.author_name} to a private debate"
+							>
+								<span>💬</span>
+								<span>DM</span>
+							</a>
 							{#if post.club_id}
 								<span class="text-[10px] text-gray-500 hidden sm:inline">
 									in {CLUBS[post.club_id]?.short_name || post.club_id} Terrace

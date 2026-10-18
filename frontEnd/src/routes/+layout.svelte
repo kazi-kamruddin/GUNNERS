@@ -56,6 +56,7 @@
 					</a>
 					<a href="/terrace" class="hover:text-white transition">The Terrace</a>
 					<a href="/matches" class="hover:text-white transition">Matches</a>
+					<a href="/messages" class="hover:text-white transition">Messages</a>
 				</nav>
 			</div>
 

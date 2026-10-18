@@ -137,3 +137,22 @@ export interface PostCreatePayload {
 	author_name?: string;
 	author_club_id?: string;
 }
+
+export interface DirectMessage {
+	id: string;
+	conversation_id: string;
+	sender_id: string;
+	sender_name: string;
+	sender_club_id: string;
+	content: string;
+	created_at: string;
+}
+
+export interface Conversation {
+	id: string;
+	created_at: string;
+	updated_at: string;
+	members: string[];
+	last_message?: DirectMessage | null;
+}
+
