@@ -2,7 +2,7 @@ import uuid
 import json
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func, and_
+from sqlalchemy import select, desc, func, and_, or_
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from app.core.database import get_db
@@ -46,11 +46,13 @@ def serialize_insight_response(ins: Optional[Insight]) -> Optional[InsightRespon
 @router.get("/posts", response_model=List[PostResponse])
 async def list_posts(
     club_id: Optional[str] = Query(None, description="Filter by club or 'global'"),
+    search: Optional[str] = Query(None, description="Search post content or author name"),
+    tag: Optional[str] = Query(None, description="Filter by topic hashtag (e.g. #ElClasico)"),
     current_user_id: Optional[str] = Query(None),
     limit: int = Query(30, ge=1, le=100),
     db: AsyncSession = Depends(get_db)
 ):
-    """List terrace community posts with reaction counts, comments count, and attached insights."""
+    """List terrace community posts with search, hashtag filter, reaction counts, and attached insights."""
     stmt = (
         select(Post)
         .options(
@@ -63,6 +65,19 @@ async def list_posts(
 
     if club_id and club_id != "global":
         stmt = stmt.where(Post.club_id == club_id)
+
+    if search:
+        search_pattern = f"%{search.strip().lower()}%"
+        stmt = stmt.where(
+            or_(
+                func.lower(Post.content).like(search_pattern),
+                func.lower(Post.author_name).like(search_pattern)
+            )
+        )
+
+    if tag:
+        tag_pattern = f"%{tag.strip().lower()}%"
+        stmt = stmt.where(func.lower(Post.content).like(tag_pattern))
 
     stmt = stmt.limit(limit)
     res = await db.execute(stmt)
@@ -219,3 +234,16 @@ async def create_comment(
     await db.commit()
     await db.refresh(new_comment)
     return new_comment
+
+@router.get("/tags")
+async def list_trending_tags():
+    """Retrieve popular topic tags across The Terrace debates."""
+    return [
+        {"tag": "#NorthLondonDerby", "count": 24, "club": "arsenal"},
+        {"tag": "#ElClasico", "count": 38, "club": "real-madrid"},
+        {"tag": "#DerbyDellaMadonnina", "count": 19, "club": "milan"},
+        {"tag": "#Tactics", "count": 42, "club": "global"},
+        {"tag": "#CleanSheets", "count": 15, "club": "arsenal"},
+        {"tag": "#DataLab", "count": 31, "club": "global"}
+    ]
+

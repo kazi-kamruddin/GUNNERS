@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CLUBS, themeState } from '$lib/stores/theme.svelte';
 	import { fetchPosts, createPost, toggleReaction, fetchComments, createComment } from '$lib/api/football';
-	import type { Post, PostComment, Insight } from '$lib/types/football';
+	import type { Post, PostComment, Insight, TopicTag } from '$lib/types/football';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -24,23 +24,60 @@
 	let newCommentText = $state<Record<string, string>>({});
 	let isSubmittingComment = $state<Record<string, boolean>>({});
 
+	// Search & Tag state
+	let searchQuery = $state('');
+	let selectedTag = $state('');
+	let trendingTags = $state<TopicTag[]>([]);
+
 	const clubList = Object.values(CLUBS);
 
 	$effect(() => {
 		posts = data.initialPosts;
 		availableInsights = data.availableInsights;
 		selectedTab = data.initialClub || 'global';
+		searchQuery = data.initialSearch || '';
+		selectedTag = data.initialTag || '';
+		trendingTags = data.trendingTags || [];
 	});
 
-	async function selectTab(tab: 'global' | string) {
-		selectedTab = tab;
+	async function reloadFeed(tab: string, searchVal?: string, tagVal?: string) {
 		isLoadingFeed = true;
 		try {
-			posts = await fetchPosts(tab, data.user?.id);
+			posts = await fetchPosts(
+				tab,
+				data.user?.id,
+				searchVal !== undefined ? searchVal : searchQuery,
+				tagVal !== undefined ? tagVal : selectedTag
+			);
 		} finally {
 			isLoadingFeed = false;
 		}
 	}
+
+	async function selectTab(tab: 'global' | string) {
+		selectedTab = tab;
+		await reloadFeed(tab);
+	}
+
+	async function handleSearch() {
+		await reloadFeed(selectedTab);
+	}
+
+	async function handleTagClick(tag: string) {
+		if (selectedTag === tag) {
+			selectedTag = '';
+		} else {
+			selectedTag = tag;
+		}
+		await reloadFeed(selectedTab, undefined, selectedTag);
+	}
+
+	async function clearFilters() {
+		searchQuery = '';
+		selectedTag = '';
+		await reloadFeed(selectedTab, '', '');
+	}
+
 
 	async function handlePublishPost() {
 		if (!newPostContent.trim()) return;
@@ -155,6 +192,68 @@
 		<p class="text-sm text-gray-400 mt-1">
 			Debate the game with supporters across clubs. Publish opinions and back your claims with reproducible Data Lab insights.
 		</p>
+	</div>
+
+	<!-- Search & Topic Exploration Bar -->
+	<div class="p-4 rounded-lg border border-[#1e2430] bg-[#12161f] space-y-3">
+		<div class="flex items-center gap-3">
+			<div class="relative flex-1">
+				<input
+					type="text"
+					bind:value={searchQuery}
+					onkeydown={(e) => e.key === 'Enter' && handleSearch()}
+					placeholder="Search terrace discussions, debriefs, #Tactics, #Derby..."
+					class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
+				/>
+				<svg class="w-4 h-4 text-gray-500 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				</svg>
+			</div>
+			<button
+				type="button"
+				onclick={handleSearch}
+				class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition shadow-sm"
+			>
+				Search
+			</button>
+			{#if searchQuery || selectedTag}
+				<button
+					type="button"
+					onclick={clearFilters}
+					class="px-3 py-2 rounded-lg border border-gray-700 hover:border-gray-500 text-gray-400 hover:text-white text-xs font-medium transition"
+				>
+					Clear
+				</button>
+			{/if}
+		</div>
+
+		{#if trendingTags && trendingTags.length > 0}
+			<!-- Trending Topic Hashtags -->
+			<div class="flex items-center gap-2 flex-wrap text-xs">
+				<span class="text-[11px] font-mono text-gray-400 uppercase font-semibold">Topics:</span>
+				{#each trendingTags as t}
+					<button
+						type="button"
+						onclick={() => handleTagClick(t.tag)}
+						class="px-2.5 py-1 rounded-full text-xs font-mono transition border {selectedTag === t.tag ? 'bg-red-950/80 text-red-300 border-red-500' : 'bg-[#0a0c10] text-gray-300 border-[#1e2430] hover:border-gray-600'}"
+					>
+						#{t.tag} <span class="text-[10px] text-gray-500 font-sans">({t.count})</span>
+					</button>
+				{/each}
+			</div>
+		{/if}
+
+		{#if selectedTag || searchQuery}
+			<div class="flex items-center gap-2 pt-1 text-xs text-gray-400 font-mono">
+				<span>Active filter:</span>
+				{#if selectedTag}
+					<span class="px-2 py-0.5 rounded bg-red-900/30 text-red-300 border border-red-800/40">#{selectedTag}</span>
+				{/if}
+				{#if searchQuery}
+					<span class="px-2 py-0.5 rounded bg-gray-800 text-gray-300">"{searchQuery}"</span>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<!-- Feed Filter Tabs -->
@@ -291,7 +390,12 @@
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2.5">
 							<span class="w-3 h-3 rounded-full" style="background-color: {authorClub.primary_color}"></span>
-							<span class="text-xs font-bold text-white">{post.author_name}</span>
+							<a
+								href="/supporters/{encodeURIComponent(post.author_name)}"
+								class="text-xs font-bold text-white hover:text-red-400 hover:underline transition"
+							>
+								{post.author_name}
+							</a>
 							<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/40 border border-[#1e2430] text-gray-400">
 								{authorClub.short_name}
 							</span>
@@ -397,7 +501,12 @@
 											<div class="flex items-center justify-between">
 												<div class="flex items-center gap-1.5">
 													<span class="w-1.5 h-1.5 rounded-full" style="background-color: {cClub.primary_color}"></span>
-													<span class="text-[11px] font-bold text-gray-300">{comment.author_name}</span>
+													<a
+														href="/supporters/{encodeURIComponent(comment.author_name)}"
+														class="text-[11px] font-bold text-gray-300 hover:text-white hover:underline transition"
+													>
+														{comment.author_name}
+													</a>
 												</div>
 												<span class="text-[10px] text-gray-500 font-mono">{formatTimestamp(comment.created_at)}</span>
 											</div>

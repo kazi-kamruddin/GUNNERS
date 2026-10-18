@@ -193,6 +193,12 @@
 
 		<!-- Action Bar -->
 		<div class="flex items-center gap-2">
+			<a
+				href="/lab/historical"
+				class="px-3.5 py-2 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-xs text-amber-300 font-semibold transition flex items-center gap-1.5"
+			>
+				<span>StatsBomb 2D Pitch</span>
+			</a>
 			<button
 				type="button"
 				onclick={copyShareLink}

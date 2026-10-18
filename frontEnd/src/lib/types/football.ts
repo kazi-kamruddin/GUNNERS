@@ -156,3 +156,166 @@ export interface Conversation {
 	last_message?: DirectMessage | null;
 }
 
+export interface Player {
+	id: string;
+	club_id: string;
+	name: string;
+	short_name: string;
+	position: string;
+	jersey_number: number;
+	nationality: string;
+	appearances: number;
+	goals: number;
+	assists: number;
+	clean_sheets: number;
+	minutes_played: number;
+	yellow_cards: number;
+	red_cards: number;
+	photo_url?: string | null;
+	goals_per_game: number;
+	assists_per_game: number;
+	goal_contributions: number;
+}
+
+export interface PlayerComparisonItem {
+	player: Player;
+	goals_per_90: number;
+	assists_per_90: number;
+	minutes_per_contribution: number;
+	discipline_score: number;
+}
+
+export interface PlayerComparison {
+	player1: PlayerComparisonItem;
+	player2: PlayerComparisonItem;
+	comparison_summary: string;
+}
+
+export interface Prediction {
+	id: string;
+	user_id: string;
+	user_name: string;
+	user_club_id: string;
+	match_id: string;
+	predicted_home_score: number;
+	predicted_away_score: number;
+	points_awarded?: number | null;
+	created_at: string;
+}
+
+export interface UpcomingMatchPrediction {
+	match: Match;
+	user_prediction?: Prediction | null;
+	can_predict: boolean;
+	total_predictions_count: number;
+}
+
+export interface LeaderboardEntry {
+	rank: number;
+	user_id: string;
+	user_name: string;
+	user_club_id: string;
+	total_points: number;
+	predictions_count: number;
+	exact_scores: number;
+	correct_outcomes: number;
+	accuracy_rate: number;
+}
+
+export interface Notification {
+	id: string;
+	user_id: string;
+	type: string;
+	title: string;
+	message: string;
+	link: string;
+	is_read: boolean;
+	created_at: string;
+}
+
+export interface SupporterStats {
+	prediction_points: number;
+	prediction_rank: number;
+	total_predictions: number;
+	exact_scores: number;
+	insights_published: number;
+	posts_count: number;
+	cheers_received: number;
+}
+
+export interface SupporterProfile {
+	user_id: string;
+	username: string;
+	display_name: string;
+	favorite_club_id: string;
+	bio?: string | null;
+	joined_at: string;
+	stats: SupporterStats;
+	featured_insights: Insight[];
+	recent_posts: Post[];
+}
+
+export interface ShotEvent {
+	id: string;
+	minute: number;
+	second: number;
+	team_id: string;
+	team_name: string;
+	player_name: string;
+	x: number;
+	y: number;
+	outcome: string;
+	xg: number;
+	body_part: string;
+	shot_type: string;
+}
+
+export interface PassNode {
+	player_name: string;
+	position: string;
+	jersey_number: number;
+	x: number;
+	y: number;
+	passes_completed: number;
+}
+
+export interface PassLink {
+	source: string;
+	target: string;
+	pass_count: number;
+}
+
+export interface HistoricalMatchSummary {
+	id: string;
+	title: string;
+	competition: string;
+	season: string;
+	match_date: string;
+	venue: string;
+	home_team_id: string;
+	home_team_name: string;
+	home_score: number;
+	away_team_id: string;
+	away_team_name: string;
+	away_score: number;
+	data_provider: string;
+	license_notice: string;
+}
+
+export interface HistoricalMatchDetail extends HistoricalMatchSummary {
+	shots: ShotEvent[];
+	pass_nodes: PassNode[];
+	pass_links: PassLink[];
+	total_shots_home: number;
+	total_shots_away: number;
+	total_xg_home: number;
+	total_xg_away: number;
+}
+
+export interface TopicTag {
+	tag: string;
+	count: number;
+	club: string;
+}
+
+
