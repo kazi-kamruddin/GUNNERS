@@ -1,6 +1,6 @@
 import type { Club, AnalyticsResponse } from '$lib/types/football';
 
-const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = (import.meta.env.PUBLIC_API_URL as string) || 'http://localhost:8000/api/v1';
 
 export async function fetchClubs(): Promise<Club[]> {
 	try {
