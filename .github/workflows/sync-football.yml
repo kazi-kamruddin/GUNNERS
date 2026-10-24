@@ -1,9 +1,10 @@
 name: Football Data Ingestion Pipeline
 
 on:
-  schedule:
-    # Runs twice daily at 06:00 and 18:00 UTC (cost-free on GitHub Actions)
-    - cron: '0 6,18 * * *'
+  # Scheduled cron disabled to prevent automated failure alerts when repository secrets are not configured.
+  # Can be re-enabled once DATABASE_URL and FOOTBALL_DATA_API_KEY are configured in repo secrets.
+  # schedule:
+  #   - cron: '0 6,18 * * *'
   workflow_dispatch:
     inputs:
       force_mock:
@@ -49,6 +50,10 @@ jobs:
           FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
           PYTHONPATH: backEnd
         run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::notice title=Skipped::DATABASE_URL secret is not configured in GitHub repository secrets. Skipping synchronization gracefully."
+            exit 0
+          fi
           if [ "${{ inputs.force_mock }}" = "true" ]; then
             python -m app.scripts.sync_football --mock
           else

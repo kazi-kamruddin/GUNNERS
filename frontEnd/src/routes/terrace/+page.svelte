@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { CLUBS, themeState } from '$lib/stores/theme.svelte';
 	import { fetchPosts, createPost, toggleReaction, fetchComments, createComment } from '$lib/api/football';
-	import type { Post, PostComment, Insight, TopicTag } from '$lib/types/football';
+	import TacticalBoardComponent from '$lib/components/TacticalBoard.svelte';
+	import type { Post, PostComment, Insight, TopicTag, TacticalBoard } from '$lib/types/football';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -10,11 +11,13 @@
 	let selectedTab = $state<'global' | string>('global');
 	let posts = $state<Post[]>([]);
 	let availableInsights = $state<Insight[]>([]);
+	let availableTacticalBoards = $state<TacticalBoard[]>([]);
 	let isLoadingFeed = $state(false);
 
 	// Composer state
 	let newPostContent = $state('');
 	let selectedInsightId = $state<string>('');
+	let selectedTacticalBoardId = $state<string>('');
 	let targetClub = $state<'global' | string>('global');
 	let isSubmitting = $state(false);
 
@@ -34,6 +37,7 @@
 	$effect(() => {
 		posts = data.initialPosts;
 		availableInsights = data.availableInsights;
+		availableTacticalBoards = data.availableTacticalBoards || [];
 		selectedTab = data.initialClub || 'global';
 		searchQuery = data.initialSearch || '';
 		selectedTag = data.initialTag || '';
@@ -90,6 +94,7 @@
 				content: newPostContent.trim(),
 				club_id: targetClub === 'global' ? null : targetClub,
 				insight_id: selectedInsightId || null,
+				tactical_board_id: selectedTacticalBoardId || null,
 				author_name: authorName,
 				author_club_id: authorClub
 			});
@@ -100,9 +105,14 @@
 					const insObj = availableInsights.find((i) => i.id === selectedInsightId);
 					if (insObj) created.insight = insObj;
 				}
+				if (selectedTacticalBoardId) {
+					const tbObj = availableTacticalBoards.find((b) => b.id === selectedTacticalBoardId);
+					if (tbObj) created.tactical_board = tbObj;
+				}
 				posts = [created, ...posts];
 				newPostContent = '';
 				selectedInsightId = '';
+				selectedTacticalBoardId = '';
 			}
 		} finally {
 			isSubmitting = false;
@@ -161,6 +171,10 @@
 
 	let attachedInsightPreview = $derived(
 		selectedInsightId ? availableInsights.find((i) => i.id === selectedInsightId) : null
+	);
+
+	let attachedTacticalBoardPreview = $derived(
+		selectedTacticalBoardId ? availableTacticalBoards.find((b) => b.id === selectedTacticalBoardId) : null
 	);
 
 	function formatTimestamp(isoStr: string): string {
@@ -338,24 +352,59 @@
 			</div>
 		{/if}
 
+		<!-- Attached Tactical Board Preview -->
+		{#if attachedTacticalBoardPreview}
+			<div class="p-3.5 rounded-lg bg-[#0a0c10] border border-red-500/30 flex items-center justify-between gap-4">
+				<div class="space-y-1">
+					<div class="flex items-center gap-2">
+						<span class="text-[10px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-red-950/70 text-red-400 border border-red-800/40">
+							Tactical Board Attached ({attachedTacticalBoardPreview.formation})
+						</span>
+						<span class="text-xs font-bold text-white">{attachedTacticalBoardPreview.title}</span>
+					</div>
+					<p class="text-[11px] text-gray-400 font-mono">
+						Players: {attachedTacticalBoardPreview.lineup.length} · Arrows: {attachedTacticalBoardPreview.annotations.length}
+					</p>
+				</div>
+				<button
+					type="button"
+					onclick={() => (selectedTacticalBoardId = '')}
+					class="text-xs text-gray-500 hover:text-red-400 px-2 py-1 rounded transition"
+				>
+					Detach
+				</button>
+			</div>
+		{/if}
+
 		<!-- Composer Footer -->
 		<div class="flex items-center justify-between pt-2 border-t border-[#1e2430] flex-wrap gap-2">
-			<!-- Attach Insight Dropdown -->
-			<div class="flex items-center gap-2">
+			<!-- Attach Dropdowns -->
+			<div class="flex items-center gap-2 flex-wrap">
 				<select
 					bind:value={selectedInsightId}
 					class="bg-[#0a0c10] border border-[#1e2430] text-xs text-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-gray-500"
 				>
-					<option value="">Attach Data Lab Insight (Optional)</option>
+					<option value="">Attach Insight (Optional)</option>
 					{#each availableInsights as ins}
 						<option value={ins.id}>{ins.title}</option>
 					{/each}
 				</select>
-				<a
-					href="/lab"
-					class="text-[11px] text-amber-400 hover:underline hidden sm:inline"
+
+				<select
+					bind:value={selectedTacticalBoardId}
+					class="bg-[#0a0c10] border border-[#1e2430] text-xs text-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-gray-500"
 				>
-					+ Create new in Data Lab
+					<option value="">Attach Tactic (Optional)</option>
+					{#each availableTacticalBoards as tb}
+						<option value={tb.id}>{tb.title} ({tb.formation})</option>
+					{/each}
+				</select>
+
+				<a
+					href="/board"
+					class="text-[11px] text-red-400 hover:underline hidden sm:inline"
+				>
+					+ Create Tactic
 				</a>
 			</div>
 
@@ -464,6 +513,44 @@
 									Formula: {ins.snapshot.formula} (Venue: {ins.venue})
 								</div>
 							{/if}
+						</div>
+					{/if}
+
+					<!-- Attached Tactical Board Post Card -->
+					{#if post.tactical_board}
+						{@const tb = post.tactical_board}
+						<div class="p-4 rounded-lg bg-[#0a0c10] border border-[#1e2430] space-y-3">
+							<div class="flex items-center justify-between gap-2">
+								<div class="flex items-center gap-2">
+									<span class="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-red-950/80 text-red-300 border border-red-800/40">
+										Tactical Blueprint ({tb.formation})
+									</span>
+									<h4 class="text-xs font-bold text-white">{tb.title}</h4>
+								</div>
+								<a
+									href="/board"
+									class="text-[11px] font-bold px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-red-300 border border-red-500/30 transition flex items-center gap-1"
+								>
+									<span>Tactical Studio</span>
+									<span>→</span>
+								</a>
+							</div>
+
+							{#if tb.tactical_notes}
+								<p class="text-[11px] text-gray-300 leading-relaxed italic bg-[#12161f] p-2.5 rounded border border-[#1e2430]">
+									"{tb.tactical_notes}"
+								</p>
+							{/if}
+
+							<!-- Embedded Mini Pitch -->
+							<div class="max-w-md mx-auto rounded-lg overflow-hidden border border-emerald-950/80">
+								<TacticalBoardComponent
+									lineup={tb.lineup}
+									annotations={tb.annotations}
+									readonly={true}
+									showGuides={false}
+								/>
+							</div>
 						</div>
 					{/if}
 

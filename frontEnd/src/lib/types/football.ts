@@ -114,6 +114,8 @@ export interface Post {
 	content: string;
 	insight_id?: string | null;
 	insight?: Insight | null;
+	tactical_board_id?: string | null;
+	tactical_board?: TacticalBoard | null;
 	created_at: string;
 	reactions_count: number;
 	comments_count: number;
@@ -134,6 +136,7 @@ export interface PostCreatePayload {
 	content: string;
 	club_id?: string | null;
 	insight_id?: string | null;
+	tactical_board_id?: string | null;
 	author_name?: string;
 	author_club_id?: string;
 }
@@ -316,6 +319,59 @@ export interface TopicTag {
 	tag: string;
 	count: number;
 	club: string;
+}
+
+export interface TacticalPlayerToken {
+	id: string;
+	name: string;
+	number: number;
+	role: string;
+	x: number;
+	y: number;
+}
+
+export interface TacticalAnnotation {
+	id: string;
+	type: 'run' | 'pass' | 'press' | string;
+	from_x: number;
+	from_y: number;
+	to_x: number;
+	to_y: number;
+	label?: string;
+}
+
+export interface FormationPreset {
+	id: string;
+	name: string;
+	description: string;
+	players: TacticalPlayerToken[];
+}
+
+export interface TacticalBoard {
+	id: string;
+	user_id?: string | null;
+	author_name: string;
+	author_club_id: string;
+	title: string;
+	formation: string;
+	lineup: TacticalPlayerToken[];
+	annotations: TacticalAnnotation[];
+	tactical_notes?: string | null;
+	is_public: boolean;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface TacticalBoardCreatePayload {
+	title: string;
+	formation: string;
+	lineup: TacticalPlayerToken[];
+	annotations?: TacticalAnnotation[];
+	tactical_notes?: string;
+	author_name?: string;
+	author_club_id?: string;
+	user_id?: string;
+	is_public?: boolean;
 }
 
 

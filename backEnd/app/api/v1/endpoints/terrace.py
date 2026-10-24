@@ -8,6 +8,7 @@ from typing import List, Optional
 from app.core.database import get_db
 from app.models.terrace import Post, PostComment, PostReaction
 from app.models.insight import Insight
+from app.models.tactics import TacticalBoard
 from app.schemas.terrace import (
     PostCreateRequest,
     PostResponse,
@@ -16,8 +17,27 @@ from app.schemas.terrace import (
     ReactionToggleRequest
 )
 from app.schemas.insight import InsightResponse
+from app.schemas.tactics import TacticalBoardResponse
 
 router = APIRouter()
+
+def serialize_tactical_board_response(tb: Optional[TacticalBoard]) -> Optional[TacticalBoardResponse]:
+    if not tb:
+        return None
+    return TacticalBoardResponse(
+        id=tb.id,
+        user_id=tb.user_id,
+        author_name=tb.author_name,
+        author_club_id=tb.author_club_id,
+        title=tb.title,
+        formation=tb.formation,
+        lineup=tb.lineup,
+        annotations=tb.annotations or [],
+        tactical_notes=tb.tactical_notes,
+        is_public=tb.is_public,
+        created_at=tb.created_at,
+        updated_at=tb.updated_at
+    )
 
 def serialize_insight_response(ins: Optional[Insight]) -> Optional[InsightResponse]:
     if not ins:
@@ -57,6 +77,7 @@ async def list_posts(
         select(Post)
         .options(
             selectinload(Post.insight),
+            selectinload(Post.tactical_board),
             selectinload(Post.comments),
             selectinload(Post.reactions)
         )
@@ -99,6 +120,8 @@ async def list_posts(
                 content=p.content,
                 insight_id=p.insight_id,
                 insight=serialize_insight_response(p.insight),
+                tactical_board_id=p.tactical_board_id,
+                tactical_board=serialize_tactical_board_response(p.tactical_board),
                 created_at=p.created_at,
                 reactions_count=reactions_cnt,
                 comments_count=comments_cnt,
@@ -113,7 +136,7 @@ async def create_post(
     request: PostCreateRequest,
     db: AsyncSession = Depends(get_db)
 ):
-    """Publish a post to the global feed or a specific club terrace with optional insight attachment."""
+    """Publish a post to the global feed or a specific club terrace with optional insight or tactical board attachment."""
     # Verify insight exists if provided
     attached_insight = None
     if request.insight_id:
@@ -121,6 +144,11 @@ async def create_post(
         attached_insight = ins_res.scalar_one_or_none()
         if not attached_insight:
             raise HTTPException(status_code=400, detail="Attached insight not found")
+
+    attached_board = None
+    if request.tactical_board_id:
+        tb_res = await db.execute(select(TacticalBoard).where(TacticalBoard.id == request.tactical_board_id))
+        attached_board = tb_res.scalar_one_or_none()
 
     post_id = f"post_{uuid.uuid4().hex[:12]}"
     new_post = Post(
@@ -130,7 +158,8 @@ async def create_post(
         author_club_id=request.author_club_id,
         club_id=request.club_id if request.club_id != "global" else None,
         content=request.content,
-        insight_id=request.insight_id
+        insight_id=request.insight_id,
+        tactical_board_id=request.tactical_board_id
     )
 
     db.add(new_post)
@@ -146,6 +175,8 @@ async def create_post(
         content=new_post.content,
         insight_id=new_post.insight_id,
         insight=serialize_insight_response(attached_insight),
+        tactical_board_id=new_post.tactical_board_id,
+        tactical_board=serialize_tactical_board_response(attached_board),
         created_at=new_post.created_at,
         reactions_count=0,
         comments_count=0,

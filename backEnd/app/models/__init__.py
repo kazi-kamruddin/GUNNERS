@@ -5,6 +5,7 @@ from .messaging import Conversation, ConversationMember, DirectMessage
 from .squad import Player
 from .predictions import Prediction
 from .notifications import Notification
+from .tactics import TacticalBoard
 
 __all__ = [
     "Club",
@@ -21,6 +22,7 @@ __all__ = [
     "DirectMessage",
     "Player",
     "Prediction",
-    "Notification"
+    "Notification",
+    "TacticalBoard"
 ]
 

@@ -10,7 +10,8 @@ from app.api.v1.endpoints import (
     predictions,
     notifications,
     supporters,
-    historical
+    historical,
+    tactics
 )
 
 api_router = APIRouter()
@@ -26,5 +27,6 @@ api_router.include_router(predictions.router, prefix="/predictions", tags=["Matc
 api_router.include_router(notifications.router, prefix="/notifications", tags=["In-App Notifications"])
 api_router.include_router(supporters.router, prefix="/supporters", tags=["Supporter Public Profiles"])
 api_router.include_router(historical.router, prefix="/analytics/historical", tags=["StatsBomb Historical Tactical Analytics"])
+api_router.include_router(tactics.router, prefix="/tactics", tags=["Interactive Tactical Pitch Board"])
 
 
