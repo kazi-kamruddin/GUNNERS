@@ -10,7 +10,20 @@ import type {
 	PostComment,
 	PostCreatePayload,
 	DirectMessage,
-	Conversation
+	Conversation,
+	Player,
+	PlayerComparison,
+	Prediction,
+	UpcomingMatchPrediction,
+	LeaderboardEntry,
+	Notification,
+	SupporterProfile,
+	HistoricalMatchSummary,
+	HistoricalMatchDetail,
+	TopicTag,
+	FormationPreset,
+	TacticalBoard,
+	TacticalBoardCreatePayload
 } from '$lib/types/football';
 
 const API_BASE = (import.meta.env.PUBLIC_API_URL as string) || 'http://localhost:8000/api/v1';
@@ -311,11 +324,18 @@ export async function fetchInsights(clubId?: string): Promise<Insight[]> {
 	}
 }
 
-export async function fetchPosts(clubId?: string, currentUserId?: string): Promise<Post[]> {
+export async function fetchPosts(
+	clubId?: string,
+	currentUserId?: string,
+	search?: string,
+	tag?: string
+): Promise<Post[]> {
 	try {
 		const query = new URLSearchParams();
 		if (clubId && clubId !== 'global') query.set('club_id', clubId);
 		if (currentUserId) query.set('current_user_id', currentUserId);
+		if (search) query.set('search', search);
+		if (tag) query.set('tag', tag);
 
 		const url = `${API_BASE}/terrace/posts?${query.toString()}`;
 		const res = await fetch(url);
@@ -496,6 +516,157 @@ export async function sendMessage(
 		};
 	}
 }
+
+export async function fetchSquad(clubId?: string, position?: string): Promise<Player[]> {
+	try {
+		const query = new URLSearchParams();
+		if (clubId) query.set('club_id', clubId);
+		if (position) query.set('position', position);
+		const res = await fetch(`${API_BASE}/squad?${query.toString()}`);
+		if (!res.ok) throw new Error('Failed to fetch squad');
+		return await res.json();
+	} catch (err) {
+		console.warn('API error fetching squad, returning local fallback');
+		return [];
+	}
+}
+
+export async function fetchPlayer(playerId: string): Promise<Player | null> {
+	try {
+		const res = await fetch(`${API_BASE}/squad/${playerId}`);
+		if (!res.ok) throw new Error('Failed to fetch player');
+		return await res.json();
+	} catch (err) {
+		return null;
+	}
+}
+
+export async function comparePlayers(player1Id: string, player2Id: string): Promise<PlayerComparison | null> {
+	try {
+		const res = await fetch(`${API_BASE}/squad/compare?player1_id=${player1Id}&player2_id=${player2Id}`);
+		if (!res.ok) throw new Error('Failed to compare players');
+		return await res.json();
+	} catch (err) {
+		return null;
+	}
+}
+
+export async function fetchUpcomingPredictions(userId?: string): Promise<UpcomingMatchPrediction[]> {
+	try {
+		const url = userId ? `${API_BASE}/predictions/upcoming?user_id=${userId}` : `${API_BASE}/predictions/upcoming`;
+		const res = await fetch(url);
+		if (!res.ok) throw new Error('Failed to fetch predictions');
+		return await res.json();
+	} catch (err) {
+		return [];
+	}
+}
+
+export async function submitPrediction(payload: {
+	user_id: string;
+	user_name?: string;
+	user_club_id?: string;
+	match_id: string;
+	predicted_home_score: number;
+	predicted_away_score: number;
+}): Promise<Prediction | null> {
+	try {
+		const res = await fetch(`${API_BASE}/predictions`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+		if (!res.ok) throw new Error('Failed to submit prediction');
+		return await res.json();
+	} catch (err) {
+		return null;
+	}
+}
+
+export async function fetchLeaderboard(clubId?: string): Promise<LeaderboardEntry[]> {
+	try {
+		const url = clubId ? `${API_BASE}/predictions/leaderboard?club_id=${clubId}` : `${API_BASE}/predictions/leaderboard`;
+		const res = await fetch(url);
+		if (!res.ok) throw new Error('Failed to fetch leaderboard');
+		return await res.json();
+	} catch (err) {
+		return [];
+	}
+}
+
+export async function fetchNotifications(userId: string): Promise<Notification[]> {
+	try {
+		const res = await fetch(`${API_BASE}/notifications?user_id=${encodeURIComponent(userId)}`);
+		if (!res.ok) throw new Error('Failed to fetch notifications');
+		return await res.json();
+	} catch (err) {
+		return [];
+	}
+}
+
+export async function fetchUnreadNotificationsCount(userId: string): Promise<number> {
+	try {
+		const res = await fetch(`${API_BASE}/notifications/unread-count?user_id=${encodeURIComponent(userId)}`);
+		if (!res.ok) return 0;
+		const data = await res.json();
+		return data.unread_count || 0;
+	} catch (err) {
+		return 0;
+	}
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+	try {
+		await fetch(`${API_BASE}/notifications/${notificationId}/read`, { method: 'POST' });
+	} catch (err) {}
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+	try {
+		await fetch(`${API_BASE}/notifications/read-all?user_id=${encodeURIComponent(userId)}`, { method: 'POST' });
+	} catch (err) {}
+}
+
+export async function fetchSupporterProfile(username: string): Promise<SupporterProfile | null> {
+	try {
+		const res = await fetch(`${API_BASE}/supporters/${encodeURIComponent(username)}`);
+		if (!res.ok) throw new Error('Failed to fetch supporter profile');
+		return await res.json();
+	} catch (err) {
+		return null;
+	}
+}
+
+export async function fetchHistoricalMatches(): Promise<HistoricalMatchSummary[]> {
+	try {
+		const res = await fetch(`${API_BASE}/analytics/historical/matches`);
+		if (!res.ok) throw new Error('Failed to fetch historical matches');
+		return await res.json();
+	} catch (err) {
+		return [];
+	}
+}
+
+export async function fetchHistoricalMatchDetail(matchId: string): Promise<HistoricalMatchDetail | null> {
+	try {
+		const res = await fetch(`${API_BASE}/analytics/historical/matches/${matchId}`);
+		if (!res.ok) throw new Error('Failed to fetch match detail');
+		return await res.json();
+	} catch (err) {
+		return null;
+	}
+}
+
+export async function fetchTrendingTags(): Promise<TopicTag[]> {
+	try {
+		const res = await fetch(`${API_BASE}/terrace/tags`);
+		if (!res.ok) throw new Error('Failed to fetch trending tags');
+		return await res.json();
+	} catch (err) {
+		return [];
+	}
+}
+
 
 function getLocalFallbackPosts(clubId?: string): Post[] {
 	const allPosts: Post[] = [
@@ -793,3 +964,101 @@ function getLocalFallbackMatches(clubId?: string): Match[] {
 	}
 	return all;
 }
+
+export async function fetchFormationPresets(): Promise<FormationPreset[]> {
+	try {
+		const res = await fetch(`${API_BASE}/tactics/formations/presets`);
+		if (!res.ok) throw new Error('Failed to fetch formation presets');
+		return await res.json();
+	} catch (err) {
+		console.warn('API error fetching presets, returning local default presets');
+		return [
+			{
+				id: '4-3-3',
+				name: '4-3-3 Attacking',
+				description: 'High press with aggressive wingers and a single holding midfielder.',
+				players: [
+					{ id: 'p1', name: 'Raya', number: 1, role: 'GK', x: 5.0, y: 50.0 },
+					{ id: 'p2', name: 'Zinchenko', number: 35, role: 'LB', x: 24.0, y: 14.0 },
+					{ id: 'p3', name: 'Gabriel', number: 6, role: 'CB', x: 20.0, y: 36.0 },
+					{ id: 'p4', name: 'Saliba', number: 2, role: 'CB', x: 20.0, y: 64.0 },
+					{ id: 'p5', name: 'White', number: 4, role: 'RB', x: 24.0, y: 86.0 },
+					{ id: 'p6', name: 'Rice', number: 41, role: 'DM', x: 38.0, y: 50.0 },
+					{ id: 'p7', name: 'Merino', number: 23, role: 'CM', x: 54.0, y: 30.0 },
+					{ id: 'p8', name: 'Ødegaard', number: 8, role: 'CM', x: 54.0, y: 70.0 },
+					{ id: 'p9', name: 'Martinelli', number: 11, role: 'LW', x: 76.0, y: 16.0 },
+					{ id: 'p10', name: 'Havertz', number: 29, role: 'ST', x: 82.0, y: 50.0 },
+					{ id: 'p11', name: 'Saka', number: 7, role: 'RW', x: 76.0, y: 84.0 }
+				]
+			},
+			{
+				id: '4-2-3-1',
+				name: '4-2-3-1 Double Pivot',
+				description: 'Controlled midfield with a double pivot and a central playmaker.',
+				players: [
+					{ id: 'p1', name: 'Goalkeeper', number: 1, role: 'GK', x: 5.0, y: 50.0 },
+					{ id: 'p2', name: 'Left Back', number: 3, role: 'LB', x: 24.0, y: 14.0 },
+					{ id: 'p3', name: 'Left CB', number: 6, role: 'CB', x: 20.0, y: 36.0 },
+					{ id: 'p4', name: 'Right CB', number: 2, role: 'CB', x: 20.0, y: 64.0 },
+					{ id: 'p5', name: 'Right Back', number: 4, role: 'RB', x: 24.0, y: 86.0 },
+					{ id: 'p6', name: 'Pivot 1', number: 41, role: 'DM', x: 38.0, y: 35.0 },
+					{ id: 'p7', name: 'Pivot 2', number: 5, role: 'DM', x: 38.0, y: 65.0 },
+					{ id: 'p8', name: 'Attacking Mid', number: 8, role: 'AM', x: 58.0, y: 50.0 },
+					{ id: 'p9', name: 'Left Wing', number: 11, role: 'LW', x: 72.0, y: 18.0 },
+					{ id: 'p10', name: 'Right Wing', number: 7, role: 'RW', x: 72.0, y: 82.0 },
+					{ id: 'p11', name: 'Striker', number: 9, role: 'ST', x: 84.0, y: 50.0 }
+				]
+			}
+		];
+	}
+}
+
+export async function saveTacticalBoard(payload: TacticalBoardCreatePayload): Promise<TacticalBoard | null> {
+	try {
+		const res = await fetch(`${API_BASE}/tactics`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		});
+		if (!res.ok) throw new Error('Failed to save tactical board');
+		return await res.json();
+	} catch (err) {
+		console.warn('API error saving tactical board, creating local fallback');
+		return {
+			id: `tb_${Math.random().toString(36).substring(2, 10)}`,
+			user_id: payload.user_id || null,
+			author_name: payload.author_name || 'Supporter',
+			author_club_id: payload.author_club_id || 'arsenal',
+			title: payload.title,
+			formation: payload.formation,
+			lineup: payload.lineup,
+			annotations: payload.annotations || [],
+			tactical_notes: payload.tactical_notes || null,
+			is_public: payload.is_public ?? true,
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString()
+		};
+	}
+}
+
+export async function fetchTacticalBoards(clubId?: string): Promise<TacticalBoard[]> {
+	try {
+		const url = clubId ? `${API_BASE}/tactics?club_id=${encodeURIComponent(clubId)}` : `${API_BASE}/tactics`;
+		const res = await fetch(url);
+		if (!res.ok) throw new Error('Failed to fetch tactical boards');
+		return await res.json();
+	} catch (err) {
+		return [];
+	}
+}
+
+export async function fetchTacticalBoard(boardId: string): Promise<TacticalBoard | null> {
+	try {
+		const res = await fetch(`${API_BASE}/tactics/${encodeURIComponent(boardId)}`);
+		if (!res.ok) throw new Error('Failed to fetch board');
+		return await res.json();
+	} catch (err) {
+		return null;
+	}
+}
+

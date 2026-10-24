@@ -4,12 +4,14 @@
 	import { onMount } from 'svelte';
 	import { invalidate } from '$app/navigation';
 	import { CLUBS, themeState } from '$lib/stores/theme.svelte';
+	import { fetchUnreadNotificationsCount } from '$lib/api/football';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
 
 	const clubList = Object.values(CLUBS);
 	let currentViewingClub = $derived(themeState.currentTheme);
+	let unreadCount = $state(0);
 
 	onMount(() => {
 		// Initialize theme with profile favorite club if available
@@ -17,6 +19,12 @@
 			themeState.setFavoriteClub(data.profile.favorite_club_id);
 		} else {
 			themeState.applyCssTokens();
+		}
+
+		if (data.user?.id) {
+			fetchUnreadNotificationsCount(data.user.id).then((count) => {
+				unreadCount = count;
+			});
 		}
 
 		const { data: authListener } = data.supabase.auth.onAuthStateChange((event, newSession) => {
@@ -48,14 +56,17 @@
 						REBORN
 					</span>
 				</a>
-				<nav class="hidden md:flex items-center gap-5 text-sm font-medium text-gray-400">
+				<nav class="hidden md:flex items-center gap-4 text-xs font-medium text-gray-400">
 					<a href="/" class="hover:text-white transition">Home</a>
-					<a href="/lab" class="hover:text-white transition flex items-center gap-1.5">
+					<a href="/lab" class="hover:text-white transition flex items-center gap-1">
 						<span>Data Lab</span>
-						<span class="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1 rounded">Analytics</span>
+						<span class="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1 rounded">Analytics</span>
 					</a>
-					<a href="/terrace" class="hover:text-white transition">The Terrace</a>
+					<a href="/board" class="hover:text-white transition">Tactics</a>
+					<a href="/squad" class="hover:text-white transition">Squad</a>
+					<a href="/predictions" class="hover:text-white transition">Predictions</a>
 					<a href="/matches" class="hover:text-white transition">Matches</a>
+					<a href="/terrace" class="hover:text-white transition">The Terrace</a>
 					<a href="/messages" class="hover:text-white transition">Messages</a>
 				</nav>
 			</div>
@@ -79,6 +90,20 @@
 
 				{#if data.user}
 					<div class="flex items-center gap-2">
+						<a
+							href="/notifications"
+							class="relative p-1.5 rounded-lg border border-[#1e2430] bg-[#0a0c10] hover:border-gray-600 text-gray-300 hover:text-white transition"
+							title="Activity Notifications"
+						>
+							<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+							</svg>
+							{#if unreadCount > 0}
+								<span class="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-red-600 text-white font-mono text-[9px] font-bold">
+									{unreadCount > 9 ? '9+' : unreadCount}
+								</span>
+							{/if}
+						</a>
 						<a
 							href="/profile"
 							class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#1e2430] bg-[#0a0c10] hover:border-gray-600 text-xs text-white transition"
