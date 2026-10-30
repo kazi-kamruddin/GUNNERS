@@ -381,6 +381,14 @@
 						</div>
 					</div>
 				{/each}
+			{:else}
+				<div class="col-span-full p-6 rounded-xl border border-[#1e2430] bg-[#12161f] text-center space-y-2">
+					<p class="text-sm font-semibold text-gray-300">Debates are heating up on The Terrace</p>
+					<p class="text-xs text-gray-500">Join supporters across clubs and share your match analyses.</p>
+					<a href="/terrace" class="inline-block mt-2 px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition">
+						Open The Terrace →
+					</a>
+				</div>
 			{/if}
 		</div>
 	</section>

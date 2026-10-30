@@ -68,10 +68,11 @@
 	}
 
 	async function handleTagClick(tag: string) {
-		if (selectedTag === tag) {
+		const clean = tag.replace(/^#+/, '');
+		if (selectedTag === clean) {
 			selectedTag = '';
 		} else {
-			selectedTag = tag;
+			selectedTag = clean;
 		}
 		await reloadFeed(selectedTab, undefined, selectedTag);
 	}
@@ -246,12 +247,13 @@
 			<div class="flex items-center gap-2 flex-wrap text-xs">
 				<span class="text-[11px] font-mono text-gray-400 uppercase font-semibold">Topics:</span>
 				{#each trendingTags as t}
+					{@const cleanTag = t.tag.replace(/^#+/, '')}
 					<button
 						type="button"
-						onclick={() => handleTagClick(t.tag)}
-						class="px-2.5 py-1 rounded-full text-xs font-mono transition border {selectedTag === t.tag ? 'bg-red-950/80 text-red-300 border-red-500' : 'bg-[#0a0c10] text-gray-300 border-[#1e2430] hover:border-gray-600'}"
+						onclick={() => handleTagClick(cleanTag)}
+						class="px-2.5 py-1 rounded-full text-xs font-mono transition border {selectedTag === cleanTag ? 'bg-red-950/80 text-red-300 border-red-500' : 'bg-[#0a0c10] text-gray-300 border-[#1e2430] hover:border-gray-600'}"
 					>
-						#{t.tag} <span class="text-[10px] text-gray-500 font-sans">({t.count})</span>
+						#{cleanTag} <span class="text-[10px] text-gray-500 font-sans">({t.count})</span>
 					</button>
 				{/each}
 			</div>
@@ -261,7 +263,7 @@
 			<div class="flex items-center gap-2 pt-1 text-xs text-gray-400 font-mono">
 				<span>Active filter:</span>
 				{#if selectedTag}
-					<span class="px-2 py-0.5 rounded bg-red-900/30 text-red-300 border border-red-800/40">#{selectedTag}</span>
+					<span class="px-2 py-0.5 rounded bg-red-900/30 text-red-300 border border-red-800/40">#{selectedTag.replace(/^#+/, '')}</span>
 				{/if}
 				{#if searchQuery}
 					<span class="px-2 py-0.5 rounded bg-gray-800 text-gray-300">"{searchQuery}"</span>

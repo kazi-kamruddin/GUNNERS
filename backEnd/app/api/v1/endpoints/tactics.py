@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 from typing import List, Optional
 import uuid
 import datetime
@@ -131,7 +131,7 @@ PRESETS: List[FormationPreset] = [
 DEMO_BOARDS: List[TacticalBoardResponse] = [
     TacticalBoardResponse(
         id="tb_arsenal_highpress",
-        author_name="MikelTactics",
+        author_name="GoonerAlex",
         author_club_id="arsenal",
         title="Arteta 4-3-3 High Press & Half-Space Overloads",
         formation="4-3-3",
@@ -143,8 +143,80 @@ DEMO_BOARDS: List[TacticalBoardResponse] = [
         ],
         tactical_notes="Isolate Saka 1v1 on the right flank while Ødegaard and White generate the overlapping triangle.",
         is_public=True,
-        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=5),
-        updated_at=datetime.datetime.utcnow() - datetime.timedelta(hours=5)
+        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=2),
+        updated_at=datetime.datetime.utcnow() - datetime.timedelta(hours=2)
+    ),
+    TacticalBoardResponse(
+        id="tb_real_transition",
+        author_name="MadridistaCarlos",
+        author_club_id="real-madrid",
+        title="Ancelotti 4-2-3-1 Rapid Transition & Dynamic Wings",
+        formation="4-2-3-1",
+        lineup=PRESETS[1].players,
+        annotations=[
+            {"id": "ra1", "type": "run", "from_x": 72.0, "from_y": 18.0, "to_x": 86.0, "to_y": 35.0, "label": "Vini diagonal sprint"},
+            {"id": "ra2", "type": "pass", "from_x": 58.0, "from_y": 50.0, "to_x": 84.0, "to_y": 50.0, "label": "Through ball to Mbappé"}
+        ],
+        tactical_notes="Absorb pressure in compact mid-block and exploit space behind with Bellingham releasing Vinícius Jr and Mbappé.",
+        is_public=True,
+        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=4),
+        updated_at=datetime.datetime.utcnow() - datetime.timedelta(hours=4)
+    ),
+    TacticalBoardResponse(
+        id="tb_barca_highline",
+        author_name="CuleMarc",
+        author_club_id="barcelona",
+        title="Flick 4-3-3 Aggressive High Line & Positional Overload",
+        formation="4-3-3",
+        lineup=[
+            PlayerToken(id="bp1", name="Ter Stegen", number=1, role="GK", x=5.0, y=50.0),
+            PlayerToken(id="bp2", name="Balde", number=3, role="LB", x=26.0, y=14.0),
+            PlayerToken(id="bp3", name="Iñigo", number=5, role="CB", x=22.0, y=36.0),
+            PlayerToken(id="bp4", name="Cubarsí", number=2, role="CB", x=22.0, y=64.0),
+            PlayerToken(id="bp5", name="Koundé", number=23, role="RB", x=26.0, y=86.0),
+            PlayerToken(id="bp6", name="Casadó", number=17, role="DM", x=40.0, y=50.0),
+            PlayerToken(id="bp7", name="Pedri", number=8, role="CM", x=55.0, y=32.0),
+            PlayerToken(id="bp8", name="Olmo", number=20, role="CM", x=58.0, y=68.0),
+            PlayerToken(id="bp9", name="Raphinha", number=11, role="LW", x=76.0, y=18.0),
+            PlayerToken(id="bp10", name="Lewandowski", number=9, role="ST", x=84.0, y=50.0),
+            PlayerToken(id="bp11", name="Yamal", number=19, role="RW", x=76.0, y=82.0)
+        ],
+        annotations=[
+            {"id": "ba1", "type": "press", "from_x": 84.0, "from_y": 50.0, "to_x": 94.0, "to_y": 50.0, "label": "Lewandowski front pressure"},
+            {"id": "ba2", "type": "run", "from_x": 76.0, "from_y": 82.0, "to_x": 88.0, "to_y": 65.0, "label": "Yamal inverted drive"}
+        ],
+        tactical_notes="Maintain ultra-high defensive line to squeeze the pitch. Overload the right half-space with Yamal and Pedri.",
+        is_public=True,
+        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=6),
+        updated_at=datetime.datetime.utcnow() - datetime.timedelta(hours=6)
+    ),
+    TacticalBoardResponse(
+        id="tb_milan_boxmid",
+        author_name="RossoneriPaolo",
+        author_club_id="milan",
+        title="3-4-2-1 Compact Box Midfield & Double Pivots",
+        formation="3-4-2-1",
+        lineup=[
+            PlayerToken(id="mp1", name="Maignan", number=16, role="GK", x=5.0, y=50.0),
+            PlayerToken(id="mp2", name="Pavlovic", number=31, role="CB", x=22.0, y=25.0),
+            PlayerToken(id="mp3", name="Gabbia", number=46, role="CB", x=18.0, y=50.0),
+            PlayerToken(id="mp4", name="Tomori", number=23, role="CB", x=22.0, y=75.0),
+            PlayerToken(id="mp5", name="Theo Hernández", number=19, role="LWB", x=46.0, y=10.0),
+            PlayerToken(id="mp6", name="Fofana", number=29, role="CM", x=42.0, y=38.0),
+            PlayerToken(id="mp7", name="Reijnders", number=14, role="CM", x=42.0, y=62.0),
+            PlayerToken(id="mp8", name="Emerson", number=22, role="RWB", x=46.0, y=90.0),
+            PlayerToken(id="mp9", name="Leão", number=10, role="AM", x=70.0, y=28.0),
+            PlayerToken(id="mp10", name="Pulisic", number=11, role="AM", x=70.0, y=72.0),
+            PlayerToken(id="mp11", name="Morata", number=7, role="ST", x=84.0, y=50.0)
+        ],
+        annotations=[
+            {"id": "ma1", "type": "run", "from_x": 46.0, "from_y": 10.0, "to_x": 72.0, "to_y": 15.0, "label": "Theo flank sprint"},
+            {"id": "ma2", "type": "pass", "from_x": 42.0, "from_y": 38.0, "to_x": 70.0, "to_y": 28.0, "label": "Vertical line break to Leão"}
+        ],
+        tactical_notes="Double pivot protects against central counter-attacks while Theo and Leão create 2v1 overloads down the left flank.",
+        is_public=True,
+        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=8),
+        updated_at=datetime.datetime.utcnow() - datetime.timedelta(hours=8)
     )
 ]
 
@@ -254,7 +326,14 @@ async def list_tactical_boards(
     except Exception:
         pass
 
-    # Filter in-memory fallback
+    try:
+        total_in_db = (await db.execute(select(func.count(TacticalBoard.id)))).scalar() or 0
+        if total_in_db > 0:
+            return []
+    except Exception:
+        pass
+
+    # Filter in-memory fallback for cold start
     if club_id:
         return [b for b in DEMO_BOARDS if b.author_club_id == club_id][:limit]
     return DEMO_BOARDS[:limit]
