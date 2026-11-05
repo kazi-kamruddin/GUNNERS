@@ -2,7 +2,7 @@ import asyncio
 import datetime
 import json
 import sys
-from sqlalchemy import select
+from sqlalchemy import select, text
 from app.core.database import AsyncSessionLocal, engine, Base
 from app.services.ingestion import FootballIngestionService
 from app.models.squad import Player
@@ -25,6 +25,10 @@ async def seed_all():
     # 1. Ensure all tables exist
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        try:
+            await conn.execute(text("ALTER TABLE posts ADD COLUMN image_url VARCHAR(500)"))
+        except Exception:
+            pass
 
     async with AsyncSessionLocal() as session:
         # 2. Foundation Competitions, Seasons, Clubs & Matches
@@ -115,110 +119,91 @@ async def seed_all():
                 "author_club_id": "arsenal",
                 "club_id": "arsenal",
                 "content": "Our defensive compactness and high press structure at the Emirates have been elite this season. Backed up with reproducible Data Lab numbers: 83.3% home win rate! Check the attached tactical blueprint for how we isolate Saka on the right wing. #NorthLondonDerby #Tactics",
+                "image_url": "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80",
                 "insight_id": "ins_arsenal_winrate",
                 "tactical_board_id": "tb_arsenal_highpress",
                 "created_at": datetime.datetime.utcnow() - datetime.timedelta(hours=2),
                 "comments": [
                     {
                         "id": "cmt_seed_1_1",
-                        "author_id": "usr_seed_carlos",
-                        "author_name": "MadridistaCarlos",
-                        "author_club_id": "real-madrid",
-                        "content": "Emirates record is impressive, but how do you plan to break teams down when they sit in a disciplined 5-3-2 low block like in European knockouts?"
+                        "author_id": "usr_seed_clock",
+                        "author_name": "ClockEndTactician",
+                        "author_club_id": "arsenal",
+                        "content": "Emirates record is impenetrable right now. When teams try to sit in a low block, having Timber invert creates the 3-2 rest defense that suffocates counters."
                     },
                     {
                         "id": "cmt_seed_1_2",
                         "author_id": "usr_seed_alex",
                         "author_name": "GoonerAlex",
                         "author_club_id": "arsenal",
-                        "content": "That is exactly why Arteta brought in Merino and pushes Timber into the half-space — to create numerical overloads and win second balls."
+                        "content": "Exactly! And Merino arriving late gives us that extra physical presence in the box when crosses come from Saka and White."
                     }
                 ],
-                "reactions": ["usr_seed_carlos", "usr_seed_marc", "usr_seed_paolo", "usr_fan_1", "usr_fan_2"]
+                "reactions": ["usr_seed_clock", "usr_seed_nb", "usr_seed_ash", "usr_fan_1", "usr_fan_2"]
             },
             {
                 "id": "post_seed_2",
-                "author_id": "usr_seed_carlos",
-                "author_name": "MadridistaCarlos",
-                "author_club_id": "real-madrid",
-                "club_id": "real-madrid",
-                "content": "Looking closely at the PPG comparison between Real Madrid and Barcelona in the Data Lab. 0.1 PPG margin! The key this weekend is rapid vertical transitions via Vini Jr and Bellingham breaking through the high line. #ElClasico #Tactics",
-                "insight_id": "ins_clasico_ppg",
-                "tactical_board_id": "tb_real_transition",
+                "author_id": "usr_seed_clock",
+                "author_name": "ClockEndTactician",
+                "author_club_id": "arsenal",
+                "club_id": "arsenal",
+                "content": "Declan Rice's ground duel winning rate (68.4%) and ball retention make him indispensable in European ties. Look at the central stability he brings next to Partey in our double pivot. #DataLab #Arsenal #COYG",
+                "image_url": "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80",
+                "insight_id": "ins_arsenal_clean_sheet",
+                "tactical_board_id": "tb_arsenal_lowblock_breaker",
                 "created_at": datetime.datetime.utcnow() - datetime.timedelta(hours=4),
                 "comments": [
                     {
                         "id": "cmt_seed_2_1",
-                        "author_id": "usr_seed_marc",
-                        "author_name": "CuleMarc",
-                        "author_club_id": "barcelona",
-                        "content": "PPG is close, but your transition game leaves massive pockets between the pivot and back four. Yamal and Pedri will exploit that all night."
-                    },
-                    {
-                        "id": "cmt_seed_2_2",
-                        "author_id": "usr_seed_carlos",
-                        "author_name": "MadridistaCarlos",
-                        "author_club_id": "real-madrid",
-                        "content": "Valverde covers that entire half-space tirelessly. We actually thrive when opposing defenses commit high numbers forward."
+                        "author_id": "usr_seed_nb",
+                        "author_name": "NorthBankFan",
+                        "author_club_id": "arsenal",
+                        "content": "Declan's engine allows Ødegaard to roam freely without worrying about getting caught in transition. Pure world-class midfielder."
                     }
                 ],
-                "reactions": ["usr_seed_alex", "usr_seed_marc", "usr_seed_paolo", "usr_fan_3", "usr_fan_4", "usr_fan_5"]
+                "reactions": ["usr_seed_alex", "usr_seed_nb", "usr_seed_ash", "usr_fan_3", "usr_fan_4"]
             },
             {
                 "id": "post_seed_3",
-                "author_id": "usr_seed_marc",
-                "author_name": "CuleMarc",
-                "author_club_id": "barcelona",
-                "club_id": "barcelona",
-                "content": "Flick's offside trap is bold, but our goal difference and conversion efficiency in La Liga speaks for itself (+18 GD). Here is the 4-3-3 shape we need to sustain against transition-heavy opposition. #ElClasico #DataLab",
-                "insight_id": "ins_big_four_xg",
-                "tactical_board_id": "tb_barca_highline",
+                "author_id": "usr_seed_nb",
+                "author_name": "NorthBankFan",
+                "author_club_id": "arsenal",
+                "club_id": "arsenal",
+                "content": "The atmosphere under the floodlights this week was electric. Big three points secured! Check the Data Lab numbers on our 2.18 goals per match and corner conversion. Proud to be a Gooner. #Arsenal #PremierLeague #Gunners",
+                "image_url": "https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=800&q=80",
+                "insight_id": "ins_arsenal_goals_per_game",
+                "tactical_board_id": "tb_arsenal_derby_lockdown",
                 "created_at": datetime.datetime.utcnow() - datetime.timedelta(hours=6),
                 "comments": [
                     {
                         "id": "cmt_seed_3_1",
-                        "author_id": "usr_seed_carlos",
-                        "author_name": "MadridistaCarlos",
-                        "author_club_id": "real-madrid",
-                        "content": "A high defensive line against Mbappé and Vini Jr is playing with fire. One curved pass behind breaks the whole trap."
-                    },
-                    {
-                        "id": "cmt_seed_3_2",
-                        "author_id": "usr_seed_marc",
-                        "author_name": "CuleMarc",
-                        "author_club_id": "barcelona",
-                        "content": "Flick drills the timing down to tenths of a second. As long as we press the ball carrier, no clean long pass is possible."
+                        "author_id": "usr_seed_alex",
+                        "author_name": "GoonerAlex",
+                        "author_club_id": "arsenal",
+                        "content": "Nicolas Jover's set-piece routines are literally winning us matches. Saliba and Gabriel are unplayable in both boxes."
                     }
                 ],
-                "reactions": ["usr_seed_alex", "usr_seed_carlos", "usr_fan_6", "usr_fan_7"]
+                "reactions": ["usr_seed_alex", "usr_seed_clock", "usr_fan_5", "usr_fan_6"]
             },
             {
                 "id": "post_seed_4",
-                "author_id": "usr_seed_paolo",
-                "author_name": "RossoneriPaolo",
-                "author_club_id": "milan",
-                "club_id": "milan",
-                "content": "Derby della Madonnina tactical breakdown: using the 3-4-2-1 box midfield gives us stability against overloads in the central third. Clean sheet stats prove our backline resilience. #DerbyDellaMadonnina #CleanSheets",
-                "insight_id": "ins_milan_derby",
-                "tactical_board_id": "tb_milan_boxmid",
+                "author_id": "usr_seed_ash",
+                "author_name": "AshburtonAnalyst",
+                "author_club_id": "arsenal",
+                "club_id": "arsenal",
+                "content": "Statistical deep dive: Arsenal's campaign consistency stands at 2.36 PPG. When Saliba and Gabriel start together, our expected goals against drops to an extraordinary 0.65 per 90. #Emirates #TitleRace #COYG",
+                "insight_id": "ins_arsenal_ppg",
                 "created_at": datetime.datetime.utcnow() - datetime.timedelta(hours=8),
                 "comments": [
                     {
                         "id": "cmt_seed_4_1",
-                        "author_id": "usr_seed_alex",
-                        "author_name": "GoonerAlex",
+                        "author_id": "usr_seed_clock",
+                        "author_name": "ClockEndTactician",
                         "author_club_id": "arsenal",
-                        "content": "The 3-4-2-1 box midfield is definitely dominant across modern Europe. Do you think Theo can sustain that immense vertical workrate all season?"
-                    },
-                    {
-                        "id": "cmt_seed_4_2",
-                        "author_id": "usr_seed_paolo",
-                        "author_name": "RossoneriPaolo",
-                        "author_club_id": "milan",
-                        "content": "His stamina and recovery pace are legendary in Serie A, but squad rotation will definitely be decisive once European knockouts begin."
+                        "content": "Best center-back partnership since Tony Adams and Martin Keown. Absolute rocks."
                     }
                 ],
-                "reactions": ["usr_seed_alex", "usr_seed_carlos", "usr_seed_marc", "usr_fan_8"]
+                "reactions": ["usr_seed_alex", "usr_seed_clock", "usr_seed_nb", "usr_fan_7"]
             }
         ]
 
@@ -232,6 +217,7 @@ async def seed_all():
                     author_club_id=p_info["author_club_id"],
                     club_id=p_info["club_id"],
                     content=p_info["content"],
+                    image_url=p_info.get("image_url"),
                     insight_id=p_info.get("insight_id"),
                     tactical_board_id=p_info.get("tactical_board_id"),
                     created_at=p_info["created_at"]
@@ -272,9 +258,9 @@ async def seed_all():
 
         predictions_data = [
             ("usr_seed_alex", "GoonerAlex", "arsenal", 28, 6),
-            ("usr_seed_carlos", "MadridistaCarlos", "real-madrid", 24, 5),
-            ("usr_seed_marc", "CuleMarc", "barcelona", 21, 4),
-            ("usr_seed_paolo", "RossoneriPaolo", "milan", 18, 3),
+            ("usr_seed_clock", "ClockEndTactician", "arsenal", 25, 5),
+            ("usr_seed_nb", "NorthBankFan", "arsenal", 22, 4),
+            ("usr_seed_ash", "AshburtonAnalyst", "arsenal", 19, 3),
         ]
 
         if seeded_matches:
@@ -300,7 +286,7 @@ async def seed_all():
 
         # 8. Direct Debates in The Dressing Room
         print("[7/8] Seeding direct messaging conversations...")
-        conv_id = "conv_seed_alex_carlos"
+        conv_id = "conv_seed_alex_clock"
         existing_conv = await session.get(Conversation, conv_id)
         if not existing_conv:
             conv = Conversation(
@@ -313,7 +299,7 @@ async def seed_all():
 
             # Members
             session.add(ConversationMember(conversation_id=conv_id, user_id="usr_seed_alex"))
-            session.add(ConversationMember(conversation_id=conv_id, user_id="usr_seed_carlos"))
+            session.add(ConversationMember(conversation_id=conv_id, user_id="usr_seed_clock"))
 
             # Messages
             session.add(DirectMessage(
@@ -322,16 +308,16 @@ async def seed_all():
                 sender_id="usr_seed_alex",
                 sender_name="GoonerAlex",
                 sender_club_id="arsenal",
-                content="Hey Carlos, saw your tactical board on the Madrid transitions. Do you think Bellingham plays higher up or as an interior?",
+                content="Hey ClockEnd, saw your tactical board on the 3-2-4-1 low-block breaker. Do you think Timber tucking in gives Rice enough cover against counter-attacks?",
                 created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=3)
             ))
             session.add(DirectMessage(
                 id="msg_seed_2",
                 conversation_id=conv_id,
-                sender_id="usr_seed_carlos",
-                sender_name="MadridistaCarlos",
-                sender_club_id="real-madrid",
-                content="Definitely as a dynamic #10 who crashes the box. With Mbappé and Vini stretching the defense wide, the central pocket is open.",
+                sender_id="usr_seed_clock",
+                sender_name="ClockEndTactician",
+                sender_club_id="arsenal",
+                content="100%. Timber's agility lets him step out to press instantly or drop back beside Saliba and Gabriel. It's the exact structure Man City used with Stones, but Timber is quicker.",
                 created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=1)
             ))
             await session.commit()
@@ -344,7 +330,7 @@ async def seed_all():
                 "user_id": "usr_seed_alex",
                 "type": "cheer",
                 "title": "New Cheer",
-                "message": "MadridistaCarlos cheered your post on Emirates defensive structure.",
+                "message": "ClockEndTactician cheered your debrief on Emirates high press structure.",
                 "link": "/terrace"
             },
             {
@@ -352,7 +338,7 @@ async def seed_all():
                 "user_id": "usr_seed_alex",
                 "type": "comment",
                 "title": "New Reply",
-                "message": "CuleMarc replied to your debate on #NorthLondonDerby.",
+                "message": "NorthBankFan replied to your discussion on #NorthLondonDerby.",
                 "link": "/terrace"
             },
             {

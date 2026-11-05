@@ -4,8 +4,7 @@
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
-	const clubList = Object.values(CLUBS);
-	let currentClub = $derived(CLUBS[data.profile?.favorite_club_id || 'arsenal'] || CLUBS.arsenal);
+	let currentClub = $derived(CLUBS.arsenal);
 
 	// Sync themeState favorite club on load
 	$effect(() => {
@@ -90,20 +89,18 @@
 			</div>
 
 			<div>
-				<label for="favorite_club_id" class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-					Permanent Favorite Club
-				</label>
-				<select
-					id="favorite_club_id"
+				<span class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
+					Supporter Affiliation
+				</span>
+				<input
+					type="hidden"
 					name="favorite_club_id"
-					class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500"
-				>
-					{#each clubList as club}
-						<option value={club.id} selected={data.profile?.favorite_club_id === club.id}>
-							{club.name} ({club.league})
-						</option>
-					{/each}
-				</select>
+					value="arsenal"
+				/>
+				<div class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg px-3 py-2 text-sm text-white flex items-center gap-2">
+					<span class="w-2.5 h-2.5 rounded-full bg-red-600"></span>
+					<span>Arsenal FC • Emirates Stadium</span>
+				</div>
 			</div>
 
 			<div class="flex items-center gap-4 pt-2">

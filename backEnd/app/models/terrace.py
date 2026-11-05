@@ -15,6 +15,7 @@ class Post(Base):
     author_club_id: Mapped[str] = mapped_column(String(50), default="arsenal")
     club_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # NULL or specific club
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    image_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     insight_id: Mapped[Optional[str]] = mapped_column(String(50), ForeignKey("insights.id", ondelete="SET NULL"), nullable=True)
     tactical_board_id: Mapped[Optional[str]] = mapped_column(String(50), ForeignKey("tactical_boards.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.utcnow)

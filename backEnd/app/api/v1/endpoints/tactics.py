@@ -38,19 +38,19 @@ PRESETS: List[FormationPreset] = [
     FormationPreset(
         id="4-2-3-1",
         name="4-2-3-1 Double Pivot",
-        description="Controlled midfield with a double pivot and a central playmaker.",
+        description="Controlled midfield with Rice-Partey double pivot and Ødegaard orchestrating in the hole.",
         players=[
-            PlayerToken(id="p1", name="Courtois", number=1, role="GK", x=5.0, y=50.0),
-            PlayerToken(id="p2", name="Mendy", number=23, role="LB", x=24.0, y=14.0),
-            PlayerToken(id="p3", name="Rüdiger", number=22, role="CB", x=20.0, y=36.0),
-            PlayerToken(id="p4", name="Militão", number=3, role="CB", x=20.0, y=64.0),
-            PlayerToken(id="p5", name="Carvajal", number=2, role="RB", x=24.0, y=86.0),
-            PlayerToken(id="p6", name="Camavinga", number=6, role="DM", x=38.0, y=35.0),
-            PlayerToken(id="p7", name="Valverde", number=8, role="DM", x=38.0, y=65.0),
-            PlayerToken(id="p8", name="Bellingham", number=5, role="AM", x=58.0, y=50.0),
-            PlayerToken(id="p9", name="Vinícius Jr", number=7, role="LW", x=72.0, y=18.0),
-            PlayerToken(id="p10", name="Rodrygo", number=11, role="RW", x=72.0, y=82.0),
-            PlayerToken(id="p11", name="Mbappé", number=9, role="ST", x=84.0, y=50.0),
+            PlayerToken(id="p1", name="Raya", number=22, role="GK", x=5.0, y=50.0),
+            PlayerToken(id="p2", name="Calafiori", number=33, role="LB", x=24.0, y=14.0),
+            PlayerToken(id="p3", name="Gabriel", number=6, role="CB", x=20.0, y=36.0),
+            PlayerToken(id="p4", name="Saliba", number=2, role="CB", x=20.0, y=64.0),
+            PlayerToken(id="p5", name="Timber", number=12, role="RB", x=24.0, y=86.0),
+            PlayerToken(id="p6", name="Rice", number=41, role="DM", x=38.0, y=35.0),
+            PlayerToken(id="p7", name="Partey", number=5, role="DM", x=38.0, y=65.0),
+            PlayerToken(id="p8", name="Ødegaard", number=8, role="AM", x=58.0, y=50.0),
+            PlayerToken(id="p9", name="Martinelli", number=11, role="LW", x=72.0, y=18.0),
+            PlayerToken(id="p10", name="Saka", number=7, role="RW", x=72.0, y=82.0),
+            PlayerToken(id="p11", name="Havertz", number=29, role="ST", x=84.0, y=50.0),
         ]
     ),
     FormationPreset(
@@ -147,76 +147,36 @@ DEMO_BOARDS: List[TacticalBoardResponse] = [
         updated_at=datetime.datetime.utcnow() - datetime.timedelta(hours=2)
     ),
     TacticalBoardResponse(
-        id="tb_real_transition",
-        author_name="MadridistaCarlos",
-        author_club_id="real-madrid",
-        title="Ancelotti 4-2-3-1 Rapid Transition & Dynamic Wings",
+        id="tb_arsenal_lowblock_breaker",
+        author_name="ClockEndTactician",
+        author_club_id="arsenal",
+        title="Arteta 3-2-4-1 Inverted Low-Block Breaker",
         formation="4-2-3-1",
         lineup=PRESETS[1].players,
         annotations=[
-            {"id": "ra1", "type": "run", "from_x": 72.0, "from_y": 18.0, "to_x": 86.0, "to_y": 35.0, "label": "Vini diagonal sprint"},
-            {"id": "ra2", "type": "pass", "from_x": 58.0, "from_y": 50.0, "to_x": 84.0, "to_y": 50.0, "label": "Through ball to Mbappé"}
+            {"id": "ra1", "type": "run", "from_x": 72.0, "from_y": 18.0, "to_x": 86.0, "to_y": 35.0, "label": "Martinelli diagonal cut"},
+            {"id": "ra2", "type": "pass", "from_x": 58.0, "from_y": 50.0, "to_x": 84.0, "to_y": 50.0, "label": "Through ball to Havertz"}
         ],
-        tactical_notes="Absorb pressure in compact mid-block and exploit space behind with Bellingham releasing Vinícius Jr and Mbappé.",
+        tactical_notes="Invert Timber into the central axis alongside Rice to create a 3-2 rest defense and prevent counter-attacks.",
         is_public=True,
         created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=4),
         updated_at=datetime.datetime.utcnow() - datetime.timedelta(hours=4)
     ),
     TacticalBoardResponse(
-        id="tb_barca_highline",
-        author_name="CuleMarc",
-        author_club_id="barcelona",
-        title="Flick 4-3-3 Aggressive High Line & Positional Overload",
-        formation="4-3-3",
-        lineup=[
-            PlayerToken(id="bp1", name="Ter Stegen", number=1, role="GK", x=5.0, y=50.0),
-            PlayerToken(id="bp2", name="Balde", number=3, role="LB", x=26.0, y=14.0),
-            PlayerToken(id="bp3", name="Iñigo", number=5, role="CB", x=22.0, y=36.0),
-            PlayerToken(id="bp4", name="Cubarsí", number=2, role="CB", x=22.0, y=64.0),
-            PlayerToken(id="bp5", name="Koundé", number=23, role="RB", x=26.0, y=86.0),
-            PlayerToken(id="bp6", name="Casadó", number=17, role="DM", x=40.0, y=50.0),
-            PlayerToken(id="bp7", name="Pedri", number=8, role="CM", x=55.0, y=32.0),
-            PlayerToken(id="bp8", name="Olmo", number=20, role="CM", x=58.0, y=68.0),
-            PlayerToken(id="bp9", name="Raphinha", number=11, role="LW", x=76.0, y=18.0),
-            PlayerToken(id="bp10", name="Lewandowski", number=9, role="ST", x=84.0, y=50.0),
-            PlayerToken(id="bp11", name="Yamal", number=19, role="RW", x=76.0, y=82.0)
-        ],
+        id="tb_arsenal_derby_lockdown",
+        author_name="NorthBankFan",
+        author_club_id="arsenal",
+        title="Arteta 4-4-2 Compact Mid-Block & Transition Trap",
+        formation="4-4-2",
+        lineup=PRESETS[3].players,
         annotations=[
-            {"id": "ba1", "type": "press", "from_x": 84.0, "from_y": 50.0, "to_x": 94.0, "to_y": 50.0, "label": "Lewandowski front pressure"},
-            {"id": "ba2", "type": "run", "from_x": 76.0, "from_y": 82.0, "to_x": 88.0, "to_y": 65.0, "label": "Yamal inverted drive"}
+            {"id": "da1", "type": "press", "from_x": 46.0, "from_y": 38.0, "to_x": 52.0, "to_y": 38.0, "label": "Rice ball contest"},
+            {"id": "da2", "type": "run", "from_x": 52.0, "from_y": 85.0, "to_x": 78.0, "to_y": 85.0, "label": "Saka transition sprint"}
         ],
-        tactical_notes="Maintain ultra-high defensive line to squeeze the pitch. Overload the right half-space with Yamal and Pedri.",
+        tactical_notes="Two ultra-narrow banks of four deny central penetration, forcing rivals into wide crosses dealt with by Saliba and Gabriel.",
         is_public=True,
         created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=6),
         updated_at=datetime.datetime.utcnow() - datetime.timedelta(hours=6)
-    ),
-    TacticalBoardResponse(
-        id="tb_milan_boxmid",
-        author_name="RossoneriPaolo",
-        author_club_id="milan",
-        title="3-4-2-1 Compact Box Midfield & Double Pivots",
-        formation="3-4-2-1",
-        lineup=[
-            PlayerToken(id="mp1", name="Maignan", number=16, role="GK", x=5.0, y=50.0),
-            PlayerToken(id="mp2", name="Pavlovic", number=31, role="CB", x=22.0, y=25.0),
-            PlayerToken(id="mp3", name="Gabbia", number=46, role="CB", x=18.0, y=50.0),
-            PlayerToken(id="mp4", name="Tomori", number=23, role="CB", x=22.0, y=75.0),
-            PlayerToken(id="mp5", name="Theo Hernández", number=19, role="LWB", x=46.0, y=10.0),
-            PlayerToken(id="mp6", name="Fofana", number=29, role="CM", x=42.0, y=38.0),
-            PlayerToken(id="mp7", name="Reijnders", number=14, role="CM", x=42.0, y=62.0),
-            PlayerToken(id="mp8", name="Emerson", number=22, role="RWB", x=46.0, y=90.0),
-            PlayerToken(id="mp9", name="Leão", number=10, role="AM", x=70.0, y=28.0),
-            PlayerToken(id="mp10", name="Pulisic", number=11, role="AM", x=70.0, y=72.0),
-            PlayerToken(id="mp11", name="Morata", number=7, role="ST", x=84.0, y=50.0)
-        ],
-        annotations=[
-            {"id": "ma1", "type": "run", "from_x": 46.0, "from_y": 10.0, "to_x": 72.0, "to_y": 15.0, "label": "Theo flank sprint"},
-            {"id": "ma2", "type": "pass", "from_x": 42.0, "from_y": 38.0, "to_x": 70.0, "to_y": 28.0, "label": "Vertical line break to Leão"}
-        ],
-        tactical_notes="Double pivot protects against central counter-attacks while Theo and Leão create 2v1 overloads down the left flank.",
-        is_public=True,
-        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=8),
-        updated_at=datetime.datetime.utcnow() - datetime.timedelta(hours=8)
     )
 ]
 

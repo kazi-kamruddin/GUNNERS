@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { CLUBS, themeState } from '$lib/stores/theme.svelte';
 	import { fetchMatchSummary } from '$lib/api/football';
 	import type { MatchSummary } from '$lib/types/football';
 	import type { PageProps } from './$types';
@@ -7,11 +6,7 @@
 	let { data }: PageProps = $props();
 
 	let summary = $state<MatchSummary | null>(null);
-	let isLoadingSummary = $state(false);
 	let isInitialized = false;
-
-	const clubList = Object.values(CLUBS);
-	const viewingClub = $derived(themeState.currentTheme);
 
 	$effect(() => {
 		if (!isInitialized && data.summary) {
@@ -19,23 +14,6 @@
 			isInitialized = true;
 		}
 	});
-
-	$effect(() => {
-		const clubId = themeState.viewingClubId;
-		if (isInitialized && clubId) {
-			loadSummaryForClub(clubId);
-		}
-	});
-
-	async function loadSummaryForClub(clubId: string) {
-		isLoadingSummary = true;
-		try {
-			const res = await fetchMatchSummary(clubId);
-			if (res) summary = res;
-		} finally {
-			isLoadingSummary = false;
-		}
-	}
 
 	function formatDate(utcString?: string): string {
 		if (!utcString) return 'TBD';
@@ -54,121 +32,175 @@
 </script>
 
 <svelte:head>
-	<title>{viewingClub.name} | GUNNERS Reborn Fan Portal</title>
+	<title>GUNNERS | Arsenal FC Fan & Tactical Intelligence Platform</title>
 </svelte:head>
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-10">
 	<!-- Hero Section -->
-	<section class="relative rounded-2xl p-6 sm:p-10 overflow-hidden border border-[#1e2430] bg-gradient-to-br from-[#12161f] via-[#151a24] to-[#0d1017]">
-		<div
-			class="absolute -right-20 -bottom-20 w-96 h-96 rounded-full blur-3xl opacity-20 pointer-events-none transition-all duration-700"
-			style="background-color: {viewingClub.primary_color}"
-		></div>
+	<section class="relative rounded-3xl p-6 sm:p-12 overflow-hidden border border-red-900/40 bg-gradient-to-br from-[#12161f] via-[#1a0c0e] to-[#0d1017] shadow-2xl">
+		<div class="absolute -right-16 -top-16 w-96 h-96 rounded-full bg-red-600/15 blur-3xl pointer-events-none"></div>
+		<div class="absolute right-1/3 -bottom-20 w-80 h-80 rounded-full bg-amber-500/10 blur-3xl pointer-events-none"></div>
 
-		<div class="relative z-10 max-w-3xl">
-			<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider mb-4 bg-white/5 border border-white/10 text-gray-300">
-				<span class="w-2 h-2 rounded-full" style="background-color: {viewingClub.primary_color}"></span>
-				<span>{viewingClub.name} • {viewingClub.league}</span>
+		<div class="relative z-10 max-w-3xl space-y-5">
+			<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider bg-red-950/80 border border-red-800/50 text-red-300 font-mono">
+				<span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+				<span>Arsenal FC • Emirates Tactical Command</span>
 			</div>
 
-			<h1 class="text-3xl sm:text-5xl font-black tracking-tight text-white mb-4">
-				Football Analytics.<br />
+			<h1 class="text-3xl sm:text-5xl font-black tracking-tight text-white leading-tight">
+				Victoria Concordia Crescit.<br />
 				<span class="bg-gradient-to-r from-red-500 via-amber-400 to-amber-200 bg-clip-text text-transparent">
-					Anchored in Evidence.
+					The Ultimate Gooners Hub.
 				</span>
 			</h1>
 
-			<p class="text-sm sm:text-base text-gray-400 mb-6 leading-relaxed max-w-2xl">
-				Explore verified metrics, create shareable visual insights in the Data Lab, and debate rivals on The Terrace with real match data.
+			<p class="text-sm sm:text-base text-gray-300 leading-relaxed max-w-2xl">
+				Aggregated real-time news from top Arsenal publications, fluid tactical lineup studio with bench swaps and canvas export, authentic Terrace debriefs with match photos, and verified Data Lab metrics.
 			</p>
 
-			<div class="flex flex-wrap items-center gap-3">
+			<div class="flex flex-wrap items-center gap-3 pt-2">
 				<a
-					href="/lab"
-					class="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 font-bold text-xs sm:text-sm text-white transition shadow-md flex items-center gap-2"
+					href="/news"
+					class="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 font-bold text-xs sm:text-sm text-white transition shadow-lg shadow-red-600/25 flex items-center gap-2"
 				>
-					<span>Launch Data Lab</span>
+					<span>📰 The Armory News</span>
 					<span>→</span>
 				</a>
 				<a
-					href="/terrace"
-					class="px-5 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-[#1e2430] text-xs sm:text-sm font-semibold text-gray-200 transition"
+					href="/board"
+					class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-red-800/40 text-xs sm:text-sm font-semibold text-gray-200 transition flex items-center gap-1.5"
 				>
-					The Terrace Feed
+					<span>📋 The Dugout Lineup</span>
 				</a>
 				<a
-					href="/messages"
-					class="px-5 py-2.5 rounded-lg bg-white/5 hover:bg-white/10 border border-[#1e2430] text-xs sm:text-sm font-semibold text-amber-400 transition"
+					href="/terrace"
+					class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-[#1e2430] text-xs sm:text-sm font-semibold text-amber-400 transition flex items-center gap-1.5"
 				>
-					💬 Dressing Room
+					<span>💬 The Terrace Feed</span>
+				</a>
+				<a
+					href="/squad"
+					class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-[#1e2430] text-xs sm:text-sm font-semibold text-gray-300 transition"
+				>
+					👥 2024/25 Squad
 				</a>
 			</div>
 		</div>
 	</section>
 
-	<!-- Club Universe Switcher Bar -->
-	<section>
-		<div class="flex items-center justify-between mb-4">
-			<div>
-				<h2 class="text-lg font-bold text-white uppercase tracking-tight">Club Universe</h2>
-				<p class="text-xs text-gray-400">Switch active viewing club to personalize analytics and schedules</p>
+	<!-- Feature Pillar Grid -->
+	<section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+		<!-- 1. The Armory -->
+		<a
+			href="/news"
+			class="p-5 rounded-2xl border border-[#1e2430] bg-[#12161f] hover:border-red-600/50 transition group flex flex-col justify-between space-y-4"
+		>
+			<div class="space-y-2">
+				<div class="w-10 h-10 rounded-xl bg-red-950/80 border border-red-800/40 flex items-center justify-center text-lg">
+					📰
+				</div>
+				<h3 class="text-base font-bold text-white group-hover:text-red-400 transition">The Armory</h3>
+				<p class="text-xs text-gray-400 leading-relaxed">
+					Live news aggregation from Pain in the Arsenal, Arseblog, BBC Sport, Reddit r/Gunners, and Daily Cannon.
+				</p>
 			</div>
-			<span class="text-[11px] font-mono text-gray-500">4 Foundation Clubs</span>
-		</div>
+			<div class="text-[11px] font-mono text-red-400 flex items-center gap-1 pt-2 border-t border-[#1e2430]">
+				<span>Read Latest Articles</span>
+				<span>→</span>
+			</div>
+		</a>
 
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
-			{#each clubList as club}
-				{@const isSelected = viewingClub.id === club.id}
-				<button
-					type="button"
-					onclick={() => themeState.setViewingClub(club.id)}
-					class="p-4 rounded-xl border text-left transition-all duration-200 relative group overflow-hidden {isSelected ? 'border-white/40 bg-[#161c28]' : 'border-[#1e2430] bg-[#12161f]/60 hover:border-gray-700'}"
-				>
-					<div class="flex items-center gap-2 mb-2">
-						<span class="w-3 h-3 rounded-full" style="background-color: {club.primary_color}"></span>
-						<span class="text-xs font-bold text-white">{club.short_name}</span>
-					</div>
-					<p class="text-[11px] text-gray-400 truncate">{club.league}</p>
-					{#if isSelected}
-						<div class="mt-2 text-[10px] font-mono font-bold text-amber-400">
-							● Viewing
-						</div>
-					{/if}
-				</button>
-			{/each}
-		</div>
+		<!-- 2. The Dugout -->
+		<a
+			href="/board"
+			class="p-5 rounded-2xl border border-[#1e2430] bg-[#12161f] hover:border-red-600/50 transition group flex flex-col justify-between space-y-4"
+		>
+			<div class="space-y-2">
+				<div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-lg">
+					📋
+				</div>
+				<h3 class="text-base font-bold text-white group-hover:text-amber-400 transition">The Dugout</h3>
+				<p class="text-xs text-gray-400 leading-relaxed">
+					Interactive pitch with starting XI and bench pool. Preset snapping or fluid movement with high-res PNG export.
+				</p>
+			</div>
+			<div class="text-[11px] font-mono text-amber-400 flex items-center gap-1 pt-2 border-t border-[#1e2430]">
+				<span>Build & Export Lineup</span>
+				<span>→</span>
+			</div>
+		</a>
+
+		<!-- 3. The Terrace -->
+		<a
+			href="/terrace"
+			class="p-5 rounded-2xl border border-[#1e2430] bg-[#12161f] hover:border-red-600/50 transition group flex flex-col justify-between space-y-4"
+		>
+			<div class="space-y-2">
+				<div class="w-10 h-10 rounded-xl bg-red-950/80 border border-red-800/40 flex items-center justify-center text-lg">
+					💬
+				</div>
+				<h3 class="text-base font-bold text-white group-hover:text-red-400 transition">The Terrace</h3>
+				<p class="text-xs text-gray-400 leading-relaxed">
+					Guest-accessible community feed with matchday photo sharing, tactical debriefs, and cheering.
+				</p>
+			</div>
+			<div class="text-[11px] font-mono text-red-400 flex items-center gap-1 pt-2 border-t border-[#1e2430]">
+				<span>Join Match Discussions</span>
+				<span>→</span>
+			</div>
+		</a>
+
+		<!-- 4. Data Lab -->
+		<a
+			href="/lab"
+			class="p-5 rounded-2xl border border-[#1e2430] bg-[#12161f] hover:border-red-600/50 transition group flex flex-col justify-between space-y-4"
+		>
+			<div class="space-y-2">
+				<div class="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-lg">
+					📊
+				</div>
+				<h3 class="text-base font-bold text-white group-hover:text-purple-400 transition">The Data Lab</h3>
+				<p class="text-xs text-gray-400 leading-relaxed">
+					Emirates home vs away form, player statistical breakdowns, and shareable reproducible analytics.
+				</p>
+			</div>
+			<div class="text-[11px] font-mono text-purple-400 flex items-center gap-1 pt-2 border-t border-[#1e2430]">
+				<span>Explore Arsenal Metrics</span>
+				<span>→</span>
+			</div>
+		</a>
 	</section>
 
-	<!-- Match Hub & Recent Form Card -->
+	<!-- Match Hub: Arsenal Schedule & Form -->
 	<section class="grid grid-cols-1 md:grid-cols-3 gap-6">
 		<!-- Next Fixture -->
-		<div class="p-5 rounded-xl border border-[#1e2430] bg-[#12161f] flex flex-col justify-between">
+		<div class="p-5 rounded-2xl border border-[#1e2430] bg-[#12161f] flex flex-col justify-between">
 			<div>
 				<div class="flex items-center justify-between mb-3">
 					<span class="text-[10px] font-bold font-mono uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20">
-						Next Fixture
+						Next Match
 					</span>
-					<a href="/matches" class="text-[11px] text-gray-400 hover:text-white transition">View All →</a>
+					<a href="/matches" class="text-[11px] text-gray-400 hover:text-white transition">Schedule →</a>
 				</div>
 
 				{#if summary?.next_fixture}
 					<div class="space-y-3 mt-4">
 						<div class="text-xs font-mono text-gray-400">
-							{summary.next_fixture.competition_name || 'Matchday'} • {formatDate(summary.next_fixture.utc_date)}
+							{summary.next_fixture.competition_name || 'Premier League'} • {formatDate(summary.next_fixture.utc_date)}
 						</div>
-						<div class="flex items-center justify-between gap-3 bg-[#0d1017] p-3 rounded-lg border border-[#1e2430]">
+						<div class="flex items-center justify-between gap-3 bg-[#0a0c10] p-3 rounded-xl border border-[#1e2430]">
 							<div class="text-center flex-1">
 								<p class="text-xs font-bold text-white truncate">{summary.next_fixture.home_team_name}</p>
 								<p class="text-[10px] text-gray-500">Home</p>
 							</div>
-							<span class="text-xs font-bold text-gray-500">VS</span>
+							<span class="text-xs font-bold text-gray-500 font-mono">VS</span>
 							<div class="text-center flex-1">
 								<p class="text-xs font-bold text-white truncate">{summary.next_fixture.away_team_name}</p>
 								<p class="text-[10px] text-gray-500">Away</p>
 							</div>
 						</div>
 						<p class="text-[11px] text-gray-400 text-center font-mono">
-							📍 {summary.next_fixture.venue || 'Stadium'}
+							📍 {summary.next_fixture.venue || 'Emirates Stadium'}
 						</p>
 					</div>
 				{:else}
@@ -185,7 +217,7 @@
 		</div>
 
 		<!-- Last Result -->
-		<div class="p-5 rounded-xl border border-[#1e2430] bg-[#12161f] flex flex-col justify-between">
+		<div class="p-5 rounded-2xl border border-[#1e2430] bg-[#12161f] flex flex-col justify-between">
 			<div>
 				<div class="flex items-center justify-between mb-3">
 					<span class="text-[10px] font-bold font-mono uppercase tracking-wider text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded border border-emerald-400/20">
@@ -196,19 +228,19 @@
 
 				{#if summary?.last_result}
 					<div class="space-y-3 mt-4">
-						<div class="flex items-center justify-between gap-3 bg-[#0d1017] p-3 rounded-lg border border-[#1e2430]">
+						<div class="flex items-center justify-between gap-3 bg-[#0a0c10] p-3 rounded-xl border border-[#1e2430]">
 							<div class="text-center flex-1">
 								<p class="text-xs font-bold text-white truncate">{summary.last_result.home_team_name}</p>
-								<span class="text-xl font-black text-white">{summary.last_result.home_score ?? 0}</span>
+								<span class="text-2xl font-black text-white font-mono">{summary.last_result.home_score ?? 0}</span>
 							</div>
 							<span class="text-xs font-bold text-gray-600">-</span>
 							<div class="text-center flex-1">
 								<p class="text-xs font-bold text-white truncate">{summary.last_result.away_team_name}</p>
-								<span class="text-xl font-black text-white">{summary.last_result.away_score ?? 0}</span>
+								<span class="text-2xl font-black text-white font-mono">{summary.last_result.away_score ?? 0}</span>
 							</div>
 						</div>
 						<p class="text-[11px] text-gray-400 text-center font-mono">
-							{summary.last_result.competition_name || 'League Match'}
+							{summary.last_result.competition_name || 'Premier League'}
 						</p>
 					</div>
 				{:else}
@@ -238,101 +270,45 @@
 		</div>
 
 		<!-- Fast Analytics Query Teaser -->
-		<div class="p-5 rounded-xl border border-[#1e2430] bg-[#12161f] flex flex-col justify-between">
+		<div class="p-5 rounded-2xl border border-[#1e2430] bg-[#12161f] flex flex-col justify-between">
 			<div>
 				<div class="flex items-center justify-between mb-3">
 					<span class="text-[10px] font-bold font-mono uppercase tracking-wider text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded border border-purple-400/20">
 						Data Lab Quick Launch
 					</span>
 				</div>
-				<h3 class="text-sm font-bold text-white mb-2">Explore Club Form & Metrics</h3>
+				<h3 class="text-sm font-bold text-white mb-2">Arsenal Form & Metrics</h3>
 				<p class="text-xs text-gray-400 leading-relaxed">
-					Analyze Win Rates, Goals Per Match, Clean Sheets, and Points Per Game with home/away venue isolation.
+					Examine Emirates win rate, Declan Rice ground duel win percentage, and goals per match across the 2024/25 campaign.
 				</p>
 				<div class="mt-4 flex flex-wrap gap-1.5">
 					<a
-						href="/lab?metric=win_rate&teams={viewingClub.id}&venue=all"
-						class="text-[10px] px-2 py-1 rounded bg-[#0d1017] border border-[#1e2430] text-gray-300 hover:text-white hover:border-gray-500 transition"
+						href="/lab?metric=win_rate&teams=arsenal&venue=home"
+						class="text-[10px] px-2 py-1 rounded bg-[#0a0c10] border border-[#1e2430] text-gray-300 hover:text-white hover:border-red-500 transition"
 					>
-						Win Rate (%)
+						Home Win Rate (83.3%)
 					</a>
 					<a
-						href="/lab?metric=goals_per_match&teams={viewingClub.id}&venue=all"
-						class="text-[10px] px-2 py-1 rounded bg-[#0d1017] border border-[#1e2430] text-gray-300 hover:text-white hover:border-gray-500 transition"
+						href="/lab?metric=clean_sheet_rate&teams=arsenal&venue=all"
+						class="text-[10px] px-2 py-1 rounded bg-[#0a0c10] border border-[#1e2430] text-gray-300 hover:text-white hover:border-red-500 transition"
 					>
-						Goals / Match
+						Clean Sheet (50%)
 					</a>
 					<a
-						href="/lab?metric=points_per_game&teams={viewingClub.id}&venue=all"
-						class="text-[10px] px-2 py-1 rounded bg-[#0d1017] border border-[#1e2430] text-gray-300 hover:text-white hover:border-gray-500 transition"
+						href="/lab?metric=goals_per_match&teams=arsenal&venue=all"
+						class="text-[10px] px-2 py-1 rounded bg-[#0a0c10] border border-[#1e2430] text-gray-300 hover:text-white hover:border-red-500 transition"
 					>
-						PPG
+						Goals / Match (2.18)
 					</a>
 				</div>
 			</div>
 
 			<a
-				href="/lab?teams={viewingClub.id}"
-				class="mt-6 w-full py-2 text-center rounded-lg bg-white/5 hover:bg-white/10 border border-[#1e2430] text-xs font-bold text-white transition"
+				href="/lab?teams=arsenal"
+				class="mt-6 w-full py-2.5 text-center rounded-xl bg-white/5 hover:bg-white/10 border border-[#1e2430] text-xs font-bold text-white transition"
 			>
 				Open Full Analytics Engine →
 			</a>
-		</div>
-	</section>
-
-	<!-- Featured Insights Shelf -->
-	<section class="space-y-4">
-		<div class="flex items-center justify-between">
-			<div>
-				<h2 class="text-lg font-bold text-white uppercase tracking-tight">Community Evidence Shelf</h2>
-				<p class="text-xs text-gray-400">Peer-reviewed tactical insights published directly from the Data Lab</p>
-			</div>
-			<a href="/lab" class="text-xs text-amber-400 hover:text-amber-300 font-semibold transition">
-				Create Insight →
-			</a>
-		</div>
-
-		<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-			{#if data.insights && data.insights.length > 0}
-				{#each data.insights as ins}
-					{@const authorClub = CLUBS[ins.author_club_id] || CLUBS['arsenal']}
-					<div class="p-4 rounded-xl border border-[#1e2430] bg-[#12161f] flex flex-col justify-between space-y-3">
-						<div>
-							<div class="flex items-center justify-between mb-2">
-								<div class="flex items-center gap-1.5">
-									<span class="w-2 h-2 rounded-full" style="background-color: {authorClub.primary_color}"></span>
-									<span class="text-[11px] font-bold text-gray-300">{ins.author_name}</span>
-								</div>
-								<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/40 text-amber-400 border border-[#1e2430]">
-									{ins.metric.replace('_', ' ').toUpperCase()}
-								</span>
-							</div>
-
-							<h4 class="text-xs font-bold text-white mb-1">{ins.title}</h4>
-							{#if ins.description}
-								<p class="text-[11px] text-gray-400 line-clamp-2">{ins.description}</p>
-							{/if}
-						</div>
-
-						<div class="pt-2 border-t border-[#1e2430] flex items-center justify-between">
-							<span class="text-[10px] text-gray-500 font-mono">
-								{ins.snapshot?.series?.length || 0} teams evaluated
-							</span>
-							<a
-								href="/lab?metric={ins.metric}&teams={ins.team_ids.join(',')}&venue={ins.venue}"
-								class="text-[11px] text-amber-400 hover:text-amber-300 font-bold transition flex items-center gap-1"
-							>
-								<span>Examine</span>
-								<span>→</span>
-							</a>
-						</div>
-					</div>
-				{/each}
-			{:else}
-				<div class="col-span-3 py-8 text-center text-gray-500 text-xs border border-dashed border-[#1e2430] rounded-xl">
-					No community insights published yet.
-				</div>
-			{/if}
 		</div>
 	</section>
 
@@ -341,7 +317,7 @@
 		<div class="flex items-center justify-between">
 			<div>
 				<h2 class="text-lg font-bold text-white uppercase tracking-tight">The Terrace Pulse</h2>
-				<p class="text-xs text-gray-400">Latest active debates and supporter opinions</p>
+				<p class="text-xs text-gray-400">Live debriefs and supporter debriefs from the Emirates community</p>
 			</div>
 			<a href="/terrace" class="text-xs text-red-400 hover:text-red-300 font-semibold transition">
 				Visit Terrace →
@@ -350,19 +326,18 @@
 
 		<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 			{#if data.posts && data.posts.length > 0}
-				{#each data.posts as post}
-					{@const authorClub = CLUBS[post.author_club_id] || CLUBS['arsenal']}
-					<div class="p-4 rounded-xl border border-[#1e2430] bg-[#12161f] space-y-2.5">
+				{#each data.posts.slice(0, 4) as post}
+					<div class="p-4 rounded-xl border border-[#1e2430] bg-[#12161f] space-y-2.5 hover:border-gray-700 transition">
 						<div class="flex items-center justify-between">
 							<div class="flex items-center gap-2">
-								<span class="w-2.5 h-2.5 rounded-full" style="background-color: {authorClub.primary_color}"></span>
+								<span class="w-2.5 h-2.5 rounded-full bg-red-600"></span>
 								<span class="text-xs font-bold text-white">{post.author_name}</span>
-								<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/40 text-gray-400 border border-[#1e2430]">
-									{authorClub.short_name}
+								<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-red-950/60 text-red-300 border border-red-900/40">
+									Arsenal
 								</span>
 							</div>
 							<a
-								href="/messages?recipient={encodeURIComponent(post.author_id || post.author_name)}&name={encodeURIComponent(post.author_name)}&club={encodeURIComponent(post.author_club_id)}"
+								href="/messages?recipient={encodeURIComponent(post.author_id || post.author_name)}&name={encodeURIComponent(post.author_name)}&club=arsenal"
 								class="text-[10px] text-gray-400 hover:text-amber-400 font-semibold transition flex items-center gap-0.5"
 								title="Direct message {post.author_name}"
 							>
@@ -377,32 +352,19 @@
 
 						<div class="pt-2 border-t border-[#1e2430] flex items-center justify-between text-[10px] text-gray-500 font-mono">
 							<span>🔥 {post.reactions_count} cheers • 💬 {post.comments_count} replies</span>
-							<a href="/terrace" class="text-gray-400 hover:text-white transition">Join Debate →</a>
+							<a href="/terrace" class="text-red-400 hover:underline transition">Join Debate →</a>
 						</div>
 					</div>
 				{/each}
 			{:else}
 				<div class="col-span-full p-6 rounded-xl border border-[#1e2430] bg-[#12161f] text-center space-y-2">
 					<p class="text-sm font-semibold text-gray-300">Debates are heating up on The Terrace</p>
-					<p class="text-xs text-gray-500">Join supporters across clubs and share your match analyses.</p>
+					<p class="text-xs text-gray-500">Join Arsenal supporters worldwide and share match observations.</p>
 					<a href="/terrace" class="inline-block mt-2 px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition">
 						Open The Terrace →
 					</a>
 				</div>
 			{/if}
-		</div>
-	</section>
-
-	<!-- Footer Pipeline Sync Badge -->
-	<section class="p-4 rounded-xl border border-[#1e2430] bg-[#0d1017] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-gray-500">
-		<div class="flex items-center gap-2">
-			<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-			<span class="font-bold text-gray-400">Data Pipeline:</span>
-			<span>{data.syncStatus?.source || 'football-data.org (Active)'}</span>
-		</div>
-		<div class="flex items-center gap-4 text-[11px] font-mono">
-			<span>Synced: {data.syncStatus?.matches_synced ?? 0} matches</span>
-			<span>Status: <strong class="text-emerald-400">{data.syncStatus?.status || 'HEALTHY'}</strong></span>
 		</div>
 	</section>
 </div>

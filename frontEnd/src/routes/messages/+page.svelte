@@ -295,9 +295,9 @@
 						</p>
 						{#each [
 							{ name: 'GoonerAlex', club: 'arsenal', desc: 'Emirates high press & overload specialist' },
-							{ name: 'MadridistaCarlos', club: 'real-madrid', desc: 'Vertical transition & counter analyst' },
-							{ name: 'CuleMarc', club: 'barcelona', desc: 'Positional play & offside line specialist' },
-							{ name: 'RossoneriPaolo', club: 'milan', desc: 'Serie A box midfield tactician' }
+							{ name: 'ClockEndTactician', club: 'arsenal', desc: '3-2-4-1 inverted low-block breaker & pivot analyst' },
+							{ name: 'NorthBankFan', club: 'arsenal', desc: 'Set-piece conversion & defensive wall tracker' },
+							{ name: 'AshburtonAnalyst', club: 'arsenal', desc: 'Statistical modeling, xG, and duel success analyst' }
 						] as analyst}
 							{@const clb = CLUBS[analyst.club] || CLUBS.arsenal}
 							<div class="p-3 rounded-lg border border-[#1e2430] bg-[#0d1017] flex items-center justify-between text-left">
@@ -441,9 +441,9 @@
 					<div class="flex items-center gap-1.5 flex-wrap pt-2">
 						{#each [
 							{ name: 'GoonerAlex', club: 'arsenal' },
-							{ name: 'MadridistaCarlos', club: 'real-madrid' },
-							{ name: 'CuleMarc', club: 'barcelona' },
-							{ name: 'RossoneriPaolo', club: 'milan' }
+							{ name: 'ClockEndTactician', club: 'arsenal' },
+							{ name: 'NorthBankFan', club: 'arsenal' },
+							{ name: 'AshburtonAnalyst', club: 'arsenal' }
 						] as quick}
 							<button
 								type="button"

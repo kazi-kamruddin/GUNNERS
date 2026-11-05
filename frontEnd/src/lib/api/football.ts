@@ -23,7 +23,9 @@ import type {
 	TopicTag,
 	FormationPreset,
 	TacticalBoard,
-	TacticalBoardCreatePayload
+	TacticalBoardCreatePayload,
+	NewsFeed,
+	NewsItem
 } from '$lib/types/football';
 
 const API_BASE = (import.meta.env.PUBLIC_API_URL as string) || 'http://localhost:8000/api/v1';
@@ -364,6 +366,7 @@ export async function createPost(payload: PostCreatePayload): Promise<Post | nul
 			author_club_id: payload.author_club_id || 'arsenal',
 			club_id: payload.club_id || null,
 			content: payload.content,
+			image_url: payload.image_url || null,
 			insight_id: payload.insight_id || null,
 			created_at: new Date().toISOString(),
 			reactions_count: 0,
@@ -1059,6 +1062,63 @@ export async function fetchTacticalBoard(boardId: string): Promise<TacticalBoard
 		return await res.json();
 	} catch (err) {
 		return null;
+	}
+}
+
+export async function fetchArsenalNews(category?: string, refresh: boolean = false): Promise<NewsFeed> {
+	try {
+		const params = new URLSearchParams();
+		if (category && category !== 'all') params.set('category', category);
+		if (refresh) params.set('refresh', 'true');
+		const url = `${API_BASE}/news?${params.toString()}`;
+		const res = await fetch(url);
+		if (!res.ok) throw new Error('Failed to fetch Arsenal news');
+		return await res.json();
+	} catch (err) {
+		console.warn('API error fetching Arsenal news, returning baseline feed');
+		return {
+			total: 3,
+			sources_active: ['Pain in the Arsenal', 'Arseblog News', 'BBC Sport Arsenal'],
+			cached_at: new Date().toISOString(),
+			articles: [
+				{
+					id: 'art_fb_1',
+					title: "Arsenal tactical evolution: How Mikel Arteta created European-elite defensive compactness",
+					summary: "Deep dive into Arsenal's defensive structure, double pivot spacing, and pressing triggers at Emirates Stadium.",
+					source_name: 'Arseblog News',
+					source_category: 'fan_blog',
+					source_color: '#D4AF37',
+					article_url: 'https://arseblog.news',
+					image_url: 'https://crests.football-data.org/57.png',
+					published_at: new Date().toISOString(),
+					author: 'Tactical Analyst'
+				},
+				{
+					id: 'art_fb_2',
+					title: "Why Bukayo Saka's half-space combinations unlock stubborn 5-man low blocks",
+					summary: 'Analyzing the right-sided triangles between Ben White, Martin Ødegaard, and Bukayo Saka.',
+					source_name: 'Pain in the Arsenal',
+					source_category: 'fan_blog',
+					source_color: '#EF0107',
+					article_url: 'https://paininthearsenal.com',
+					image_url: 'https://crests.football-data.org/57.png',
+					published_at: new Date().toISOString(),
+					author: 'Arsenal Staff'
+				},
+				{
+					id: 'art_fb_3',
+					title: 'Match Preview: Crucial Premier League clash at Emirates Stadium this weekend',
+					summary: 'Team news, predicted starting lineups, head-to-head records, and press conference quotes.',
+					source_name: 'BBC Sport Arsenal',
+					source_category: 'broadcast',
+					source_color: '#FFD700',
+					article_url: 'https://www.bbc.com/sport/football/teams/arsenal',
+					image_url: 'https://crests.football-data.org/57.png',
+					published_at: new Date().toISOString(),
+					author: 'BBC Sport'
+				}
+			]
+		};
 	}
 }
 
