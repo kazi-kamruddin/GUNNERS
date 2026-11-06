@@ -1,10 +1,7 @@
 <script lang="ts">
-	import { CLUBS } from '$lib/stores/theme.svelte';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData } = $props();
-
-	const clubList = Object.values(CLUBS);
 </script>
 
 <svelte:head>
@@ -83,21 +80,19 @@
 			</div>
 
 			<div>
-				<label for="favorite_club_id" class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
-					Permanent Favorite Club
+				<label for="club-display" class="block text-xs font-semibold text-gray-300 uppercase tracking-wider mb-1">
+					Supporter Affiliation
 				</label>
-				<select
-					id="favorite_club_id"
+				<input
+					type="hidden"
 					name="favorite_club_id"
-					class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-red-500"
-				>
-					{#each clubList as club}
-						<option value={club.id} selected={form?.favoriteClub === club.id}>
-							{club.name} ({club.league})
-						</option>
-					{/each}
-				</select>
-				<span class="block text-[11px] text-gray-500 mt-1">This sets your permanent club badge and default theme.</span>
+					value="arsenal"
+				/>
+				<div id="club-display" class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg px-3 py-2 text-sm text-white flex items-center gap-2">
+					<span class="w-2.5 h-2.5 rounded-full bg-red-600"></span>
+					<span>Arsenal FC (The Gunners)</span>
+				</div>
+				<span class="block text-[11px] text-gray-500 mt-1">Platform membership is exclusively dedicated to Arsenal Football Club supporters.</span>
 			</div>
 
 			<button

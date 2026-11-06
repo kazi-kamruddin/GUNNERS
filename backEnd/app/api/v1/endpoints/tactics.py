@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc
+from sqlalchemy import select, desc, func
 from typing import List, Optional
 import uuid
 import datetime
@@ -38,19 +38,19 @@ PRESETS: List[FormationPreset] = [
     FormationPreset(
         id="4-2-3-1",
         name="4-2-3-1 Double Pivot",
-        description="Controlled midfield with a double pivot and a central playmaker.",
+        description="Controlled midfield with Rice-Partey double pivot and Ødegaard orchestrating in the hole.",
         players=[
-            PlayerToken(id="p1", name="Courtois", number=1, role="GK", x=5.0, y=50.0),
-            PlayerToken(id="p2", name="Mendy", number=23, role="LB", x=24.0, y=14.0),
-            PlayerToken(id="p3", name="Rüdiger", number=22, role="CB", x=20.0, y=36.0),
-            PlayerToken(id="p4", name="Militão", number=3, role="CB", x=20.0, y=64.0),
-            PlayerToken(id="p5", name="Carvajal", number=2, role="RB", x=24.0, y=86.0),
-            PlayerToken(id="p6", name="Camavinga", number=6, role="DM", x=38.0, y=35.0),
-            PlayerToken(id="p7", name="Valverde", number=8, role="DM", x=38.0, y=65.0),
-            PlayerToken(id="p8", name="Bellingham", number=5, role="AM", x=58.0, y=50.0),
-            PlayerToken(id="p9", name="Vinícius Jr", number=7, role="LW", x=72.0, y=18.0),
-            PlayerToken(id="p10", name="Rodrygo", number=11, role="RW", x=72.0, y=82.0),
-            PlayerToken(id="p11", name="Mbappé", number=9, role="ST", x=84.0, y=50.0),
+            PlayerToken(id="p1", name="Raya", number=22, role="GK", x=5.0, y=50.0),
+            PlayerToken(id="p2", name="Calafiori", number=33, role="LB", x=24.0, y=14.0),
+            PlayerToken(id="p3", name="Gabriel", number=6, role="CB", x=20.0, y=36.0),
+            PlayerToken(id="p4", name="Saliba", number=2, role="CB", x=20.0, y=64.0),
+            PlayerToken(id="p5", name="Timber", number=12, role="RB", x=24.0, y=86.0),
+            PlayerToken(id="p6", name="Rice", number=41, role="DM", x=38.0, y=35.0),
+            PlayerToken(id="p7", name="Partey", number=5, role="DM", x=38.0, y=65.0),
+            PlayerToken(id="p8", name="Ødegaard", number=8, role="AM", x=58.0, y=50.0),
+            PlayerToken(id="p9", name="Martinelli", number=11, role="LW", x=72.0, y=18.0),
+            PlayerToken(id="p10", name="Saka", number=7, role="RW", x=72.0, y=82.0),
+            PlayerToken(id="p11", name="Havertz", number=29, role="ST", x=84.0, y=50.0),
         ]
     ),
     FormationPreset(
@@ -131,7 +131,7 @@ PRESETS: List[FormationPreset] = [
 DEMO_BOARDS: List[TacticalBoardResponse] = [
     TacticalBoardResponse(
         id="tb_arsenal_highpress",
-        author_name="MikelTactics",
+        author_name="GoonerAlex",
         author_club_id="arsenal",
         title="Arteta 4-3-3 High Press & Half-Space Overloads",
         formation="4-3-3",
@@ -143,8 +143,40 @@ DEMO_BOARDS: List[TacticalBoardResponse] = [
         ],
         tactical_notes="Isolate Saka 1v1 on the right flank while Ødegaard and White generate the overlapping triangle.",
         is_public=True,
-        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=5),
-        updated_at=datetime.datetime.utcnow() - datetime.timedelta(hours=5)
+        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=2),
+        updated_at=datetime.datetime.utcnow() - datetime.timedelta(hours=2)
+    ),
+    TacticalBoardResponse(
+        id="tb_arsenal_lowblock_breaker",
+        author_name="ClockEndTactician",
+        author_club_id="arsenal",
+        title="Arteta 3-2-4-1 Inverted Low-Block Breaker",
+        formation="4-2-3-1",
+        lineup=PRESETS[1].players,
+        annotations=[
+            {"id": "ra1", "type": "run", "from_x": 72.0, "from_y": 18.0, "to_x": 86.0, "to_y": 35.0, "label": "Martinelli diagonal cut"},
+            {"id": "ra2", "type": "pass", "from_x": 58.0, "from_y": 50.0, "to_x": 84.0, "to_y": 50.0, "label": "Through ball to Havertz"}
+        ],
+        tactical_notes="Invert Timber into the central axis alongside Rice to create a 3-2 rest defense and prevent counter-attacks.",
+        is_public=True,
+        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=4),
+        updated_at=datetime.datetime.utcnow() - datetime.timedelta(hours=4)
+    ),
+    TacticalBoardResponse(
+        id="tb_arsenal_derby_lockdown",
+        author_name="NorthBankFan",
+        author_club_id="arsenal",
+        title="Arteta 4-4-2 Compact Mid-Block & Transition Trap",
+        formation="4-4-2",
+        lineup=PRESETS[3].players,
+        annotations=[
+            {"id": "da1", "type": "press", "from_x": 46.0, "from_y": 38.0, "to_x": 52.0, "to_y": 38.0, "label": "Rice ball contest"},
+            {"id": "da2", "type": "run", "from_x": 52.0, "from_y": 85.0, "to_x": 78.0, "to_y": 85.0, "label": "Saka transition sprint"}
+        ],
+        tactical_notes="Two ultra-narrow banks of four deny central penetration, forcing rivals into wide crosses dealt with by Saliba and Gabriel.",
+        is_public=True,
+        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=6),
+        updated_at=datetime.datetime.utcnow() - datetime.timedelta(hours=6)
     )
 ]
 
@@ -254,7 +286,14 @@ async def list_tactical_boards(
     except Exception:
         pass
 
-    # Filter in-memory fallback
+    try:
+        total_in_db = (await db.execute(select(func.count(TacticalBoard.id)))).scalar() or 0
+        if total_in_db > 0:
+            return []
+    except Exception:
+        pass
+
+    # Filter in-memory fallback for cold start
     if club_id:
         return [b for b in DEMO_BOARDS if b.author_club_id == club_id][:limit]
     return DEMO_BOARDS[:limit]

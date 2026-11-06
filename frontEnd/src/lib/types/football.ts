@@ -12,6 +12,17 @@ export interface Club {
 	is_foundation?: boolean;
 }
 
+export interface Season {
+	id: string;
+	competition_id: string;
+	start_year: number;
+	end_year: number;
+	is_current: boolean;
+	label: string;
+	headline: string;
+	arteta_milestone: string;
+}
+
 export interface Match {
 	id: string;
 	competition_id?: string;
@@ -112,6 +123,7 @@ export interface Post {
 	author_club_id: string;
 	club_id?: string | null;
 	content: string;
+	image_url?: string | null;
 	insight_id?: string | null;
 	insight?: Insight | null;
 	tactical_board_id?: string | null;
@@ -135,6 +147,7 @@ export interface PostComment {
 export interface PostCreatePayload {
 	content: string;
 	club_id?: string | null;
+	image_url?: string | null;
 	insight_id?: string | null;
 	tactical_board_id?: string | null;
 	author_name?: string;
@@ -372,6 +385,28 @@ export interface TacticalBoardCreatePayload {
 	author_club_id?: string;
 	user_id?: string;
 	is_public?: boolean;
+}
+
+export interface NewsItem {
+	id: string;
+	title: string;
+	summary: string;
+	source_name: string;
+	source_category: 'fan_blog' | 'reddit' | 'broadcast' | 'official';
+	source_color: string;
+	article_url: string;
+	image_url?: string | null;
+	published_at: string;
+	author?: string | null;
+	upvotes?: number | null;
+	tags?: string[];
+}
+
+export interface NewsFeed {
+	total: number;
+	sources_active: string[];
+	cached_at: string;
+	articles: NewsItem[];
 }
 
 

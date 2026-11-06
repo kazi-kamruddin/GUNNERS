@@ -6,6 +6,7 @@ from app.schemas.tactics import TacticalBoardResponse
 
 class PostCreateRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=2000)
+    image_url: Optional[str] = None
     club_id: Optional[str] = None  # None or specific club id
     insight_id: Optional[str] = None
     tactical_board_id: Optional[str] = None
@@ -39,6 +40,7 @@ class PostResponse(BaseModel):
     author_club_id: str
     club_id: Optional[str] = None
     content: str
+    image_url: Optional[str] = None
     insight_id: Optional[str] = None
     insight: Optional[InsightResponse] = None
     tactical_board_id: Optional[str] = None

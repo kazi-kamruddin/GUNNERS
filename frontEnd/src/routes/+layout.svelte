@@ -9,7 +9,6 @@
 
 	let { data, children }: LayoutProps = $props();
 
-	const clubList = Object.values(CLUBS);
 	let currentViewingClub = $derived(themeState.currentTheme);
 	let unreadCount = $state(0);
 
@@ -56,36 +55,27 @@
 						REBORN
 					</span>
 				</a>
-				<nav class="hidden md:flex items-center gap-4 text-xs font-medium text-gray-400">
+				<nav class="hidden md:flex items-center gap-5 text-xs font-medium text-gray-400">
 					<a href="/" class="hover:text-white transition">Home</a>
-					<a href="/lab" class="hover:text-white transition flex items-center gap-1">
-						<span>Data Lab</span>
-						<span class="text-[9px] bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1 rounded">Analytics</span>
+					<a href="/news" class="hover:text-white transition flex items-center gap-1">
+						<span>The Armory</span>
+						<span class="text-[9px] bg-red-950/70 text-red-400 border border-red-800/40 px-1 rounded font-mono">News</span>
 					</a>
-					<a href="/board" class="hover:text-white transition">Tactics</a>
+					<a href="/board" class="hover:text-white transition">The Dugout</a>
 					<a href="/squad" class="hover:text-white transition">Squad</a>
-					<a href="/predictions" class="hover:text-white transition">Predictions</a>
-					<a href="/matches" class="hover:text-white transition">Matches</a>
 					<a href="/terrace" class="hover:text-white transition">The Terrace</a>
-					<a href="/messages" class="hover:text-white transition">Messages</a>
+					<a href="/lab" class="hover:text-white transition">Data Lab</a>
+					<a href="/matches" class="hover:text-white transition">Matches</a>
+					<a href="/messages" class="hover:text-white transition">Debates</a>
 				</nav>
 			</div>
 
 			<div class="flex items-center gap-3">
-				<!-- Quick Viewing Club Switcher -->
-				<div class="hidden sm:flex items-center gap-1 bg-[#0a0c10] border border-[#1e2430] rounded-lg p-1 text-xs">
-					<span class="text-gray-500 text-[10px] uppercase font-semibold px-1.5">Viewing:</span>
-					{#each clubList as club}
-						<button
-							type="button"
-							onclick={() => themeState.setViewingClub(club.id)}
-							title="View as {club.name}"
-							class="px-2 py-0.5 rounded transition text-xs font-semibold flex items-center gap-1 {themeState.viewingClubId === club.id ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}"
-						>
-							<span class="w-1.5 h-1.5 rounded-full" style="background-color: {club.primary_color}"></span>
-							<span>{club.short_name}</span>
-						</button>
-					{/each}
+				<!-- Arsenal Club Identity Badge -->
+				<div class="hidden sm:flex items-center gap-2 bg-[#0a0c10] border border-[#1e2430] rounded-lg px-2.5 py-1 text-xs">
+					<span class="w-2 h-2 rounded-full bg-[#EF0107] animate-pulse"></span>
+					<span class="font-bold text-white uppercase tracking-wider text-[11px]">Arsenal FC</span>
+					<span class="text-[10px] text-amber-400 font-mono">Emirates</span>
 				</div>
 
 				{#if data.user}

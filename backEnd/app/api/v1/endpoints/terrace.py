@@ -1,5 +1,6 @@
 import uuid
 import json
+import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func, and_, or_
@@ -20,6 +21,64 @@ from app.schemas.insight import InsightResponse
 from app.schemas.tactics import TacticalBoardResponse
 
 router = APIRouter()
+
+# Curated fallback posts for instant cold-start resilience
+DEFAULT_POSTS: List[PostResponse] = [
+    PostResponse(
+        id="post_seed_1",
+        author_id="usr_seed_alex",
+        author_name="GoonerAlex",
+        author_club_id="arsenal",
+        club_id="arsenal",
+        content="Our defensive compactness and high press structure at the Emirates have been elite this season. Backed up with reproducible Data Lab numbers: 83.3% home win rate! Check the attached tactical blueprint for how we isolate Saka on the right wing. #NorthLondonDerby #Tactics",
+        image_url="https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80",
+        insight_id="ins_arsenal_winrate",
+        tactical_board_id="tb_arsenal_highpress",
+        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=2),
+        reactions_count=28,
+        comments_count=4,
+        user_reacted=False
+    ),
+    PostResponse(
+        id="post_seed_2",
+        author_id="usr_seed_ana",
+        author_name="ArsenalAnalytics",
+        author_club_id="arsenal",
+        club_id="arsenal",
+        content="Declan Rice's ball-carrying and ground duel winning rate (68.4%) make him indispensable in European ties. Look at the central stability he brings to our spine. #DataLab #Arsenal #COYG",
+        image_url="https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=800&q=80",
+        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=4),
+        reactions_count=34,
+        comments_count=6,
+        user_reacted=False
+    ),
+    PostResponse(
+        id="post_seed_3",
+        author_id="usr_seed_clock",
+        author_name="ClockEndTactician",
+        author_club_id="arsenal",
+        club_id="arsenal",
+        content="When teams sit in a disciplined 5-3-2 low block, Arteta's solution is to invert Timber into the midfield pocket, allowing Merino to crash the box as an extra aerial threat. #Tactics #Emirates",
+        tactical_board_id="tb_arsenal_highpress",
+        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=6),
+        reactions_count=22,
+        comments_count=3,
+        user_reacted=False
+    ),
+    PostResponse(
+        id="post_seed_4",
+        author_id="usr_seed_nb",
+        author_name="NorthBankFan",
+        author_club_id="arsenal",
+        club_id="arsenal",
+        content="The atmosphere under the floodlights this week was electric. Big three points secured! Proud to be a Gooner. #Arsenal #PremierLeague #Gunners",
+        image_url="https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=800&q=80",
+        created_at=datetime.datetime.utcnow() - datetime.timedelta(hours=8),
+        reactions_count=41,
+        comments_count=5,
+        user_reacted=False
+    )
+]
 
 def serialize_tactical_board_response(tb: Optional[TacticalBoard]) -> Optional[TacticalBoardResponse]:
     if not tb:
@@ -118,6 +177,7 @@ async def list_posts(
                 author_club_id=p.author_club_id,
                 club_id=p.club_id,
                 content=p.content,
+                image_url=p.image_url,
                 insight_id=p.insight_id,
                 insight=serialize_insight_response(p.insight),
                 tactical_board_id=p.tactical_board_id,
@@ -128,6 +188,14 @@ async def list_posts(
                 user_reacted=user_reacted
             )
         )
+
+    if not result and not search and not tag:
+        total_in_db = (await db.execute(select(func.count(Post.id)))).scalar() or 0
+        if total_in_db == 0:
+            fallback_posts = list(DEFAULT_POSTS)
+            if club_id and club_id != "global":
+                fallback_posts = [p for p in fallback_posts if p.club_id == club_id or p.author_club_id == club_id]
+            return fallback_posts[:limit]
 
     return result
 
@@ -158,6 +226,7 @@ async def create_post(
         author_club_id=request.author_club_id,
         club_id=request.club_id if request.club_id != "global" else None,
         content=request.content,
+        image_url=request.image_url,
         insight_id=request.insight_id,
         tactical_board_id=request.tactical_board_id
     )
@@ -173,6 +242,7 @@ async def create_post(
         author_club_id=new_post.author_club_id,
         club_id=new_post.club_id,
         content=new_post.content,
+        image_url=new_post.image_url,
         insight_id=new_post.insight_id,
         insight=serialize_insight_response(attached_insight),
         tactical_board_id=new_post.tactical_board_id,
@@ -270,11 +340,11 @@ async def create_comment(
 async def list_trending_tags():
     """Retrieve popular topic tags across The Terrace debates."""
     return [
-        {"tag": "#NorthLondonDerby", "count": 24, "club": "arsenal"},
-        {"tag": "#ElClasico", "count": 38, "club": "real-madrid"},
-        {"tag": "#DerbyDellaMadonnina", "count": 19, "club": "milan"},
-        {"tag": "#Tactics", "count": 42, "club": "global"},
-        {"tag": "#CleanSheets", "count": 15, "club": "arsenal"},
-        {"tag": "#DataLab", "count": 31, "club": "global"}
+        {"tag": "NorthLondonDerby", "count": 24, "club": "arsenal"},
+        {"tag": "ElClasico", "count": 38, "club": "real-madrid"},
+        {"tag": "DerbyDellaMadonnina", "count": 19, "club": "milan"},
+        {"tag": "Tactics", "count": 42, "club": "global"},
+        {"tag": "CleanSheets", "count": 15, "club": "arsenal"},
+        {"tag": "DataLab", "count": 31, "club": "global"}
     ]
 

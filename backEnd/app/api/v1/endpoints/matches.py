@@ -9,12 +9,19 @@ from app.schemas.analytics import (
     MatchResponse,
     MatchSummaryResponse,
     SyncStatusResponse,
+    SeasonResponse,
     AnalyticsQueryRequest,
     AnalyticsResponse
 )
 from app.services.analytics import AnalyticsEngine
+from app.services.arteta_timeline import ArtetaTimelineService
 
 router = APIRouter()
+
+@router.get("/seasons", response_model=List[SeasonResponse])
+async def list_seasons():
+    """Retrieve complete catalog of Mikel Arteta era seasons (2019 to Present) with tactical milestones."""
+    return ArtetaTimelineService.get_seasons_list()
 
 @router.get("", response_model=List[MatchResponse])
 async def get_matches(
@@ -32,7 +39,7 @@ async def get_matches(
         filters.append(or_(Match.home_team_id == club_id, Match.away_team_id == club_id))
     if competition_id:
         filters.append(Match.competition_id == competition_id)
-    if season_id:
+    if season_id and season_id != "all":
         filters.append(Match.season_id == season_id)
     if status:
         filters.append(Match.status == status)

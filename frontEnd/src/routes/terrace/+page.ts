@@ -15,6 +15,8 @@ export const load: PageLoad = async ({ url, parent }) => {
 	]);
 
 	return {
+		user: parentData.user,
+		profile: parentData.profile,
 		initialPosts: posts,
 		availableInsights: insights,
 		availableTacticalBoards: tacticalBoards,

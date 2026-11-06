@@ -1,0 +1,88 @@
+name: Supabase Database Keep-Alive
+
+on:
+  schedule:
+    # Runs at 00:00 UTC every 3 days (well within Supabase's 7-day inactivity pause limit)
+    - cron: '0 0 */3 * *'
+  workflow_dispatch: # Allows manual trigger from the GitHub Actions tab anytime
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Keep-Alive Database Ping
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check Available Secrets
+        id: check_env
+        env:
+          ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY }}
+          DB_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -n "$ANON_KEY" ]; then
+            echo "has_anon=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_anon=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$DB_URL" ]; then
+            echo "has_db=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_db=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Ping Supabase REST Endpoint
+        if: steps.check_env.outputs.has_anon == 'true'
+        env:
+          SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL || 'https://iydgcurrjvrxiwenyiuh.supabase.co' }}
+        run: |
+          echo "Pinging Supabase REST API to register database activity..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X GET "${SUPABASE_URL}/rest/v1/seasons?select=id&limit=1" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+          echo "Supabase response code: ${HTTP_STATUS}"
+          if [ "$HTTP_STATUS" -eq 200 ]; then
+            echo "✅ Supabase database pinged successfully (HTTP 200). 7-day inactivity timer reset!"
+          else
+            echo "⚠️ Warning: Expected HTTP 200 but received ${HTTP_STATUS}. Check your API key or project status."
+          fi
+
+      - name: Ping Supabase via PostgreSQL Direct Query
+        if: steps.check_env.outputs.has_anon == 'false' && steps.check_env.outputs.has_db == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "Setting up Python asyncpg to ping database directly..."
+          python3 -m pip install --quiet asyncpg
+          python3 -c "
+          import asyncio, asyncpg, os
+          async def ping():
+              db_url = os.environ.get('DATABASE_URL', '')
+              if db_url.startswith('postgresql+asyncpg://'):
+                  db_url = db_url.replace('postgresql+asyncpg://', 'postgresql://', 1)
+              conn = await asyncpg.connect(db_url)
+              val = await conn.fetchval('SELECT 1;')
+              print(f'✅ Direct PostgreSQL query succeeded (result: {val}). 7-day inactivity timer reset!')
+              await conn.close()
+          asyncio.run(ping())
+          "
+
+      - name: Setup Instructions (if secrets not yet added)
+        if: steps.check_env.outputs.has_anon == 'false' && steps.check_env.outputs.has_db == 'false'
+        run: |
+          echo "=========================================================================="
+          echo "ℹ️  HOW TO ACTIVATE THIS KEEP-ALIVE WORKFLOW:"
+          echo "To allow this action to keep your Supabase database active automatically:"
+          echo "1. Go to your GitHub Repository -> Settings -> Secrets and variables -> Actions"
+          echo "2. Add either:"
+          echo "   - 'PUBLIC_SUPABASE_ANON_KEY' (Found in Supabase -> Project Settings -> API)"
+          echo "   or"
+          echo "   - 'DATABASE_URL' (Your Supabase PostgreSQL connection string)"
+          echo "=========================================================================="

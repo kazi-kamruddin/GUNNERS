@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { CLUBS, themeState } from '$lib/stores/theme.svelte';
 	import { fetchMatches, fetchMatchSummary } from '$lib/api/football';
 	import type { Match, MatchSummary } from '$lib/types/football';
 	import type { PageProps } from './$types';
@@ -7,57 +6,33 @@
 	let { data }: PageProps = $props();
 
 	// Reactive filter states
-	let selectedClubId = $state(themeState.viewingClubId);
 	let activeTab = $state<'ALL' | 'SCHEDULED' | 'FINISHED'>('ALL');
 	let selectedComp = $state<string>('ALL');
+	let selectedSeason = $state<string>('all');
 	let isLoading = $state(false);
 
 	let matches = $state<Match[]>([]);
 	let summary = $state<MatchSummary | null>(null);
 	let syncStatus = $derived(data.syncStatus);
-
-	const clubsList = Object.values(CLUBS);
+	let seasons = $derived(data.seasons || []);
+	let currentSeasonDetail = $derived(
+		selectedSeason !== 'all' ? seasons.find((s) => s.id === selectedSeason) : null
+	);
 
 	$effect(() => {
-		selectedClubId = data.initialClubId || themeState.viewingClubId;
 		matches = data.initialMatches;
 		summary = data.initialSummary;
+		selectedSeason = data.activeSeasonId || 'all';
 	});
-
-	// Sync when global viewing club changes
-	$effect(() => {
-		if (themeState.viewingClubId !== selectedClubId) {
-			selectClub(themeState.viewingClubId);
-		}
-	});
-
-	async function selectClub(clubId: string) {
-		selectedClubId = clubId;
-		themeState.setViewingClub(clubId);
-		isLoading = true;
-		try {
-			const [newMatches, newSummary] = await Promise.all([
-				fetchMatches({
-					club_id: clubId,
-					competition_id: selectedComp !== 'ALL' ? selectedComp : undefined,
-					status: activeTab !== 'ALL' ? activeTab : undefined
-				}),
-				fetchMatchSummary(clubId)
-			]);
-			matches = newMatches;
-			summary = newSummary;
-		} finally {
-			isLoading = false;
-		}
-	}
 
 	async function applyFilters() {
 		isLoading = true;
 		try {
 			matches = await fetchMatches({
-				club_id: selectedClubId,
+				club_id: 'arsenal',
 				competition_id: selectedComp !== 'ALL' ? selectedComp : undefined,
-				status: activeTab !== 'ALL' ? activeTab : undefined
+				status: activeTab !== 'ALL' ? activeTab : undefined,
+				season_id: selectedSeason !== 'all' ? selectedSeason : undefined
 			});
 		} finally {
 			isLoading = false;
@@ -78,41 +53,40 @@
 			return utcString;
 		}
 	}
-
-	let currentClubObj = $derived(CLUBS[selectedClubId] || CLUBS['arsenal']);
 </script>
 
 <svelte:head>
-	<title>Matches & Fixtures | GUNNERS Reborn</title>
+	<title>Arsenal Match Schedule & Results | GUNNERS</title>
 </svelte:head>
 
 <div class="max-w-7xl mx-auto px-4 py-8 space-y-8">
-	<!-- Page Header & Club Switcher -->
-	<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1e2430] pb-6">
+	<!-- Page Header -->
+	<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-red-900/30 pb-6">
 		<div>
-			<div class="flex items-center gap-3">
-				<div class="w-3.5 h-3.5 rounded-full" style="background-color: {currentClubObj.primary_color}"></div>
-				<h1 class="text-2xl font-black tracking-tight text-white uppercase">
-					{currentClubObj.name} Matches & Fixtures
-				</h1>
+			<div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider mb-2 bg-red-950/70 text-red-400 border border-red-800/40 font-mono">
+				Emirates Campaign Hub
 			</div>
+			<h1 class="text-3xl font-black tracking-tight text-white uppercase flex items-center gap-2.5">
+				<span>Arsenal Match Schedule & Results</span>
+			</h1>
 			<p class="text-sm text-gray-400 mt-1">
-				Real-time sync from football-data.org. Showing 2024-2025 season schedules and verified results.
+				Mikel Arteta's Premier League & UEFA Champions League campaigns with verified scorelines, venues, and tactical links.
 			</p>
 		</div>
 
-		<!-- Quick Club Pills -->
-		<div class="flex items-center gap-2 flex-wrap">
-			{#each clubsList as club}
-				<button
-					type="button"
-					onclick={() => selectClub(club.id)}
-					class="px-3 py-1.5 rounded text-xs font-bold transition flex items-center gap-1.5 border {selectedClubId === club.id ? 'bg-white/10 text-white border-white/20' : 'text-gray-400 hover:text-white border-[#1e2430] bg-[#12161f]'}"
-				>
-					<span class="w-2 h-2 rounded-full" style="background-color: {club.primary_color}"></span>
-					<span>{club.short_name}</span>
-				</button>
-			{/each}
+		<div class="flex items-center gap-2">
+			<a
+				href="/predictions"
+				class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 font-bold text-xs text-white transition shadow-sm flex items-center gap-1.5"
+			>
+				<span>🎯 Match Predictor</span>
+			</a>
+			<a
+				href="/board"
+				class="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-[#1e2430] font-semibold text-xs text-gray-200 transition"
+			>
+				<span>📋 Lineup Studio</span>
+			</a>
 		</div>
 	</div>
 
@@ -120,8 +94,8 @@
 	{#if summary}
 		<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 			<!-- Recent Form Card -->
-			<div class="p-5 rounded-lg border border-[#1e2430] bg-[#12161f]">
-				<h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Recent Form (Last 5)</h2>
+			<div class="p-5 rounded-2xl border border-[#1e2430] bg-[#12161f]">
+				<h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Arsenal Form (Last 5)</h2>
 				<div class="flex items-center gap-2">
 					{#if summary.recent_form.length > 0}
 						{#each summary.recent_form as res}
@@ -142,8 +116,8 @@
 			</div>
 
 			<!-- Next Fixture Quick View -->
-			<div class="p-5 rounded-lg border border-[#1e2430] bg-[#12161f] md:col-span-2">
-				<h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Next Fixture</h2>
+			<div class="p-5 rounded-2xl border border-[#1e2430] bg-[#12161f] md:col-span-2">
+				<h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Next Scheduled Match</h2>
 				{#if summary.next_fixture}
 					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 						<div class="flex items-center gap-4">
@@ -180,65 +154,102 @@
 			<button
 				type="button"
 				onclick={() => { activeTab = 'ALL'; applyFilters(); }}
-				class="px-3 py-1.5 rounded transition font-semibold {activeTab === 'ALL' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}"
+				class="px-3 py-1.5 rounded transition font-semibold {activeTab === 'ALL' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}"
 			>
 				All Matches
 			</button>
 			<button
 				type="button"
 				onclick={() => { activeTab = 'SCHEDULED'; applyFilters(); }}
-				class="px-3 py-1.5 rounded transition font-semibold {activeTab === 'SCHEDULED' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}"
+				class="px-3 py-1.5 rounded transition font-semibold {activeTab === 'SCHEDULED' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}"
 			>
 				Upcoming Fixtures
 			</button>
 			<button
 				type="button"
 				onclick={() => { activeTab = 'FINISHED'; applyFilters(); }}
-				class="px-3 py-1.5 rounded transition font-semibold {activeTab === 'FINISHED' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}"
+				class="px-3 py-1.5 rounded transition font-semibold {activeTab === 'FINISHED' ? 'bg-red-600 text-white shadow-sm' : 'text-gray-400 hover:text-white'}"
 			>
-				Results
+				Completed Results
 			</button>
 		</div>
 
-		<!-- Competition Dropdown -->
-		<div class="flex items-center gap-2 text-xs">
-			<label for="comp-select" class="text-gray-400">Competition:</label>
-			<select
-				id="comp-select"
-				bind:value={selectedComp}
-				onchange={applyFilters}
-				class="bg-[#12161f] border border-[#1e2430] text-white rounded px-2.5 py-1.5 focus:outline-none focus:border-gray-500"
-			>
-				<option value="ALL">All Competitions</option>
-				<option value="PL">Premier League</option>
-				<option value="PD">La Liga</option>
-				<option value="SA">Serie A</option>
-				<option value="CL">Champions League</option>
-			</select>
+		<!-- Competition & Season Dropdowns -->
+		<div class="flex items-center gap-3 flex-wrap text-xs">
+			<div class="flex items-center gap-1.5">
+				<label for="comp-select" class="text-gray-400 font-mono text-[11px] uppercase">Competition:</label>
+				<select
+					id="comp-select"
+					bind:value={selectedComp}
+					onchange={applyFilters}
+					class="bg-[#12161f] border border-[#1e2430] text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-red-500 font-medium"
+				>
+					<option value="ALL">All Competitions</option>
+					<option value="PL">Premier League</option>
+					<option value="CL">Champions League</option>
+				</select>
+			</div>
+
+			<div class="flex items-center gap-1.5">
+				<label for="season-select" class="text-amber-400 font-mono text-[11px] uppercase font-bold">Arteta Era:</label>
+				<select
+					id="season-select"
+					bind:value={selectedSeason}
+					onchange={applyFilters}
+					class="bg-[#12161f] border border-amber-500/40 text-amber-300 font-mono font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-400"
+				>
+					<option value="all">All Seasons (2019 - Present)</option>
+					{#each seasons as s}
+						<option value={s.id}>
+							{s.label} — {s.headline}
+						</option>
+					{/each}
+				</select>
+			</div>
 		</div>
 	</div>
+
+	<!-- Arteta Era Milestone Callout (when a season is active) -->
+	{#if currentSeasonDetail}
+		<div class="p-4 rounded-xl border border-amber-500/30 bg-amber-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+			<div class="space-y-1">
+				<div class="flex items-center gap-2">
+					<span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-amber-400 text-black font-black">
+						{currentSeasonDetail.label}
+					</span>
+					<h3 class="font-bold text-white text-sm">{currentSeasonDetail.headline}</h3>
+				</div>
+				<p class="text-gray-300 text-xs leading-relaxed max-w-4xl">{currentSeasonDetail.arteta_milestone}</p>
+			</div>
+			{#if currentSeasonDetail.is_current}
+				<span class="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono text-[10px] font-bold uppercase shrink-0 self-start sm:self-center">
+					● Active Campaign
+				</span>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Matches List -->
 	{#if isLoading}
 		<div class="py-12 text-center text-gray-500 text-sm">
-			Loading matches...
+			Loading Arsenal matches...
 		</div>
 	{:else if matches.length === 0}
-		<div class="py-12 text-center border border-dashed border-[#1e2430] rounded-lg">
-			<p class="text-sm text-gray-400">No matches found for the selected filters.</p>
+		<div class="py-12 text-center border border-dashed border-[#1e2430] rounded-xl bg-[#12161f]/50">
+			<p class="text-sm text-gray-400 font-bold">No Arsenal matches found for the selected filter.</p>
 		</div>
 	{:else}
 		<div class="space-y-3">
 			{#each matches as match}
-				<div class="p-4 rounded-lg border border-[#1e2430] bg-[#12161f] hover:border-gray-700 transition flex flex-col md:flex-row md:items-center justify-between gap-4">
+				<div class="p-4 rounded-xl border border-[#1e2430] bg-[#12161f] hover:border-red-900/50 transition flex flex-col md:flex-row md:items-center justify-between gap-4">
 					<!-- Date & Competition info -->
 					<div class="min-w-[140px]">
 						<div class="flex items-center gap-2">
 							<span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-black/40 border border-[#1e2430] text-gray-300">
-								{match.competition_id || 'MATCH'}
+								{match.competition_id || 'PL'}
 							</span>
 							{#if match.matchday}
-								<span class="text-[10px] text-gray-400">MD {match.matchday}</span>
+								<span class="text-[10px] text-gray-400 font-mono">Matchday {match.matchday}</span>
 							{/if}
 						</div>
 						<div class="text-xs text-gray-400 mt-1 font-mono">
@@ -250,7 +261,7 @@
 					<div class="flex-1 flex items-center justify-center gap-6">
 						<!-- Home Team -->
 						<div class="flex-1 flex items-center justify-end gap-2 text-right">
-							<span class="text-sm font-bold {match.home_team_id === selectedClubId ? 'text-white' : 'text-gray-300'}">
+							<span class="text-sm font-bold {match.home_team_id === 'arsenal' ? 'text-red-400' : 'text-gray-300'}">
 								{match.home_team_name}
 							</span>
 							{#if match.home_team_crest}
@@ -267,7 +278,7 @@
 								<div class="text-[9px] text-emerald-400 uppercase mt-0.5 font-bold">Final</div>
 							{:else}
 								<div class="text-xs font-mono text-amber-400 px-2 py-1 rounded bg-amber-500/10 border border-amber-500/20 font-bold">
-									SCHEDULED
+									UPCOMING
 								</div>
 							{/if}
 						</div>
@@ -277,7 +288,7 @@
 							{#if match.away_team_crest}
 								<img src={match.away_team_crest} alt="" class="w-6 h-6 object-contain" />
 							{/if}
-							<span class="text-sm font-bold {match.away_team_id === selectedClubId ? 'text-white' : 'text-gray-300'}">
+							<span class="text-sm font-bold {match.away_team_id === 'arsenal' ? 'text-red-400' : 'text-gray-300'}">
 								{match.away_team_name}
 							</span>
 						</div>
@@ -286,17 +297,25 @@
 					<!-- Venue & Actions -->
 					<div class="min-w-[150px] flex items-center justify-end gap-3 text-right">
 						{#if match.venue}
-							<span class="text-[11px] text-gray-500 truncate max-w-[120px] hidden lg:inline" title={match.venue}>
-								{match.venue}
+							<span class="text-[11px] text-gray-400 truncate max-w-[130px] hidden lg:inline font-mono" title={match.venue}>
+								📍 {match.venue}
 							</span>
 						{/if}
-						<a
-							href="/lab"
-							class="text-xs font-semibold px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-[#1e2430] transition"
-							title="Analyze team performance in Data Lab"
-						>
-							Analyze
-						</a>
+						{#if match.status === 'FINISHED'}
+							<a
+								href="/terrace"
+								class="text-xs font-semibold px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-[#1e2430] transition"
+							>
+								Debate
+							</a>
+						{:else}
+							<a
+								href="/predictions"
+								class="text-xs font-semibold px-2.5 py-1 rounded bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 transition"
+							>
+								Predict
+							</a>
+						{/if}
 					</div>
 				</div>
 			{/each}
@@ -307,7 +326,7 @@
 	{#if syncStatus}
 		<div class="border-t border-[#1e2430] pt-4 flex flex-col sm:flex-row sm:items-center justify-between text-[11px] text-gray-500 gap-2">
 			<div>
-				Source: <span class="text-gray-400">{syncStatus.source}</span> · Free Tier Quota Aware (10 req/min)
+				Source: <span class="text-gray-400 font-mono">{syncStatus.source}</span>
 			</div>
 			<div>
 				Last Synced: <span class="text-gray-400 font-mono">{formatDate(syncStatus.latest_sync || '')}</span>

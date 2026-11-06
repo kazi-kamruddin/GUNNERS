@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CLUBS, themeState } from '$lib/stores/theme.svelte';
+	import { CLUBS } from '$lib/stores/theme.svelte';
 	import { submitPrediction, fetchLeaderboard } from '$lib/api/football';
 	import type { UpcomingMatchPrediction, LeaderboardEntry } from '$lib/types/football';
 	import type { PageProps } from './$types';
@@ -8,14 +8,11 @@
 
 	let upcoming = $state<UpcomingMatchPrediction[]>([]);
 	let leaderboard = $state<LeaderboardEntry[]>([]);
-	let selectedLeaderboardClub = $state<string>('all');
 	let isSubmitting = $state<Record<string, boolean>>({});
 	let predictionInputs = $state<Record<string, { home: number; away: number }>>({});
 	let notificationMessage = $state<string | null>(null);
 
 	let isInitialized = false;
-	const viewingClub = $derived(themeState.currentTheme);
-	const clubList = Object.values(CLUBS);
 
 	$effect(() => {
 		if (!isInitialized && data.upcoming) {
@@ -58,18 +55,11 @@
 					target.user_prediction = res;
 				}
 				notificationMessage = `Score prediction (${scores.home} - ${scores.away}) locked in successfully!`;
-				// Refresh leaderboard
-				leaderboard = await fetchLeaderboard(selectedLeaderboardClub !== 'all' ? selectedLeaderboardClub : undefined);
+				leaderboard = await fetchLeaderboard();
 			}
 		} finally {
 			isSubmitting[matchId] = false;
 		}
-	}
-
-	async function handleFilterLeaderboard(clubId: string) {
-		selectedLeaderboardClub = clubId;
-		const filter = clubId !== 'all' ? clubId : undefined;
-		leaderboard = await fetchLeaderboard(filter);
 	}
 
 	function formatDate(utcDate: string): string {
@@ -218,24 +208,10 @@
 				<p class="text-[11px] text-gray-400">Rankings across all predictors</p>
 			</div>
 
-			<!-- Club Filter Pill Bar -->
-			<div class="flex flex-wrap gap-1">
-				<button
-					type="button"
-					onclick={() => handleFilterLeaderboard('all')}
-					class="text-[10px] px-2 py-0.5 rounded transition {selectedLeaderboardClub === 'all' ? 'bg-amber-400 text-black font-bold' : 'bg-[#0d1017] text-gray-400 hover:text-white'}"
-				>
-					Global
-				</button>
-				{#each clubList as club}
-					<button
-						type="button"
-						onclick={() => handleFilterLeaderboard(club.id)}
-						class="text-[10px] px-2 py-0.5 rounded transition {selectedLeaderboardClub === club.id ? 'bg-white/20 text-white font-bold' : 'bg-[#0d1017] text-gray-400 hover:text-white'}"
-					>
-						{club.short_name}
-					</button>
-				{/each}
+			<!-- Leaderboard Title -->
+			<div class="flex items-center justify-between text-[11px] font-mono text-gray-400">
+				<span>Gooners Worldwide</span>
+				<span class="text-amber-400 font-bold">Top Predictors</span>
 			</div>
 
 			<!-- Leaderboard Table -->

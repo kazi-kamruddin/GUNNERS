@@ -281,12 +281,53 @@
 		<!-- Right Side: Active Chat Window -->
 		<div class="md:col-span-2 flex flex-col bg-[#12161f]">
 			{#if !activeConvId}
-				<div class="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-500">
+				<div class="flex-1 flex flex-col items-center justify-center p-6 text-center text-gray-500 overflow-y-auto">
 					<span class="text-3xl mb-2">💬</span>
-					<p class="text-sm font-semibold text-gray-300">Select a conversation</p>
-					<p class="text-xs text-gray-500 mt-1 max-w-sm">
-						Choose a debate from the list on the left, or challenge an analyst from The Terrace to start a 1-on-1 debate.
+					<p class="text-sm font-semibold text-gray-300">Select or Start a Debate</p>
+					<p class="text-xs text-gray-500 mt-1 max-w-sm mb-6">
+						Connect directly with top club analysts for 1-on-1 tactical debriefs.
 					</p>
+
+					<!-- Suggested Analysts for Quick Connect -->
+					<div class="w-full max-w-md space-y-2">
+						<p class="text-[11px] font-mono uppercase text-gray-400 font-semibold text-left mb-1">
+							Featured Community Analysts:
+						</p>
+						{#each [
+							{ name: 'GoonerAlex', club: 'arsenal', desc: 'Emirates high press & overload specialist' },
+							{ name: 'ClockEndTactician', club: 'arsenal', desc: '3-2-4-1 inverted low-block breaker & pivot analyst' },
+							{ name: 'NorthBankFan', club: 'arsenal', desc: 'Set-piece conversion & defensive wall tracker' },
+							{ name: 'AshburtonAnalyst', club: 'arsenal', desc: 'Statistical modeling, xG, and duel success analyst' }
+						] as analyst}
+							{@const clb = CLUBS[analyst.club] || CLUBS.arsenal}
+							<div class="p-3 rounded-lg border border-[#1e2430] bg-[#0d1017] flex items-center justify-between text-left">
+								<div class="flex items-center gap-2.5">
+									<span class="w-2.5 h-2.5 rounded-full" style="background-color: {clb.primary_color}"></span>
+									<div>
+										<div class="text-xs font-bold text-white flex items-center gap-1.5">
+											<span>{analyst.name}</span>
+											<span class="text-[10px] font-mono text-gray-400 px-1 rounded bg-black/40 border border-[#1e2430]">
+												{clb.short_name}
+											</span>
+										</div>
+										<p class="text-[11px] text-gray-400">{analyst.desc}</p>
+									</div>
+								</div>
+								<button
+									type="button"
+									onclick={() => {
+										targetUserId = analyst.name;
+										targetUserName = analyst.name;
+										targetClubId = analyst.club;
+										showStartModal = true;
+									}}
+									class="px-3 py-1 rounded bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-black font-semibold text-xs transition border border-amber-500/30"
+								>
+									Debate
+								</button>
+							</div>
+						{/each}
+					</div>
 				</div>
 			{:else}
 				<!-- Chat Header -->
@@ -394,9 +435,29 @@
 						id="target-supporter-id"
 						type="text"
 						bind:value={targetUserId}
-						placeholder="e.g. MadridistaAnalytics, CuleFan, etc."
+						placeholder="e.g. MadridistaCarlos, GoonerAlex, etc."
 						class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400 transition"
 					/>
+					<div class="flex items-center gap-1.5 flex-wrap pt-2">
+						{#each [
+							{ name: 'GoonerAlex', club: 'arsenal' },
+							{ name: 'ClockEndTactician', club: 'arsenal' },
+							{ name: 'NorthBankFan', club: 'arsenal' },
+							{ name: 'AshburtonAnalyst', club: 'arsenal' }
+						] as quick}
+							<button
+								type="button"
+								onclick={() => {
+									targetUserId = quick.name;
+									targetUserName = quick.name;
+									targetClubId = quick.club;
+								}}
+								class="px-2 py-0.5 rounded text-[10px] font-mono border transition {targetUserId === quick.name ? 'border-amber-400 bg-amber-400/20 text-amber-300' : 'border-[#1e2430] bg-[#0d1017] text-gray-400 hover:text-white'}"
+							>
+								@{quick.name}
+							</button>
+						{/each}
+					</div>
 				</div>
 
 				<div>

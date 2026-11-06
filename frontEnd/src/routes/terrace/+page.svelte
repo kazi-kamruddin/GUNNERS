@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { CLUBS, themeState } from '$lib/stores/theme.svelte';
 	import { fetchPosts, createPost, toggleReaction, fetchComments, createComment } from '$lib/api/football';
 	import TacticalBoardComponent from '$lib/components/TacticalBoard.svelte';
 	import type { Post, PostComment, Insight, TopicTag, TacticalBoard } from '$lib/types/football';
@@ -8,7 +7,7 @@
 	let { data }: PageProps = $props();
 
 	// Reactive states
-	let selectedTab = $state<'global' | string>('global');
+	let selectedTab = $state<'all' | 'tactics' | 'matchday' | 'squad'>('all');
 	let posts = $state<Post[]>([]);
 	let availableInsights = $state<Insight[]>([]);
 	let availableTacticalBoards = $state<TacticalBoard[]>([]);
@@ -16,10 +15,18 @@
 
 	// Composer state
 	let newPostContent = $state('');
+	let newPostImageUrl = $state('');
+	let showImageInput = $state(false);
 	let selectedInsightId = $state<string>('');
 	let selectedTacticalBoardId = $state<string>('');
-	let targetClub = $state<'global' | string>('global');
 	let isSubmitting = $state(false);
+
+	// Guest Auth Gate Modal state
+	let showAuthModal = $state(false);
+	let authModalReason = $state<'post' | 'comment' | 'react'>('post');
+
+	// Lightbox state
+	let lightboxImageUrl = $state<string | null>(null);
 
 	// Comments state: map post_id -> comments list & expanded flag
 	let expandedComments = $state<Record<string, boolean>>({});
@@ -32,23 +39,29 @@
 	let selectedTag = $state('');
 	let trendingTags = $state<TopicTag[]>([]);
 
-	const clubList = Object.values(CLUBS);
-
 	$effect(() => {
 		posts = data.initialPosts;
 		availableInsights = data.availableInsights;
 		availableTacticalBoards = data.availableTacticalBoards || [];
-		selectedTab = data.initialClub || 'global';
 		searchQuery = data.initialSearch || '';
 		selectedTag = data.initialTag || '';
 		trendingTags = data.trendingTags || [];
 	});
 
-	async function reloadFeed(tab: string, searchVal?: string, tagVal?: string) {
+	function requireAuth(reason: 'post' | 'comment' | 'react'): boolean {
+		if (!data.user) {
+			authModalReason = reason;
+			showAuthModal = true;
+			return false;
+		}
+		return true;
+	}
+
+	async function reloadFeed(searchVal?: string, tagVal?: string) {
 		isLoadingFeed = true;
 		try {
 			posts = await fetchPosts(
-				tab,
+				'arsenal',
 				data.user?.id,
 				searchVal !== undefined ? searchVal : searchQuery,
 				tagVal !== undefined ? tagVal : selectedTag
@@ -58,41 +71,57 @@
 		}
 	}
 
-	async function selectTab(tab: 'global' | string) {
+	async function selectCategory(tab: 'all' | 'tactics' | 'matchday' | 'squad') {
 		selectedTab = tab;
-		await reloadFeed(tab);
+		if (tab === 'tactics') {
+			selectedTag = 'Tactics';
+			await reloadFeed(undefined, 'Tactics');
+		} else if (tab === 'matchday') {
+			selectedTag = 'NorthLondonDerby';
+			await reloadFeed(undefined, 'NorthLondonDerby');
+		} else if (tab === 'squad') {
+			selectedTag = 'Arsenal';
+			await reloadFeed(undefined, 'Arsenal');
+		} else {
+			selectedTag = '';
+			await reloadFeed('', '');
+		}
 	}
 
 	async function handleSearch() {
-		await reloadFeed(selectedTab);
+		await reloadFeed(searchQuery, selectedTag);
 	}
 
 	async function handleTagClick(tag: string) {
-		if (selectedTag === tag) {
+		const clean = tag.replace(/^#+/, '');
+		if (selectedTag === clean) {
 			selectedTag = '';
 		} else {
-			selectedTag = tag;
+			selectedTag = clean;
 		}
-		await reloadFeed(selectedTab, undefined, selectedTag);
+		await reloadFeed(undefined, selectedTag);
 	}
 
 	async function clearFilters() {
 		searchQuery = '';
 		selectedTag = '';
-		await reloadFeed(selectedTab, '', '');
+		selectedTab = 'all';
+		await reloadFeed('', '');
 	}
 
-
 	async function handlePublishPost() {
+		if (!requireAuth('post')) return;
 		if (!newPostContent.trim()) return;
+
 		isSubmitting = true;
 		try {
-			const authorName = data.profile?.display_name || data.user?.email?.split('@')[0] || 'Supporter';
-			const authorClub = data.profile?.favorite_club_id || themeState.viewingClubId;
+			const authorName = data.profile?.display_name || data.user?.email?.split('@')[0] || 'Gooner';
+			const authorClub = 'arsenal';
 
 			const created = await createPost({
 				content: newPostContent.trim(),
-				club_id: targetClub === 'global' ? null : targetClub,
+				club_id: 'arsenal',
+				image_url: newPostImageUrl.trim() || null,
 				insight_id: selectedInsightId || null,
 				tactical_board_id: selectedTacticalBoardId || null,
 				author_name: authorName,
@@ -100,7 +129,6 @@
 			});
 
 			if (created) {
-				// Attach the insight object for instant feed display if attached
 				if (selectedInsightId) {
 					const insObj = availableInsights.find((i) => i.id === selectedInsightId);
 					if (insObj) created.insight = insObj;
@@ -111,6 +139,8 @@
 				}
 				posts = [created, ...posts];
 				newPostContent = '';
+				newPostImageUrl = '';
+				showImageInput = false;
 				selectedInsightId = '';
 				selectedTacticalBoardId = '';
 			}
@@ -120,9 +150,10 @@
 	}
 
 	async function handleToggleReaction(post: Post) {
+		if (!requireAuth('react')) return;
+
 		const userId = data.user?.id || 'anon_user';
 		const wasReacted = post.user_reacted;
-		// Optimistic update
 		post.user_reacted = !wasReacted;
 		post.reactions_count += wasReacted ? -1 : 1;
 
@@ -130,8 +161,7 @@
 			const res = await toggleReaction(post.id, userId, 'cheer');
 			post.reactions_count = res.total_reactions;
 			post.user_reacted = res.action === 'added';
-		} catch (err) {
-			// Revert on failure
+		} catch {
 			post.user_reacted = wasReacted;
 			post.reactions_count += wasReacted ? 1 : -1;
 		}
@@ -147,12 +177,14 @@
 	}
 
 	async function handleAddComment(postId: string) {
+		if (!requireAuth('comment')) return;
+
 		const text = newCommentText[postId]?.trim();
 		if (!text) return;
 
 		isSubmittingComment[postId] = true;
-		const authorName = data.profile?.display_name || data.user?.email?.split('@')[0] || 'Supporter';
-		const authorClub = data.profile?.favorite_club_id || themeState.viewingClubId;
+		const authorName = data.profile?.display_name || data.user?.email?.split('@')[0] || 'Gooner';
+		const authorClub = 'arsenal';
 
 		try {
 			const comment = await createComment(postId, text, authorName, authorClub);
@@ -193,30 +225,48 @@
 </script>
 
 <svelte:head>
-	<title>The Terrace | GUNNERS Reborn Fan Community</title>
+	<title>The Terrace | Arsenal FC Supporter Community & Tactical Debriefs</title>
 </svelte:head>
 
 <div class="max-w-4xl mx-auto px-4 py-8 space-y-8">
 	<!-- Page Header -->
-	<div class="border-b border-[#1e2430] pb-6">
-		<div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider mb-2 bg-red-950/70 text-red-400 border border-red-800/40 font-mono">
-			Supporter Terrace & Debates
+	<div class="border-b border-red-900/30 pb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+		<div>
+			<div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider mb-2 bg-red-950/70 text-red-400 border border-red-800/40 font-mono">
+				Emirates Community Hub
+			</div>
+			<h1 class="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-2.5">
+				<span>The Terrace</span>
+				<span class="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono font-medium normal-case">
+					Gooners Voice
+				</span>
+			</h1>
+			<p class="text-sm text-gray-400 mt-1">
+				The beating heart of Arsenal supporters. Share match observations, debate tactical lineups, analyze stats, and interact with fellow Gooners worldwide.
+			</p>
 		</div>
-		<h1 class="text-2xl font-black text-white uppercase tracking-tight">The Terrace</h1>
-		<p class="text-sm text-gray-400 mt-1">
-			Debate the game with supporters across clubs. Publish opinions and back your claims with reproducible Data Lab insights.
-		</p>
+
+		{#if !data.user}
+			<div class="p-3 rounded-lg bg-red-950/30 border border-red-900/40 text-xs text-gray-300 max-w-xs">
+				<div class="flex items-center gap-1.5 font-bold text-red-400 mb-1">
+					<span>👀 Guest Browsing Mode</span>
+				</div>
+				<p class="text-[11px] text-gray-400 leading-snug">
+					You can freely read all posts, tactics, and debriefs. <a href="/login" class="text-red-400 underline font-semibold hover:text-red-300">Sign in</a> to join debates or publish.
+				</p>
+			</div>
+		{/if}
 	</div>
 
-	<!-- Search & Topic Exploration Bar -->
-	<div class="p-4 rounded-lg border border-[#1e2430] bg-[#12161f] space-y-3">
+	<!-- Search & Category Filters -->
+	<div class="p-4 rounded-xl border border-[#1e2430] bg-[#12161f] space-y-4">
 		<div class="flex items-center gap-3">
 			<div class="relative flex-1">
 				<input
 					type="text"
 					bind:value={searchQuery}
 					onkeydown={(e) => e.key === 'Enter' && handleSearch()}
-					placeholder="Search terrace discussions, debriefs, #Tactics, #Derby..."
+					placeholder="Search discussions, tactics, player debriefs (#Saka, #Derby, #Arteta)..."
 					class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
 				/>
 				<svg class="w-4 h-4 text-gray-500 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -230,103 +280,133 @@
 			>
 				Search
 			</button>
-			{#if searchQuery || selectedTag}
+			{#if searchQuery || selectedTag || selectedTab !== 'all'}
 				<button
 					type="button"
 					onclick={clearFilters}
 					class="px-3 py-2 rounded-lg border border-gray-700 hover:border-gray-500 text-gray-400 hover:text-white text-xs font-medium transition"
 				>
-					Clear
+					Reset
 				</button>
 			{/if}
 		</div>
 
+		<!-- Channel Navigation Tabs -->
+		<div class="flex items-center gap-2 border-t border-[#1e2430]/60 pt-3 flex-wrap">
+			<button
+				type="button"
+				onclick={() => selectCategory('all')}
+				class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border {selectedTab === 'all' && !selectedTag ? 'bg-red-600 text-white border-red-500' : 'text-gray-400 hover:text-white border-[#1e2430] bg-[#0a0c10]'}"
+			>
+				<span>🔴 All Terrace</span>
+			</button>
+			<button
+				type="button"
+				onclick={() => selectCategory('tactics')}
+				class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border {selectedTab === 'tactics' ? 'bg-red-600 text-white border-red-500' : 'text-gray-400 hover:text-white border-[#1e2430] bg-[#0a0c10]'}"
+			>
+				<span>📋 Tactical Debriefs</span>
+			</button>
+			<button
+				type="button"
+				onclick={() => selectCategory('matchday')}
+				class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border {selectedTab === 'matchday' ? 'bg-red-600 text-white border-red-500' : 'text-gray-400 hover:text-white border-[#1e2430] bg-[#0a0c10]'}"
+			>
+				<span>⚽ Matchday & Derby</span>
+			</button>
+			<button
+				type="button"
+				onclick={() => selectCategory('squad')}
+				class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border {selectedTab === 'squad' ? 'bg-red-600 text-white border-red-500' : 'text-gray-400 hover:text-white border-[#1e2430] bg-[#0a0c10]'}"
+			>
+				<span>👥 Squad & Transfers</span>
+			</button>
+		</div>
+
 		{#if trendingTags && trendingTags.length > 0}
 			<!-- Trending Topic Hashtags -->
-			<div class="flex items-center gap-2 flex-wrap text-xs">
-				<span class="text-[11px] font-mono text-gray-400 uppercase font-semibold">Topics:</span>
+			<div class="flex items-center gap-2 flex-wrap text-xs pt-1">
+				<span class="text-[11px] font-mono text-gray-500 uppercase font-semibold">Hot Topics:</span>
 				{#each trendingTags as t}
+					{@const cleanTag = t.tag.replace(/^#+/, '')}
 					<button
 						type="button"
-						onclick={() => handleTagClick(t.tag)}
-						class="px-2.5 py-1 rounded-full text-xs font-mono transition border {selectedTag === t.tag ? 'bg-red-950/80 text-red-300 border-red-500' : 'bg-[#0a0c10] text-gray-300 border-[#1e2430] hover:border-gray-600'}"
+						onclick={() => handleTagClick(cleanTag)}
+						class="px-2.5 py-1 rounded-full text-xs font-mono transition border {selectedTag === cleanTag ? 'bg-red-950/80 text-red-300 border-red-500' : 'bg-[#0a0c10] text-gray-400 border-[#1e2430] hover:border-gray-600 hover:text-gray-200'}"
 					>
-						#{t.tag} <span class="text-[10px] text-gray-500 font-sans">({t.count})</span>
+						#{cleanTag} <span class="text-[10px] text-gray-500 font-sans">({t.count})</span>
 					</button>
 				{/each}
 			</div>
 		{/if}
-
-		{#if selectedTag || searchQuery}
-			<div class="flex items-center gap-2 pt-1 text-xs text-gray-400 font-mono">
-				<span>Active filter:</span>
-				{#if selectedTag}
-					<span class="px-2 py-0.5 rounded bg-red-900/30 text-red-300 border border-red-800/40">#{selectedTag}</span>
-				{/if}
-				{#if searchQuery}
-					<span class="px-2 py-0.5 rounded bg-gray-800 text-gray-300">"{searchQuery}"</span>
-				{/if}
-			</div>
-		{/if}
 	</div>
 
-	<!-- Feed Filter Tabs -->
-	<div class="flex items-center gap-2 border-b border-[#1e2430] pb-4 flex-wrap">
-		<button
-			type="button"
-			onclick={() => selectTab('global')}
-			class="px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 border {selectedTab === 'global' ? 'bg-white/10 text-white border-white/20' : 'text-gray-400 hover:text-white border-[#1e2430] bg-[#12161f]'}"
-		>
-			<span>Global Terrace</span>
-		</button>
-		{#each clubList as club}
-			<button
-				type="button"
-				onclick={() => selectTab(club.id)}
-				class="px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border {selectedTab === club.id ? 'bg-white/10 text-white border-white/20' : 'text-gray-400 hover:text-white border-[#1e2430] bg-[#12161f]'}"
-			>
-				<span class="w-2 h-2 rounded-full" style="background-color: {club.primary_color}"></span>
-				<span>{club.short_name} Terrace</span>
-			</button>
-		{/each}
-	</div>
-
-	<!-- Post Composer -->
-	<div class="p-5 rounded-lg border border-[#1e2430] bg-[#12161f] space-y-4">
+	<!-- Post Composer (Interactive for Authenticated, Gentle Prompt for Guests) -->
+	<div class="p-5 rounded-xl border border-red-900/30 bg-[#12161f] space-y-4 shadow-sm">
 		<div class="flex items-center justify-between">
 			<div class="flex items-center gap-2">
-				<span class="w-2.5 h-2.5 rounded-full" style="background-color: {themeState.currentTheme.primary_color}"></span>
+				<span class="w-2.5 h-2.5 rounded-full bg-red-600"></span>
 				<span class="text-xs font-bold text-white">
-					{data.profile?.display_name || (data.user ? data.user.email?.split('@')[0] : 'Supporter')}
+					{data.profile?.display_name || (data.user ? data.user.email?.split('@')[0] : 'Gooner Guest')}
 				</span>
-				<span class="text-[10px] text-gray-500 font-mono uppercase">
-					({themeState.currentTheme.short_name} Affiliation)
+				<span class="text-[10px] text-amber-400/90 font-mono uppercase bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+					Arsenal Supporter
 				</span>
 			</div>
-
-			<!-- Target Terrace Selector -->
-			<div class="flex items-center gap-1.5 text-xs">
-				<label for="post-destination" class="text-gray-400 text-[11px]">Post to:</label>
-				<select
-					id="post-destination"
-					bind:value={targetClub}
-					class="bg-[#0a0c10] border border-[#1e2430] text-gray-300 text-xs rounded px-2 py-1 focus:outline-none focus:border-gray-500"
-				>
-					<option value="global">Global Terrace</option>
-					{#each clubList as c}
-						<option value={c.id}>{c.short_name} Terrace</option>
-					{/each}
-				</select>
+			<div class="text-[11px] text-gray-500 font-mono">
+				Emirates Stadium Terrace
 			</div>
 		</div>
 
-		<!-- Post Input -->
+		<!-- Post Text Input -->
 		<textarea
 			bind:value={newPostContent}
+			onfocus={() => {
+				if (!data.user) requireAuth('post');
+			}}
 			rows="3"
-			placeholder="Share tactical observations, match reactions, or link a reproducible Data Lab analysis..."
+			placeholder="Share tactical observations, match reactions, lineup notes, or photo link..."
 			class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg p-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition resize-none"
 		></textarea>
+
+		<!-- Image Attachment Input (Optional URL / Cloudinary) -->
+		{#if showImageInput}
+			<div class="p-3 rounded-lg bg-[#0a0c10] border border-[#1e2430] space-y-2">
+				<div class="flex items-center justify-between">
+					<label for="image-url-input" class="text-xs font-bold text-gray-300 flex items-center gap-1.5">
+						<span>🖼️ Image Attachment URL</span>
+						<span class="text-[10px] font-normal text-gray-500">(Cloudinary, Unsplash, or direct image link)</span>
+					</label>
+					<button
+						type="button"
+						onclick={() => { showImageInput = false; newPostImageUrl = ''; }}
+						class="text-xs text-gray-500 hover:text-red-400"
+					>
+						✕ Cancel
+					</button>
+				</div>
+				<input
+					id="image-url-input"
+					type="url"
+					bind:value={newPostImageUrl}
+					placeholder="https://images.unsplash.com/... or https://res.cloudinary.com/..."
+					class="w-full bg-[#12161f] border border-[#1e2430] rounded p-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
+				/>
+				{#if newPostImageUrl.trim()}
+					<div class="relative w-36 h-20 rounded-md overflow-hidden border border-[#1e2430] mt-2 group">
+						<img src={newPostImageUrl} alt="Attachment preview" class="w-full h-full object-cover" />
+						<button
+							type="button"
+							onclick={() => (newPostImageUrl = '')}
+							class="absolute top-1 right-1 bg-black/80 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]"
+							title="Remove photo"
+						>
+							✕
+						</button>
+					</div>
+				{/if}
+			</div>
+		{/if}
 
 		<!-- Attached Insight Preview -->
 		{#if attachedInsightPreview}
@@ -363,7 +443,7 @@
 						<span class="text-xs font-bold text-white">{attachedTacticalBoardPreview.title}</span>
 					</div>
 					<p class="text-[11px] text-gray-400 font-mono">
-						Players: {attachedTacticalBoardPreview.lineup.length} · Arrows: {attachedTacticalBoardPreview.annotations.length}
+						Players: {attachedTacticalBoardPreview.lineup.length} · Annotations: {attachedTacticalBoardPreview.annotations.length}
 					</p>
 				</div>
 				<button
@@ -376,13 +456,25 @@
 			</div>
 		{/if}
 
-		<!-- Composer Footer -->
+		<!-- Composer Footer Controls -->
 		<div class="flex items-center justify-between pt-2 border-t border-[#1e2430] flex-wrap gap-2">
-			<!-- Attach Dropdowns -->
+			<!-- Attach Buttons / Dropdowns -->
 			<div class="flex items-center gap-2 flex-wrap">
+				<button
+					type="button"
+					onclick={() => {
+						if (!requireAuth('post')) return;
+						showImageInput = !showImageInput;
+					}}
+					class="px-2.5 py-1.5 rounded bg-[#0a0c10] hover:bg-white/5 border border-[#1e2430] text-xs text-gray-300 font-medium transition flex items-center gap-1.5 {showImageInput ? 'border-red-500 text-red-400' : ''}"
+				>
+					<span>📷</span>
+					<span>{showImageInput ? 'Hide Photo Input' : 'Add Image'}</span>
+				</button>
+
 				<select
 					bind:value={selectedInsightId}
-					class="bg-[#0a0c10] border border-[#1e2430] text-xs text-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-gray-500"
+					class="bg-[#0a0c10] border border-[#1e2430] text-xs text-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-red-500"
 				>
 					<option value="">Attach Insight (Optional)</option>
 					{#each availableInsights as ins}
@@ -392,7 +484,7 @@
 
 				<select
 					bind:value={selectedTacticalBoardId}
-					class="bg-[#0a0c10] border border-[#1e2430] text-xs text-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-gray-500"
+					class="bg-[#0a0c10] border border-[#1e2430] text-xs text-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-red-500"
 				>
 					<option value="">Attach Tactic (Optional)</option>
 					{#each availableTacticalBoards as tb}
@@ -402,7 +494,7 @@
 
 				<a
 					href="/board"
-					class="text-[11px] text-red-400 hover:underline hidden sm:inline"
+					class="text-[11px] text-red-400 hover:text-red-300 hover:underline hidden sm:inline"
 				>
 					+ Create Tactic
 				</a>
@@ -412,8 +504,8 @@
 			<button
 				type="button"
 				onclick={handlePublishPost}
-				disabled={isSubmitting || !newPostContent.trim()}
-				class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition disabled:opacity-50 shadow-sm"
+				disabled={isSubmitting || (!newPostContent.trim() && !newPostImageUrl.trim())}
+				class="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition disabled:opacity-50 shadow-sm"
 			>
 				{isSubmitting ? 'Publishing...' : 'Publish to Terrace'}
 			</button>
@@ -426,58 +518,75 @@
 			Loading Terrace discussions...
 		</div>
 	{:else if posts.length === 0}
-		<div class="py-16 text-center border border-dashed border-[#1e2430] rounded-lg">
-			<p class="text-sm text-gray-400">No posts in this Terrace yet.</p>
-			<p class="text-xs text-gray-500 mt-1">Start the debate by writing the first post above!</p>
+		<div class="py-16 text-center border border-dashed border-[#1e2430] rounded-xl bg-[#12161f]/50">
+			<div class="text-3xl mb-2">🔴</div>
+			<p class="text-sm text-gray-300 font-bold">No discussions found in this channel.</p>
+			<p class="text-xs text-gray-500 mt-1">Be the first Gooner to share your thoughts above!</p>
 		</div>
 	{:else}
 		<div class="space-y-4">
 			{#each posts as post}
-				{@const authorClub = CLUBS[post.author_club_id] || CLUBS['arsenal']}
-				<div class="p-5 rounded-lg border border-[#1e2430] bg-[#12161f] space-y-3">
+				<div class="p-5 rounded-xl border border-[#1e2430] bg-[#12161f] space-y-3.5 hover:border-gray-700/60 transition">
 					<!-- Post Author & Meta -->
 					<div class="flex items-center justify-between">
 						<div class="flex items-center gap-2.5">
-							<span class="w-3 h-3 rounded-full" style="background-color: {authorClub.primary_color}"></span>
+							<span class="w-3 h-3 rounded-full bg-red-600"></span>
 							<a
 								href="/supporters/{encodeURIComponent(post.author_name)}"
 								class="text-xs font-bold text-white hover:text-red-400 hover:underline transition"
 							>
 								{post.author_name}
 							</a>
-							<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/40 border border-[#1e2430] text-gray-400">
-								{authorClub.short_name}
+							<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-red-950/60 border border-red-900/40 text-red-300 font-semibold">
+								Arsenal
 							</span>
 							<a
-								href="/messages?recipient={encodeURIComponent(post.author_id || post.author_name)}&name={encodeURIComponent(post.author_name)}&club={encodeURIComponent(post.author_club_id)}"
+								href="/messages?recipient={encodeURIComponent(post.author_id || post.author_name)}&name={encodeURIComponent(post.author_name)}&club=arsenal"
 								class="text-[10px] text-gray-400 hover:text-amber-400 font-semibold transition flex items-center gap-0.5 ml-1"
 								title="Challenge {post.author_name} to a private debate"
 							>
 								<span>💬</span>
 								<span>DM</span>
 							</a>
-							{#if post.club_id}
-								<span class="text-[10px] text-gray-500 hidden sm:inline">
-									in {CLUBS[post.club_id]?.short_name || post.club_id} Terrace
-								</span>
-							{/if}
 						</div>
 						<span class="text-[11px] text-gray-500 font-mono">{formatTimestamp(post.created_at)}</span>
 					</div>
 
 					<!-- Post Content -->
-					<p class="text-xs text-gray-200 leading-relaxed whitespace-pre-line">
+					<p class="text-xs text-gray-200 leading-relaxed whitespace-pre-line font-sans">
 						{post.content}
 					</p>
 
-					<!-- Attached Insight Post Card (Centerpiece) -->
+					<!-- Attached Image (With Lightbox Click) -->
+					{#if post.image_url}
+						<div class="rounded-lg overflow-hidden border border-[#1e2430] max-h-96 bg-black/40">
+							<button
+								type="button"
+								onclick={() => (lightboxImageUrl = post.image_url || null)}
+								class="w-full text-left focus:outline-none group relative"
+							>
+								<img
+									src={post.image_url}
+									alt="Post attachment"
+									class="w-full max-h-96 object-cover hover:opacity-95 transition cursor-zoom-in"
+									loading="lazy"
+								/>
+								<div class="absolute bottom-2 right-2 px-2 py-1 bg-black/70 backdrop-blur rounded text-[10px] text-white opacity-0 group-hover:opacity-100 transition flex items-center gap-1">
+									<span>🔍</span>
+									<span>Enlarge</span>
+								</div>
+							</button>
+						</div>
+					{/if}
+
+					<!-- Attached Insight Post Card -->
 					{#if post.insight}
 						{@const ins = post.insight}
-						<div class="p-4 rounded-lg bg-[#0a0c10] border border-[#1e2430] space-y-3">
+						<div class="p-4 rounded-lg bg-[#0a0c10] border border-amber-500/30 space-y-3">
 							<div class="flex items-center justify-between gap-2">
 								<div class="flex items-center gap-2">
 									<span class="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-										Insight Post
+										Data Lab Proof
 									</span>
 									<h4 class="text-xs font-bold text-white">{ins.title}</h4>
 								</div>
@@ -485,16 +594,14 @@
 									href="/lab?metric={ins.metric}&teams={ins.team_ids.join(',')}&venue={ins.venue}"
 									class="text-[11px] font-bold px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-amber-300 border border-amber-500/30 transition flex items-center gap-1"
 								>
-									<span>Open in Data Lab</span>
+									<span>View in Lab</span>
 									<span>→</span>
 								</a>
 							</div>
 
-							<!-- Visual Snapshot Bar / Numbers -->
 							{#if ins.snapshot && ins.snapshot.series}
 								<div class="grid grid-cols-1 sm:grid-cols-{Math.min(ins.snapshot.series.length, 2)} gap-3 pt-2 border-t border-[#1e2430]">
 									{#each ins.snapshot.series as item}
-										{@const itemClub = CLUBS[item.team_id] || CLUBS['arsenal']}
 										<div class="p-2.5 rounded bg-[#12161f] border border-[#1e2430] space-y-1">
 											<div class="flex items-center justify-between text-[11px]">
 												<span class="text-gray-300 font-bold">{item.team_name}</span>
@@ -509,9 +616,6 @@
 										</div>
 									{/each}
 								</div>
-								<div class="text-[10px] text-gray-500 font-mono">
-									Formula: {ins.snapshot.formula} (Venue: {ins.venue})
-								</div>
 							{/if}
 						</div>
 					{/if}
@@ -519,11 +623,11 @@
 					<!-- Attached Tactical Board Post Card -->
 					{#if post.tactical_board}
 						{@const tb = post.tactical_board}
-						<div class="p-4 rounded-lg bg-[#0a0c10] border border-[#1e2430] space-y-3">
+						<div class="p-4 rounded-lg bg-[#0a0c10] border border-red-500/30 space-y-3">
 							<div class="flex items-center justify-between gap-2">
 								<div class="flex items-center gap-2">
 									<span class="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-red-950/80 text-red-300 border border-red-800/40">
-										Tactical Blueprint ({tb.formation})
+										Lineup Blueprint ({tb.formation})
 									</span>
 									<h4 class="text-xs font-bold text-white">{tb.title}</h4>
 								</div>
@@ -531,7 +635,7 @@
 									href="/board"
 									class="text-[11px] font-bold px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-red-300 border border-red-500/30 transition flex items-center gap-1"
 								>
-									<span>Tactical Studio</span>
+									<span>Open in Dugout</span>
 									<span>→</span>
 								</a>
 							</div>
@@ -560,7 +664,7 @@
 						<button
 							type="button"
 							onclick={() => handleToggleReaction(post)}
-							class="flex items-center gap-1.5 px-2.5 py-1 rounded transition {post.user_reacted ? 'bg-amber-500/10 text-amber-400 font-bold border border-amber-500/30' : 'text-gray-400 hover:text-white'}"
+							class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition {post.user_reacted ? 'bg-amber-500/10 text-amber-400 font-bold border border-amber-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5'}"
 						>
 							<span>⚽ Cheer</span>
 							<span class="font-mono">{post.reactions_count}</span>
@@ -570,9 +674,9 @@
 						<button
 							type="button"
 							onclick={() => toggleCommentSection(post.id)}
-							class="flex items-center gap-1.5 px-2.5 py-1 rounded text-gray-400 hover:text-white transition"
+							class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition"
 						>
-							<span>💬 Debate ({post.comments_count})</span>
+							<span>💬 Debates ({post.comments_count})</span>
 						</button>
 					</div>
 
@@ -583,11 +687,10 @@
 							{#if postComments[post.id] && postComments[post.id].length > 0}
 								<div class="space-y-2">
 									{#each postComments[post.id] as comment}
-										{@const cClub = CLUBS[comment.author_club_id] || CLUBS['arsenal']}
 										<div class="p-2.5 rounded bg-[#0a0c10] border border-[#1e2430] space-y-1">
 											<div class="flex items-center justify-between">
 												<div class="flex items-center gap-1.5">
-													<span class="w-1.5 h-1.5 rounded-full" style="background-color: {cClub.primary_color}"></span>
+													<span class="w-1.5 h-1.5 rounded-full bg-red-600"></span>
 													<a
 														href="/supporters/{encodeURIComponent(comment.author_name)}"
 														class="text-[11px] font-bold text-gray-300 hover:text-white hover:underline transition"
@@ -610,15 +713,18 @@
 								<input
 									type="text"
 									bind:value={newCommentText[post.id]}
-									placeholder="Write your response..."
-									class="flex-1 bg-[#0a0c10] border border-[#1e2430] rounded p-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-gray-500"
+									placeholder={data.user ? "Write your debrief or reply..." : "Sign in to reply to this debrief..."}
+									class="flex-1 bg-[#0a0c10] border border-[#1e2430] rounded p-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
+									onfocus={() => {
+										if (!data.user) requireAuth('comment');
+									}}
 									onkeydown={(e) => e.key === 'Enter' && handleAddComment(post.id)}
 								/>
 								<button
 									type="button"
 									onclick={() => handleAddComment(post.id)}
 									disabled={isSubmittingComment[post.id] || !newCommentText[post.id]?.trim()}
-									class="px-3 py-2 rounded bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition disabled:opacity-50"
+									class="px-3.5 py-2 rounded bg-red-600 hover:bg-red-500 text-xs font-bold text-white transition disabled:opacity-50"
 								>
 									Reply
 								</button>
@@ -630,3 +736,88 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Guest Auth Gate Modal -->
+{#if showAuthModal}
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+		<div class="bg-[#12161f] border border-red-800/40 rounded-2xl p-6 max-w-md w-full space-y-5 shadow-2xl relative">
+			<button
+				type="button"
+				onclick={() => (showAuthModal = false)}
+				class="absolute top-4 right-4 text-gray-400 hover:text-white text-lg p-1"
+			>
+				✕
+			</button>
+
+			<div class="text-center space-y-2">
+				<div class="w-12 h-12 mx-auto rounded-full bg-red-950/80 border border-red-800/60 flex items-center justify-center text-xl">
+					🔴
+				</div>
+				<h3 class="text-lg font-black text-white uppercase tracking-tight">
+					Join the Terrace Discussion
+				</h3>
+				<p class="text-xs text-gray-300 leading-relaxed">
+					{#if authModalReason === 'post'}
+						Sign in to publish tactical debriefs, share lineup blueprints, and attach match photos.
+					{:else if authModalReason === 'comment'}
+						Sign in to debate match moments and reply to fellow Gooners on the Terrace.
+					{:else}
+						Sign in to cheer posts and participate in supporter debates.
+					{/if}
+				</p>
+			</div>
+
+			<div class="p-3 rounded-lg bg-[#0a0c10] border border-[#1e2430] text-[11px] text-gray-400 text-center">
+				Browsing the Terrace and reading discussions is free for all visitors. Authenticated accounts keep our community authentic and spam-free!
+			</div>
+
+			<div class="flex flex-col gap-2.5">
+				<a
+					href="/login"
+					class="w-full py-2.5 text-center font-bold text-xs bg-red-600 hover:bg-red-500 text-white rounded-lg transition shadow-md"
+				>
+					Sign In
+				</a>
+				<a
+					href="/signup"
+					class="w-full py-2.5 text-center font-bold text-xs bg-white/5 hover:bg-white/10 text-gray-200 border border-[#1e2430] rounded-lg transition"
+				>
+					Create Free Gooner Account
+				</a>
+				<button
+					type="button"
+					onclick={() => (showAuthModal = false)}
+					class="text-[11px] text-gray-500 hover:text-gray-300 pt-1"
+				>
+					Continue browsing as Guest
+				</button>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Lightbox Modal for Post Images -->
+{#if lightboxImageUrl}
+	<div
+		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md cursor-zoom-out"
+		onclick={() => (lightboxImageUrl = null)}
+		role="button"
+		tabindex="0"
+		onkeydown={(e) => e.key === 'Escape' && (lightboxImageUrl = null)}
+	>
+		<div class="relative max-w-5xl max-h-[90vh]">
+			<button
+				type="button"
+				onclick={() => (lightboxImageUrl = null)}
+				class="absolute -top-10 right-0 text-white text-sm bg-white/10 hover:bg-white/20 px-3 py-1 rounded"
+			>
+				✕ Close
+			</button>
+			<img
+				src={lightboxImageUrl}
+				alt="Full size preview"
+				class="max-w-full max-h-[85vh] object-contain rounded-lg border border-white/20 shadow-2xl"
+			/>
+		</div>
+	</div>
+{/if}

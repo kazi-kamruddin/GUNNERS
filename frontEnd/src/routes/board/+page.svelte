@@ -111,11 +111,11 @@
 	<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1e2430] pb-6">
 		<div>
 			<div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider mb-2 bg-red-950/70 text-red-400 border border-red-800/40 font-mono">
-				Interactive Tactical Studio
+				The Dugout • Arsenal Lineup Builder
 			</div>
-			<h1 class="text-2xl font-black text-white uppercase tracking-tight">Formation & Pitch Board</h1>
+			<h1 class="text-2xl font-black text-white uppercase tracking-tight">Matchday Lineup & Tactical Studio</h1>
 			<p class="text-sm text-gray-400 mt-1">
-				Diagram starting line-ups, draw tactical runs and pressing triggers, then attach your setup to Terrace debates.
+				Build your starting XI, swap bench substitutes, toggle fluid movement, and export high-resolution lineup graphics to share with Gooners.
 			</p>
 		</div>
 
@@ -153,7 +153,7 @@
 				</div>
 
 				<div class="flex items-center gap-2 text-gray-400 text-xs">
-					<span class="text-[11px]">💡 Click any player token to edit name, number, or pick from live squad roster</span>
+					<span class="text-[11px]">💡 Click a bench player to swap into Starting XI • Drag tokens to customize positions</span>
 				</div>
 			</div>
 
@@ -163,7 +163,11 @@
 					bind:lineup={currentLineup}
 					bind:annotations={currentAnnotations}
 					squadPlayers={data.squad}
+					formationName={data.presets.find((p) => p.id === selectedFormationId)?.name || '4-3-3 Attacking'}
 					readonly={false}
+					onshare={() => {
+						window.location.href = '/terrace';
+					}}
 				/>
 			</div>
 		</div>
