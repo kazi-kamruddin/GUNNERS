@@ -19,6 +19,8 @@ async def test_get_arsenal_news_aggregator():
         assert "source_name" in first
         assert "source_category" in first
         assert "source_color" in first
+        assert "tags" in first
+        assert isinstance(first["tags"], list)
 
 @pytest.mark.asyncio
 async def test_filter_news_by_category():
@@ -28,3 +30,14 @@ async def test_filter_news_by_category():
         data = res.json()
         for item in data["articles"]:
             assert item["source_category"] == "reddit"
+
+def test_entity_tag_extraction():
+    from app.services.news_aggregator import NewsAggregatorService
+    tags = NewsAggregatorService.extract_tags(
+        "Mikel Arteta praises Bukayo Saka after Champions League masterclass",
+        "Deep tactical breakdown of the right-wing dynamics and low block penetration."
+    )
+    assert "Arteta" in tags
+    assert "Saka" in tags
+    assert "UCL" in tags
+    assert "Tactics" in tags

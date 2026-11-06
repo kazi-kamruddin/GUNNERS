@@ -12,10 +12,12 @@
 	let team2 = $state<string>('real-madrid');
 	let metric = $state<string>('win_rate');
 	let venue = $state<string>('all');
+	let selectedSeason = $state<string>('all');
 
 	let loading = $state(false);
 	let result = $state<AnalyticsResponse | null>(null);
 	let insights = $state<Insight[]>([]);
+	let seasons = $derived(data.seasons || []);
 
 	$effect(() => {
 		mode = data.initialTeamIds.length > 1 ? 'comparison' : 'single';
@@ -23,6 +25,7 @@
 		team2 = data.initialTeamIds[1] || 'real-madrid';
 		metric = data.initialMetric || 'win_rate';
 		venue = data.initialVenue || 'all';
+		selectedSeason = data.activeSeasonId || 'all';
 		result = data.initialResult;
 		insights = data.insights || [];
 	});
@@ -53,7 +56,8 @@
 			result = await queryAnalytics({
 				metric,
 				team_ids,
-				venue
+				venue,
+				season_id: selectedSeason !== 'all' ? selectedSeason : undefined
 			});
 			updateUrlState(team_ids);
 		} finally {
@@ -67,6 +71,11 @@
 			url.searchParams.set('metric', metric);
 			url.searchParams.set('teams', team_ids.join(','));
 			url.searchParams.set('venue', venue);
+			if (selectedSeason !== 'all') {
+				url.searchParams.set('season', selectedSeason);
+			} else {
+				url.searchParams.delete('season');
+			}
 			window.history.replaceState({}, '', url.toString());
 		}
 	}
@@ -239,13 +248,13 @@
 				</button>
 			</div>
 
-			<span class="text-xs text-gray-500 hidden sm:inline font-mono">
-				Coverage: 2024-2025 Regular Season
+			<span class="text-xs text-amber-400 font-mono hidden sm:inline">
+				Coverage: Mikel Arteta Era (2019 – Present)
 			</span>
 		</div>
 
 		<!-- Inputs Grid -->
-		<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+		<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
 			<!-- Primary Club -->
 			<div>
 				<label for="primary-club" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
@@ -309,6 +318,24 @@
 					<option value="all">All Matches</option>
 					<option value="home">Home Matches Only</option>
 					<option value="away">Away Matches Only</option>
+				</select>
+			</div>
+
+			<!-- Season / Arteta Era Filter -->
+			<div>
+				<label for="season-filter" class="block text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
+					Arteta Season
+				</label>
+				<select
+					id="season-filter"
+					bind:value={selectedSeason}
+					onchange={runQuery}
+					class="w-full bg-[#0a0c10] border border-amber-500/30 rounded-lg px-3 py-2 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400"
+				>
+					<option value="all">All (2019-Present)</option>
+					{#each seasons as s}
+						<option value={s.id}>{s.label}</option>
+					{/each}
 				</select>
 			</div>
 

@@ -10,6 +10,18 @@ class MatchFilterParams(BaseModel):
     venue: Optional[str] = Field(None, pattern="^(all|home|away)$")
     limit: int = Field(50, ge=1, le=100)
 
+class SeasonResponse(BaseModel):
+    id: str
+    competition_id: str
+    start_year: int
+    end_year: int
+    is_current: bool
+    label: str
+    headline: str
+    arteta_milestone: str
+
+    model_config = {"from_attributes": True}
+
 class MatchResponse(BaseModel):
     id: str
     competition_id: Optional[str] = None

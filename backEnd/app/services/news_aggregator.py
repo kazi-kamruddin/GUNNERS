@@ -50,6 +50,55 @@ class NewsAggregatorService:
         }
     ]
 
+    ENTITY_TAG_PATTERNS = [
+        # Players & Staff
+        (r"\b(saka|bukayo)\b", "Saka"),
+        (r"\b(odegaard|ødegaard)\b", "Ødegaard"),
+        (r"\b(saliba|william saliba)\b", "Saliba"),
+        (r"\b(gabriel magalh[aã]es|gabriel dos santos)\b", "Gabriel"),
+        (r"\b(jesus|gabriel jesus)\b", "Jesus"),
+        (r"\b(rice|declan rice)\b", "Rice"),
+        (r"\b(havertz|kai havertz)\b", "Havertz"),
+        (r"\b(martinelli|gabriel martinelli)\b", "Martinelli"),
+        (r"\b(trossard|leandro trossard)\b", "Trossard"),
+        (r"\b(calafiori|riccardo)\b", "Calafiori"),
+        (r"\b(timber|jurrien timber)\b", "Timber"),
+        (r"\b(ben white)\b", "Ben White"),
+        (r"\b(merino|mikel merino)\b", "Merino"),
+        (r"\b(partey|thomas partey)\b", "Partey"),
+        (r"\b(nwaneri|ethan nwaneri)\b", "Nwaneri"),
+        (r"\b(raya|david raya)\b", "Raya"),
+        (r"\b(sterling|raheem sterling)\b", "Sterling"),
+        (r"\b(arteta|mikel arteta)\b", "Arteta"),
+
+        # Competitions
+        (r"\b(champions league|ucl)\b", "UCL"),
+        (r"\b(premier league|epl)\b", "Premier League"),
+        (r"\b(fa cup)\b", "FA Cup"),
+        (r"\b(carabao|league cup)\b", "Carabao Cup"),
+        (r"\b(spurs|tottenham|north london derby|nld)\b", "North London Derby"),
+
+        # Tactical & Media Topics
+        (r"\b(tactics|tactical|formation|compactness|press|low block)\b", "Tactics"),
+        (r"\b(lineup|starting xi|team news|selection|dugout)\b", "Lineup"),
+        (r"\b(injury|injuries|fitness|knock|hamstring|recovery)\b", "Injuries"),
+        (r"\b(transfer|transfers|rumor|signing|scout|clause|bid)\b", "Transfers"),
+        (r"\b(fans|supporters|emirates|ashburton|atmosphere|crowd)\b", "Supporters")
+    ]
+
+    @classmethod
+    def extract_tags(cls, title: str, summary: str = "") -> List[str]:
+        """Extract high-signal entity and domain tags from headline and summary."""
+        combined_text = f"{title} {summary}".lower()
+        extracted: List[str] = []
+        for pattern, tag in cls.ENTITY_TAG_PATTERNS:
+            if re.search(pattern, combined_text, re.IGNORECASE):
+                if tag not in extracted:
+                    extracted.append(tag)
+        if not extracted:
+            extracted = ["Arsenal", "First Team"]
+        return extracted[:4]
+
     @classmethod
     def _clean_html(cls, raw_html: Optional[str]) -> str:
         if not raw_html:
@@ -119,7 +168,8 @@ class NewsAggregatorService:
                             "article_url": link,
                             "image_url": img,
                             "published_at": pub_time,
-                            "author": "r/Gunners Community"
+                            "author": "r/Gunners Community",
+                            "tags": cls.extract_tags(title, summary)
                         })
                 else:
                     # Standard RSS Feed
@@ -148,7 +198,8 @@ class NewsAggregatorService:
                             "article_url": link,
                             "image_url": img,
                             "published_at": pub_time,
-                            "author": source_cfg["name"]
+                            "author": source_cfg["name"],
+                            "tags": cls.extract_tags(title, summary)
                         })
         except Exception as e:
             # Individual source failures insulated gracefully
@@ -213,7 +264,8 @@ class NewsAggregatorService:
                 "article_url": "https://arseblog.news",
                 "image_url": "https://crests.football-data.org/57.png",
                 "published_at": now,
-                "author": "Tactical Analyst"
+                "author": "Tactical Analyst",
+                "tags": ["Arteta", "Tactics", "Supporters"]
             },
             {
                 "id": "art_base_2",
@@ -225,7 +277,8 @@ class NewsAggregatorService:
                 "article_url": "https://paininthearsenal.com",
                 "image_url": "https://crests.football-data.org/57.png",
                 "published_at": now,
-                "author": "Arsenal Staff"
+                "author": "Arsenal Staff",
+                "tags": ["Saka", "Ødegaard", "Ben White", "Tactics"]
             },
             {
                 "id": "art_base_3",
@@ -237,6 +290,7 @@ class NewsAggregatorService:
                 "article_url": "https://www.bbc.com/sport/football/teams/arsenal",
                 "image_url": "https://crests.football-data.org/57.png",
                 "published_at": now,
-                "author": "BBC Sport"
+                "author": "BBC Sport",
+                "tags": ["Premier League", "Lineup", "Supporters"]
             }
         ]

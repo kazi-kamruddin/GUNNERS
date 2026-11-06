@@ -5,6 +5,7 @@ import sys
 from sqlalchemy import select, text
 from app.core.database import AsyncSessionLocal, engine, Base
 from app.services.ingestion import FootballIngestionService
+from app.services.arteta_timeline import ArtetaTimelineService
 from app.models.squad import Player
 from app.models.tactics import TacticalBoard
 from app.models.insight import Insight
@@ -34,6 +35,8 @@ async def seed_all():
         # 2. Foundation Competitions, Seasons, Clubs & Matches
         print("[1/8] Ingesting foundation clubs and baseline matches...")
         await FootballIngestionService.run_sync(session, force_mock=True)
+        print("[1b/8] Ingesting complete Mikel Arteta Era timeline (2019 - Present)...")
+        await ArtetaTimelineService.seed_arteta_timeline(session)
 
         # 3. Squad Players for 4 Foundation Clubs
         print("[2/8] Seeding squad players...")

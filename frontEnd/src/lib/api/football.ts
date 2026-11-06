@@ -1,5 +1,6 @@
 import type {
 	Club,
+	Season,
 	Match,
 	MatchSummary,
 	SyncStatus,
@@ -29,6 +30,98 @@ import type {
 } from '$lib/types/football';
 
 const API_BASE = (import.meta.env.PUBLIC_API_URL as string) || 'http://localhost:8000/api/v1';
+
+export async function fetchSeasons(): Promise<Season[]> {
+	try {
+		const res = await fetch(`${API_BASE}/matches/seasons`);
+		if (!res.ok) throw new Error('Failed to fetch seasons');
+		return await res.json();
+	} catch (err) {
+		console.warn('API error fetching seasons, returning fallback Arteta timeline');
+		return [
+			{
+				id: '2026-2027-PL',
+				competition_id: 'PL',
+				start_year: 2026,
+				end_year: 2027,
+				is_current: true,
+				label: '2026/27 (Current Campaign)',
+				headline: 'Active Running Season & Live Matchdays',
+				arteta_milestone: 'Live campaign tracking: Premier League title quest and European knockout stages.'
+			},
+			{
+				id: '2025-2026-PL',
+				competition_id: 'PL',
+				start_year: 2025,
+				end_year: 2026,
+				is_current: false,
+				label: '2025/26',
+				headline: 'Elite Continental & Domestic Chase',
+				arteta_milestone: 'Title contention, deep Champions League knockout run, and peak squad maturity.'
+			},
+			{
+				id: '2024-2025-PL',
+				competition_id: 'PL',
+				start_year: 2024,
+				end_year: 2025,
+				is_current: false,
+				label: '2024/25',
+				headline: 'Emirates Fortress & Defensive Supremacy',
+				arteta_milestone: 'Gabriel-Saliba partnership concede lowest xG in Premier League.'
+			},
+			{
+				id: '2023-2024-PL',
+				competition_id: 'PL',
+				start_year: 2023,
+				end_year: 2024,
+				is_current: false,
+				label: '2023/24',
+				headline: 'Record 28 Premier League Wins (89 Pts)',
+				arteta_milestone: 'Club record 28 Premier League victories, 89 points, and +62 goal difference.'
+			},
+			{
+				id: '2022-2023-PL',
+				competition_id: 'PL',
+				start_year: 2022,
+				end_year: 2023,
+				is_current: false,
+				label: '2022/23',
+				headline: 'Title Contenders & UCL Return (84 Pts)',
+				arteta_milestone: 'Arsenal returned to the Champions League with 84 points.'
+			},
+			{
+				id: '2021-2022-PL',
+				competition_id: 'PL',
+				start_year: 2021,
+				end_year: 2022,
+				is_current: false,
+				label: '2021/22',
+				headline: 'Young Guns Cultural Reset',
+				arteta_milestone: 'Youngest average starting XI in England; breakout for Saka, Ødegaard, and Martinelli.'
+			},
+			{
+				id: '2020-2021-PL',
+				competition_id: 'PL',
+				start_year: 2020,
+				end_year: 2021,
+				is_current: false,
+				label: '2020/21',
+				headline: 'Community Shield & Positional Rebuild',
+				arteta_milestone: 'Community Shield Winners vs Liverpool; instituted Arteta 3-2-5 in-possession shape.'
+			},
+			{
+				id: '2019-2020-PL',
+				competition_id: 'PL',
+				start_year: 2019,
+				end_year: 2020,
+				is_current: false,
+				label: '2019/20',
+				headline: 'Arteta Appointed & FA Cup Victory',
+				arteta_milestone: 'Arteta appointed Dec 20, 2019; won the FA Cup defeating Man City & Chelsea.'
+			}
+		];
+	}
+}
 
 export async function fetchClubs(): Promise<Club[]> {
 	try {
@@ -175,6 +268,7 @@ export async function queryAnalytics(params: {
 	metric: string;
 	team_ids: string[];
 	venue?: string;
+	season_id?: string;
 }): Promise<AnalyticsResponse | null> {
 	try {
 		const res = await fetch(`${API_BASE}/matches/query`, {
@@ -183,7 +277,8 @@ export async function queryAnalytics(params: {
 			body: JSON.stringify({
 				metric: params.metric,
 				team_ids: params.team_ids,
-				venue: params.venue || 'all'
+				venue: params.venue || 'all',
+				season_id: params.season_id
 			})
 		});
 		if (!res.ok) throw new Error('Analytics query failed');

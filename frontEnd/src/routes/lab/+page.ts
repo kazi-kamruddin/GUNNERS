@@ -1,4 +1,4 @@
-import { fetchInsights, queryAnalytics } from '$lib/api/football';
+import { fetchInsights, queryAnalytics, fetchSeasons } from '$lib/api/football';
 import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ url }) => {
@@ -6,14 +6,17 @@ export const load: PageLoad = async ({ url }) => {
 	const teamsParam = url.searchParams.get('teams');
 	const team_ids = teamsParam ? teamsParam.split(',').filter(Boolean) : ['arsenal'];
 	const venue = url.searchParams.get('venue') || 'all';
+	const seasonId = url.searchParams.get('season') || undefined;
 
-	const [insights, initialResult] = await Promise.all([
+	const [insights, initialResult, seasons] = await Promise.all([
 		fetchInsights(),
 		queryAnalytics({
 			metric,
 			team_ids,
-			venue
-		})
+			venue,
+			season_id: seasonId
+		}),
+		fetchSeasons()
 	]);
 
 	return {
@@ -21,6 +24,8 @@ export const load: PageLoad = async ({ url }) => {
 		initialTeamIds: team_ids,
 		initialVenue: venue,
 		initialResult,
-		insights
+		insights,
+		seasons,
+		activeSeasonId: seasonId || 'all'
 	};
 };

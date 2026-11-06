@@ -7,6 +7,17 @@ from app.core.database import Base, get_db
 from app.models import Club, Competition, Season, Match, SyncRun, Insight, Post, PostComment, PostReaction
 from app.services.ingestion import FootballIngestionService
 
+@pytest.mark.asyncio
+async def test_get_seasons_arteta_timeline():
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
+        res = await ac.get("/api/v1/matches/seasons")
+        assert res.status_code == 200
+        seasons = res.json()
+        assert len(seasons) >= 8
+        season_ids = [s["id"] for s in seasons]
+        assert "2019-2020-PL" in season_ids
+        assert "2026-2027-PL" in season_ids
+
 @pytest.fixture(autouse=True)
 async def seed_matches_data(session_factory):
     async with session_factory() as session:

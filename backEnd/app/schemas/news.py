@@ -14,6 +14,7 @@ class NewsItemResponse(BaseModel):
     published_at: str
     author: Optional[str] = None
     upvotes: Optional[int] = None
+    tags: List[str] = Field(default_factory=list)
 
 class NewsFeedResponse(BaseModel):
     total: int

@@ -8,15 +8,21 @@
 	// Reactive filter states
 	let activeTab = $state<'ALL' | 'SCHEDULED' | 'FINISHED'>('ALL');
 	let selectedComp = $state<string>('ALL');
+	let selectedSeason = $state<string>('all');
 	let isLoading = $state(false);
 
 	let matches = $state<Match[]>([]);
 	let summary = $state<MatchSummary | null>(null);
 	let syncStatus = $derived(data.syncStatus);
+	let seasons = $derived(data.seasons || []);
+	let currentSeasonDetail = $derived(
+		selectedSeason !== 'all' ? seasons.find((s) => s.id === selectedSeason) : null
+	);
 
 	$effect(() => {
 		matches = data.initialMatches;
 		summary = data.initialSummary;
+		selectedSeason = data.activeSeasonId || 'all';
 	});
 
 	async function applyFilters() {
@@ -25,7 +31,8 @@
 			matches = await fetchMatches({
 				club_id: 'arsenal',
 				competition_id: selectedComp !== 'ALL' ? selectedComp : undefined,
-				status: activeTab !== 'ALL' ? activeTab : undefined
+				status: activeTab !== 'ALL' ? activeTab : undefined,
+				season_id: selectedSeason !== 'all' ? selectedSeason : undefined
 			});
 		} finally {
 			isLoading = false;
@@ -167,21 +174,60 @@
 			</button>
 		</div>
 
-		<!-- Competition Dropdown -->
-		<div class="flex items-center gap-2 text-xs">
-			<label for="comp-select" class="text-gray-400">Competition:</label>
-			<select
-				id="comp-select"
-				bind:value={selectedComp}
-				onchange={applyFilters}
-				class="bg-[#12161f] border border-[#1e2430] text-white rounded px-2.5 py-1.5 focus:outline-none focus:border-red-500"
-			>
-				<option value="ALL">All Competitions</option>
-				<option value="PL">Premier League</option>
-				<option value="CL">Champions League</option>
-			</select>
+		<!-- Competition & Season Dropdowns -->
+		<div class="flex items-center gap-3 flex-wrap text-xs">
+			<div class="flex items-center gap-1.5">
+				<label for="comp-select" class="text-gray-400 font-mono text-[11px] uppercase">Competition:</label>
+				<select
+					id="comp-select"
+					bind:value={selectedComp}
+					onchange={applyFilters}
+					class="bg-[#12161f] border border-[#1e2430] text-white rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-red-500 font-medium"
+				>
+					<option value="ALL">All Competitions</option>
+					<option value="PL">Premier League</option>
+					<option value="CL">Champions League</option>
+				</select>
+			</div>
+
+			<div class="flex items-center gap-1.5">
+				<label for="season-select" class="text-amber-400 font-mono text-[11px] uppercase font-bold">Arteta Era:</label>
+				<select
+					id="season-select"
+					bind:value={selectedSeason}
+					onchange={applyFilters}
+					class="bg-[#12161f] border border-amber-500/40 text-amber-300 font-mono font-semibold rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-amber-400"
+				>
+					<option value="all">All Seasons (2019 - Present)</option>
+					{#each seasons as s}
+						<option value={s.id}>
+							{s.label} — {s.headline}
+						</option>
+					{/each}
+				</select>
+			</div>
 		</div>
 	</div>
+
+	<!-- Arteta Era Milestone Callout (when a season is active) -->
+	{#if currentSeasonDetail}
+		<div class="p-4 rounded-xl border border-amber-500/30 bg-amber-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+			<div class="space-y-1">
+				<div class="flex items-center gap-2">
+					<span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-amber-400 text-black font-black">
+						{currentSeasonDetail.label}
+					</span>
+					<h3 class="font-bold text-white text-sm">{currentSeasonDetail.headline}</h3>
+				</div>
+				<p class="text-gray-300 text-xs leading-relaxed max-w-4xl">{currentSeasonDetail.arteta_milestone}</p>
+			</div>
+			{#if currentSeasonDetail.is_current}
+				<span class="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-mono text-[10px] font-bold uppercase shrink-0 self-start sm:self-center">
+					● Active Campaign
+				</span>
+			{/if}
+		</div>
+	{/if}
 
 	<!-- Matches List -->
 	{#if isLoading}

@@ -12,6 +12,7 @@
 		cached_at: ''
 	});
 	let selectedCategory = $state<string>('all');
+	let selectedTag = $state<string>('all');
 	let searchQuery = $state<string>('');
 	let isRefreshing = $state<boolean>(false);
 
@@ -27,9 +28,30 @@
 		{ id: 'broadcast', label: 'Broadcast (BBC Sport)' }
 	];
 
+	const quickTags = [
+		'All',
+		'Arteta',
+		'Saka',
+		'Ødegaard',
+		'Saliba',
+		'Rice',
+		'Tactics',
+		'UCL',
+		'Premier League',
+		'Transfers'
+	];
+
 	async function selectCategory(cat: string) {
 		selectedCategory = cat;
 		feed = await fetchArsenalNews(cat);
+	}
+
+	function toggleTag(tag: string) {
+		if (tag === 'All' || selectedTag === tag) {
+			selectedTag = 'all';
+		} else {
+			selectedTag = tag;
+		}
 	}
 
 	async function handleRefresh() {
@@ -44,10 +66,23 @@
 	const filteredArticles = $derived.by(() => {
 		if (!feed || !feed.articles) return [];
 		let list = feed.articles;
+
+		if (selectedTag !== 'all') {
+			const tagLower = selectedTag.toLowerCase();
+			list = list.filter((a) => {
+				const hasTag = a.tags && a.tags.some((t) => t.toLowerCase() === tagLower);
+				const inTitle = a.title.toLowerCase().includes(tagLower);
+				return hasTag || inTitle;
+			});
+		}
+
 		if (searchQuery.trim()) {
 			const q = searchQuery.toLowerCase();
 			list = list.filter(
-				(a) => a.title.toLowerCase().includes(q) || a.summary.toLowerCase().includes(q)
+				(a) =>
+					a.title.toLowerCase().includes(q) ||
+					a.summary.toLowerCase().includes(q) ||
+					(a.tags && a.tags.some((t) => t.toLowerCase().includes(q)))
 			);
 		}
 		return list;
@@ -150,6 +185,21 @@
 		</div>
 	</div>
 
+	<!-- Quick Topic & Player Tags Bar -->
+	<div class="flex items-center gap-1.5 flex-wrap">
+		<span class="text-[11px] text-gray-500 uppercase font-mono mr-1">Smart Tags:</span>
+		{#each quickTags as tag}
+			{@const isActive = (tag === 'All' && selectedTag === 'all') || selectedTag === tag}
+			<button
+				type="button"
+				onclick={() => toggleTag(tag)}
+				class="px-2.5 py-1 rounded-full text-[11px] font-mono transition border {isActive ? 'bg-amber-400 text-black font-bold border-amber-300' : 'bg-[#12161f] text-gray-400 border-[#1e2430] hover:text-white hover:border-gray-600'}"
+			>
+				#{tag}
+			</button>
+		{/each}
+	</div>
+
 	<!-- Active Sources Bar -->
 	{#if feed && feed.sources_active}
 		<div class="p-3 rounded-lg border border-[#1e2430] bg-[#0d1017] flex items-center justify-between flex-wrap gap-2 text-[11px] text-gray-400 font-mono">
@@ -214,6 +264,19 @@
 						<p class="text-xs text-gray-400 line-clamp-3 leading-relaxed">
 							{art.summary}
 						</p>
+
+						<!-- Dynamic Entity Tags -->
+						{#if art.tags && art.tags.length > 0}
+							<div class="flex items-center gap-1.5 flex-wrap pt-1">
+								{#each art.tags as tag}
+									<span
+										class="px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 border border-white/10 text-gray-300 group-hover:border-amber-400/40 group-hover:text-amber-300 transition"
+									>
+										#{tag}
+									</span>
+								{/each}
+							</div>
+						{/if}
 					</div>
 
 					<!-- Outbound Redirect Footer -->

@@ -12,6 +12,17 @@ export interface Club {
 	is_foundation?: boolean;
 }
 
+export interface Season {
+	id: string;
+	competition_id: string;
+	start_year: number;
+	end_year: number;
+	is_current: boolean;
+	label: string;
+	headline: string;
+	arteta_milestone: string;
+}
+
 export interface Match {
 	id: string;
 	competition_id?: string;
@@ -388,6 +399,7 @@ export interface NewsItem {
 	published_at: string;
 	author?: string | null;
 	upvotes?: number | null;
+	tags?: string[];
 }
 
 export interface NewsFeed {
