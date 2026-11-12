@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, func
 from typing import List, Optional
 from app.core.database import get_db
 from app.models.squad import Player
@@ -411,6 +411,32 @@ DEFAULT_PLAYERS: List[dict] = [
     }
 ]
 
+def _player_model_to_dict(p: Player) -> dict:
+    return {
+        "id": p.id,
+        "club_id": p.club_id,
+        "name": p.name,
+        "short_name": p.short_name,
+        "position": p.position,
+        "jersey_number": p.jersey_number,
+        "nationality": p.nationality,
+        "appearances": p.appearances,
+        "goals": p.goals,
+        "assists": p.assists,
+        "clean_sheets": p.clean_sheets,
+        "minutes_played": p.minutes_played,
+        "yellow_cards": p.yellow_cards,
+        "red_cards": p.red_cards,
+        "photo_url": p.photo_url,
+        "portrait_url": p.portrait_url,
+        "action_url": p.action_url,
+        "bio": p.bio,
+        "date_of_birth": p.date_of_birth,
+        "height": p.height,
+        "joined_date": p.joined_date,
+    }
+
+
 def format_player_response(p: dict) -> PlayerResponse:
     apps = max(p.get("appearances", 1), 1)
     goals = p.get("goals", 0)
@@ -431,6 +457,12 @@ def format_player_response(p: dict) -> PlayerResponse:
         yellow_cards=p.get("yellow_cards", 0),
         red_cards=p.get("red_cards", 0),
         photo_url=p.get("photo_url"),
+        portrait_url=p.get("portrait_url"),
+        action_url=p.get("action_url"),
+        bio=p.get("bio"),
+        date_of_birth=p.get("date_of_birth"),
+        height=p.get("height"),
+        joined_date=p.get("joined_date"),
         goals_per_game=round(goals / apps, 2),
         assists_per_game=round(assists / apps, 2),
         goal_contributions=goals + assists
@@ -453,41 +485,19 @@ async def list_squad(
     position: Optional[str] = Query(None, description="Filter by position (Goalkeeper, Defender, Midfielder, Attacker)"),
     db: AsyncSession = Depends(get_db)
 ):
-    """Retrieve club squad list with full player profiles and statistics."""
-    # Check if DB has players
-    stmt = select(Player)
-    if club_id:
-        stmt = stmt.where(Player.club_id == club_id)
-    if position:
-        stmt = stmt.where(Player.position == position)
-    stmt = stmt.order_by(Player.jersey_number.asc())
+    """Retrieve club squad list with full player profiles and statistics (DB-first)."""
+    total_in_db = (await db.execute(select(func.count(Player.id)))).scalar() or 0
+    if total_in_db > 0:
+        stmt = select(Player)
+        if club_id:
+            stmt = stmt.where(Player.club_id == club_id)
+        if position:
+            stmt = stmt.where(func.lower(Player.position) == position.lower())
+        stmt = stmt.order_by(Player.jersey_number.asc())
+        db_players = (await db.execute(stmt)).scalars().all()
+        return [format_player_response(_player_model_to_dict(p)) for p in db_players]
 
-    res = await db.execute(stmt)
-    db_players = res.scalars().all()
-
-    if db_players:
-        return [
-            format_player_response({
-                "id": p.id,
-                "club_id": p.club_id,
-                "name": p.name,
-                "short_name": p.short_name,
-                "position": p.position,
-                "jersey_number": p.jersey_number,
-                "nationality": p.nationality,
-                "appearances": p.appearances,
-                "goals": p.goals,
-                "assists": p.assists,
-                "clean_sheets": p.clean_sheets,
-                "minutes_played": p.minutes_played,
-                "yellow_cards": p.yellow_cards,
-                "red_cards": p.red_cards,
-                "photo_url": p.photo_url
-            })
-            for p in db_players
-        ]
-
-    # Return filtered baseline data
+    # Cold-start baseline fallback when players table is empty
     players = DEFAULT_PLAYERS
     if club_id:
         players = [p for p in players if p["club_id"] == club_id]
@@ -496,26 +506,27 @@ async def list_squad(
 
     return [format_player_response(p) for p in players]
 
+
 @router.get("/compare", response_model=PlayerComparisonResponse)
 async def compare_players(
     player1_id: str = Query(..., description="First player ID"),
     player2_id: str = Query(..., description="Second player ID"),
     db: AsyncSession = Depends(get_db)
 ):
-    """Compare two players head-to-head across key performance metrics."""
-    # Lookup player1
-    p1_dict = next((p for p in DEFAULT_PLAYERS if p["id"] == player1_id), None)
-    p2_dict = next((p for p in DEFAULT_PLAYERS if p["id"] == player2_id), None)
+    """Compare two players head-to-head across key performance metrics (DB-first)."""
+    db_p1 = (await db.execute(select(Player).where(Player.id == player1_id))).scalar_one_or_none()
+    db_p2 = (await db.execute(select(Player).where(Player.id == player2_id))).scalar_one_or_none()
 
-    if not p1_dict:
-        db_p1 = (await db.execute(select(Player).where(Player.id == player1_id))).scalar_one_or_none()
-        if db_p1:
-            p1_dict = db_p1.__dict__
+    p1_dict = _player_model_to_dict(db_p1) if db_p1 else None
+    p2_dict = _player_model_to_dict(db_p2) if db_p2 else None
 
-    if not p2_dict:
-        db_p2 = (await db.execute(select(Player).where(Player.id == player2_id))).scalar_one_or_none()
-        if db_p2:
-            p2_dict = db_p2.__dict__
+    if not p1_dict or not p2_dict:
+        total_in_db = (await db.execute(select(func.count(Player.id)))).scalar() or 0
+        if total_in_db == 0:
+            if not p1_dict:
+                p1_dict = next((p for p in DEFAULT_PLAYERS if p["id"] == player1_id), None)
+            if not p2_dict:
+                p2_dict = next((p for p in DEFAULT_PLAYERS if p["id"] == player2_id), None)
 
     if not p1_dict or not p2_dict:
         raise HTTPException(status_code=404, detail="One or both players not found")
@@ -526,7 +537,6 @@ async def compare_players(
     item1 = build_comparison_item(p1_resp)
     item2 = build_comparison_item(p2_resp)
 
-    # Generate comparative analysis text
     if item1.player.goal_contributions > item2.player.goal_contributions:
         leader = item1.player.name
         summary = f"{leader} leads in total direct goal contributions ({item1.player.goal_contributions} vs {item2.player.goal_contributions})."
@@ -542,34 +552,21 @@ async def compare_players(
         comparison_summary=summary
     )
 
+
 @router.get("/{player_id}", response_model=PlayerResponse)
 async def get_player(
     player_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get single player profile details."""
-    p_dict = next((p for p in DEFAULT_PLAYERS if p["id"] == player_id), None)
-    if p_dict:
-        return format_player_response(p_dict)
-
+    """Get single player profile details (DB-first)."""
     db_p = (await db.execute(select(Player).where(Player.id == player_id))).scalar_one_or_none()
-    if not db_p:
-        raise HTTPException(status_code=404, detail="Player not found")
+    if db_p:
+        return format_player_response(_player_model_to_dict(db_p))
 
-    return format_player_response({
-        "id": db_p.id,
-        "club_id": db_p.club_id,
-        "name": db_p.name,
-        "short_name": db_p.short_name,
-        "position": db_p.position,
-        "jersey_number": db_p.jersey_number,
-        "nationality": db_p.nationality,
-        "appearances": db_p.appearances,
-        "goals": db_p.goals,
-        "assists": db_p.assists,
-        "clean_sheets": db_p.clean_sheets,
-        "minutes_played": db_p.minutes_played,
-        "yellow_cards": db_p.yellow_cards,
-        "red_cards": db_p.red_cards,
-        "photo_url": db_p.photo_url
-    })
+    total_in_db = (await db.execute(select(func.count(Player.id)))).scalar() or 0
+    if total_in_db == 0:
+        p_dict = next((p for p in DEFAULT_PLAYERS if p["id"] == player_id), None)
+        if p_dict:
+            return format_player_response(p_dict)
+
+    raise HTTPException(status_code=404, detail="Player not found")

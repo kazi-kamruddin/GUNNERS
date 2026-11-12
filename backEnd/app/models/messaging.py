@@ -18,7 +18,7 @@ class ConversationMember(Base):
     __tablename__ = "conversation_members"
 
     conversation_id: Mapped[str] = mapped_column(String(50), ForeignKey("conversations.id", ondelete="CASCADE"), primary_key=True)
-    user_id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(100), primary_key=True)
     joined_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.utcnow)
     last_read_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.utcnow)
 
@@ -33,7 +33,7 @@ class DirectMessage(Base):
 
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
     conversation_id: Mapped[str] = mapped_column(String(50), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
-    sender_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    sender_id: Mapped[str] = mapped_column(String(100), nullable=False)
     sender_name: Mapped[str] = mapped_column(String(100), default="Supporter")
     sender_club_id: Mapped[str] = mapped_column(String(50), default="arsenal")
     content: Mapped[str] = mapped_column(Text, nullable=False)

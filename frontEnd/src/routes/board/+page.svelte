@@ -1,13 +1,12 @@
 <script lang="ts">
 	import TacticalBoardComponent from '$lib/components/TacticalBoard.svelte';
-	import { saveTacticalBoard, fetchTacticalBoards } from '$lib/api/football';
+	import { ApiError, saveTacticalBoard } from '$lib/api/football';
 	import { CLUBS, themeState } from '$lib/stores/theme.svelte';
 	import type { PageProps } from './$types';
 	import type { TacticalPlayerToken, TacticalAnnotation, TacticalBoard } from '$lib/types/football';
 
 	let { data }: PageProps = $props();
 
-	// Active tactical board state
 	let title = $state('High Press & Overload Masterclass');
 	let selectedFormationId = $state('4-3-3');
 	let tacticalNotes = $state('Invert fullbacks to secure the center while wingers isolate wide defenders in 1v1 situations.');
@@ -15,10 +14,13 @@
 	let currentAnnotations = $state<TacticalAnnotation[]>([]);
 	let communityBoards = $state<TacticalBoard[]>([]);
 
-	// Actions state
 	let isSaving = $state(false);
 	let toastMessage = $state<string | null>(null);
+	let toastKind = $state<'success' | 'error'>('success');
+	let toastNeedsLogin = $state(false);
+	let toastTimer: ReturnType<typeof setTimeout> | null = null;
 	let savedBoardId = $state<string | null>(null);
+	let publishLabel = $derived(isSaving ? 'Publishing…' : 'Publish blueprint');
 
 	$effect(() => {
 		communityBoards = data.communityBoards || [];
@@ -46,105 +48,132 @@
 		currentLineup = JSON.parse(JSON.stringify(board.lineup));
 		currentAnnotations = JSON.parse(JSON.stringify(board.annotations || []));
 		savedBoardId = board.id;
-		showToast(`Loaded blueprint: "${board.title}"`);
+		showToast(`Loaded blueprint: “${board.title}”`);
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
 	async function handleSaveBoard() {
 		if (!title.trim() || currentLineup.length === 0) return;
+		if (!data.user || !data.session?.access_token) {
+			showToast('Please sign in to publish tactical blueprints.', 'error', true);
+			return;
+		}
 		isSaving = true;
 		try {
 			const authorName = data.profile?.display_name || data.user?.email?.split('@')[0] || 'Supporter';
 			const authorClub = data.profile?.favorite_club_id || themeState.viewingClubId;
 
-			const created = await saveTacticalBoard({
-				title: title.trim(),
-				formation: selectedFormationId,
-				lineup: currentLineup,
-				annotations: currentAnnotations,
-				tactical_notes: tacticalNotes.trim(),
-				author_name: authorName,
-				author_club_id: authorClub,
-				user_id: data.user?.id
-			});
+			const created = await saveTacticalBoard(
+				{
+					title: title.trim(),
+					formation: selectedFormationId,
+					lineup: currentLineup,
+					annotations: currentAnnotations,
+					tactical_notes: tacticalNotes.trim(),
+					author_name: authorName,
+					author_club_id: authorClub,
+					user_id: data.user?.id
+				},
+				data.session?.access_token
+			);
 
 			if (created) {
 				savedBoardId = created.id;
 				communityBoards = [created, ...communityBoards];
-				showToast('Tactical blueprint published successfully!');
+				showToast('Tactical blueprint published to the community archive.', 'success', false);
 			}
+		} catch (err) {
+			const isAuth = err instanceof ApiError && err.status === 401;
+			showToast(
+				isAuth
+					? 'Please sign in to publish tactical blueprints.'
+					: err instanceof ApiError
+						? err.detail
+						: 'Could not publish tactical blueprint. Please try again.',
+				'error',
+				isAuth
+			);
 		} finally {
 			isSaving = false;
 		}
 	}
 
-	function showToast(msg: string) {
+	function showToast(msg: string, kind: 'success' | 'error' = 'success', needsLogin: boolean = false) {
+		if (toastTimer) clearTimeout(toastTimer);
 		toastMessage = msg;
-		setTimeout(() => {
+		toastKind = kind;
+		toastNeedsLogin = needsLogin;
+		toastTimer = setTimeout(() => {
 			toastMessage = null;
-		}, 4000);
+			toastNeedsLogin = false;
+		}, 5000);
 	}
 </script>
 
 <svelte:head>
-	<title>Tactical Pitch Studio | GUNNERS Reborn</title>
+	<title>Tactical Pitch Studio | GUNNERS</title>
 </svelte:head>
 
-<div class="max-w-7xl mx-auto px-4 py-8 space-y-8">
+<div class="container py-12 space-y-12">
 	<!-- Toast Notification -->
 	{#if toastMessage}
-		<div class="fixed bottom-6 right-6 z-50 bg-[#12161f] border border-emerald-500/40 text-emerald-300 px-4 py-3 rounded-lg shadow-xl text-xs flex items-center gap-2">
-			<span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+		<div
+			role={toastKind === 'error' ? 'alert' : 'status'}
+			class="fixed bottom-6 right-6 z-50 bg-paper-2 border border-rule-2 px-4 py-3 rounded-card text-xs flex items-center gap-3 {toastKind === 'error' ? 'text-error' : 'text-success'}"
+		>
 			<span>{toastMessage}</span>
-			{#if savedBoardId}
+			{#if toastNeedsLogin}
+				<a
+					href="/login"
+					class="underline text-ink font-semibold hover:text-accent"
+				>
+					Sign in
+				</a>
+			{:else if toastKind === 'success' && savedBoardId}
 				<a
 					href="/terrace"
-					class="ml-2 underline text-white font-bold hover:text-emerald-200"
+					class="underline text-ink font-semibold hover:text-accent"
 				>
-					Post to Terrace →
+					Post to Terrace
 				</a>
 			{/if}
 		</div>
 	{/if}
 
 	<!-- Header -->
-	<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1e2430] pb-6">
-		<div>
-			<div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider mb-2 bg-red-950/70 text-red-400 border border-red-800/40 font-mono">
-				The Dugout • Arsenal Lineup Builder
-			</div>
-			<h1 class="text-2xl font-black text-white uppercase tracking-tight">Matchday Lineup & Tactical Studio</h1>
-			<p class="text-sm text-gray-400 mt-1">
-				Build your starting XI, swap bench substitutes, toggle fluid movement, and export high-resolution lineup graphics to share with Gooners.
+	<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b-2 border-rule-2 pb-8">
+		<div class="space-y-3">
+			<h1>Matchday lineup & tactical studio</h1>
+			<p class="lead text-ink-2">
+				Build your starting eleven, swap bench substitutes, draw pressing channels, and export high-resolution lineup graphics.
 			</p>
 		</div>
 
-		<!-- Action buttons -->
-		<div class="flex items-center gap-2 flex-wrap">
+		<div class="flex items-center gap-3 flex-wrap">
 			<button
 				type="button"
 				onclick={handleSaveBoard}
 				disabled={isSaving || !title.trim()}
-				class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-xs text-white font-bold transition disabled:opacity-50 shadow-sm"
+				class="h-10 px-5 rounded-card bg-accent hover:opacity-95 text-sm text-accent-ink font-semibold transition-opacity"
 			>
-				{isSaving ? 'Publishing...' : 'Publish Tactical Blueprint'}
+				{publishLabel}
 			</button>
 		</div>
 	</div>
 
 	<!-- Main Workspace Grid: Controls & Pitch Board -->
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-		<!-- Left: Pitch Canvas (Span 2) -->
-		<div class="lg:col-span-2 space-y-4">
+	<div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+		<!-- Left: Pitch Canvas (8 cols) -->
+		<div class="lg:col-span-8 space-y-6">
 			<!-- Preset & Quick Actions Bar -->
-			<div class="p-3.5 rounded-lg border border-[#1e2430] bg-[#12161f] flex items-center justify-between gap-3 flex-wrap text-xs">
-				<div class="flex items-center gap-2">
-					<label for="formation-select" class="text-gray-400 font-mono font-bold uppercase text-[11px]">Formation:</label>
+			<div class="pb-4 border-b border-rule flex items-center justify-between gap-4 flex-wrap text-xs">
+				<div class="flex items-center gap-3">
+					<label for="formation-select" class="text-ink-2 font-semibold">Formation preset</label>
 					<select
 						id="formation-select"
 						value={selectedFormationId}
 						onchange={(e) => handleFormationSelect((e.target as HTMLSelectElement).value)}
-						class="bg-[#0a0c10] border border-[#1e2430] text-gray-200 text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-red-500 font-bold"
+						class="h-9 bg-paper-2 border border-rule text-ink text-xs rounded-card px-3 font-semibold"
 					>
 						{#each data.presets as p}
 							<option value={p.id}>{p.name}</option>
@@ -152,13 +181,13 @@
 					</select>
 				</div>
 
-				<div class="flex items-center gap-2 text-gray-400 text-xs">
-					<span class="text-[11px]">💡 Click a bench player to swap into Starting XI • Drag tokens to customize positions</span>
-				</div>
+				<p class="text-xs text-muted">
+					Select a bench player to swap into the starting eleven, or drag tokens across the turf.
+				</p>
 			</div>
 
 			<!-- Interactive Tactical Pitch Component -->
-			<div class="p-4 rounded-xl border border-[#1e2430] bg-[#0c120c]">
+			<div>
 				<TacticalBoardComponent
 					bind:lineup={currentLineup}
 					bind:annotations={currentAnnotations}
@@ -172,101 +201,94 @@
 			</div>
 		</div>
 
-		<!-- Right: Blueprint Info & Tactical Instructions (Span 1) -->
-		<div class="space-y-4">
-			<div class="p-5 rounded-xl border border-[#1e2430] bg-[#12161f] space-y-4">
-				<h3 class="text-xs font-mono font-bold uppercase text-gray-400">Blueprint Details</h3>
+		<!-- Right: Blueprint Info & Tactical Instructions (4 cols) -->
+		<aside class="lg:col-span-4 border-t-2 border-rule-2 pt-5 space-y-5">
+			<h2 class="text-lg font-bold text-ink">Blueprint notes</h2>
 
-				<div class="space-y-2">
-					<label for="blueprint-title" class="text-xs text-gray-300 font-medium">Tactic Title</label>
-					<input
-						id="blueprint-title"
-						type="text"
-						bind:value={title}
-						placeholder="e.g. Arteta 4-3-3 Asymmetrical Build-Up"
-						class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
-					/>
-				</div>
-
-				<div class="space-y-2">
-					<label for="tactical-notes" class="text-xs text-gray-300 font-medium">Tactical Instructions & Debrief</label>
-					<textarea
-						id="tactical-notes"
-						bind:value={tacticalNotes}
-						rows="6"
-						placeholder="Explain passing channels, pressing intensity, defensive shape, or matchup instructions..."
-						class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg p-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500 resize-none"
-					></textarea>
-				</div>
-
-				<div class="pt-2 border-t border-[#1e2430] space-y-2 text-xs text-gray-400">
-					<div class="flex items-center justify-between">
-						<span>Total Players on Pitch:</span>
-						<span class="font-mono font-bold text-white">{currentLineup.length}</span>
-					</div>
-					<div class="flex items-center justify-between">
-						<span>Tactical Arrows / Marks:</span>
-						<span class="font-mono font-bold text-amber-400">{currentAnnotations.length}</span>
-					</div>
-					<div class="flex items-center justify-between">
-						<span>Author Affiliation:</span>
-						<span class="font-mono font-bold text-white capitalize">{themeState.currentTheme.name}</span>
-					</div>
-				</div>
+			<div class="space-y-2">
+				<label for="blueprint-title" class="block text-xs text-ink-2 font-semibold">Tactic title</label>
+				<input
+					id="blueprint-title"
+					type="text"
+					bind:value={title}
+					placeholder="e.g. Arteta 4-3-3 asymmetrical build-up"
+					class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
+				/>
 			</div>
-		</div>
+
+			<div class="space-y-2">
+				<label for="tactical-notes" class="block text-xs text-ink-2 font-semibold">Tactical instructions & debrief</label>
+				<textarea
+					id="tactical-notes"
+					bind:value={tacticalNotes}
+					rows="6"
+					placeholder="Explain passing channels, pressing triggers, defensive rest-defense shape, or matchup notes…"
+					class="w-full bg-paper-2 border border-rule rounded-card p-3 text-xs text-ink placeholder-muted resize-none"
+				></textarea>
+			</div>
+
+			<dl class="pt-4 border-t border-rule space-y-2.5 text-xs">
+				<div class="flex items-center justify-between">
+					<dt class="text-muted">Players on pitch</dt>
+					<dd class="num font-outlier font-semibold text-ink">{currentLineup.length}</dd>
+				</div>
+				<div class="flex items-center justify-between">
+					<dt class="text-muted">Tactical vectors</dt>
+					<dd class="num font-outlier font-semibold text-accent-2">{currentAnnotations.length}</dd>
+				</div>
+				<div class="flex items-center justify-between">
+					<dt class="text-muted">Club affiliation</dt>
+					<dd class="font-semibold text-ink">{themeState.currentTheme.name}</dd>
+				</div>
+			</dl>
+		</aside>
 	</div>
 
 	<!-- Community Tactical Blueprints Section -->
-	<div class="border-t border-[#1e2430] pt-8 space-y-4">
-		<div class="flex items-center justify-between">
-			<div>
-				<h2 class="text-lg font-black text-white uppercase tracking-tight">Community Tactical Blueprints</h2>
-				<p class="text-xs text-gray-400">Explore setups and game plans designed by fellow supporters.</p>
-			</div>
+	<section class="border-t-2 border-rule-2 pt-8 space-y-6">
+		<div class="space-y-1">
+			<h2 class="text-xl font-bold text-ink">Community tactical blueprints</h2>
+			<p class="text-sm text-muted">Explore matchday setups and pressing plans designed by fellow Gooners.</p>
 		</div>
 
 		{#if communityBoards.length === 0}
-			<div class="py-12 text-center border border-dashed border-[#1e2430] rounded-xl text-xs text-gray-500">
-				No community tactics published yet. Be the first to publish one above!
+			<div class="py-10 border-t border-rule text-sm text-muted">
+				No community tactics published yet. Publish your first blueprint above.
 			</div>
 		{:else}
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 				{#each communityBoards as b}
-					{@const authorClub = CLUBS[b.author_club_id] || CLUBS['arsenal']}
-					<div class="p-4 rounded-xl border border-[#1e2430] bg-[#12161f] space-y-3 flex flex-col justify-between hover:border-gray-600 transition">
+					{@const _authorClub = CLUBS[b.author_club_id] || CLUBS['arsenal']}
+					<article class="border-t border-rule pt-4 flex flex-col justify-between space-y-4">
 						<div class="space-y-2">
-							<div class="flex items-center justify-between text-[11px]">
-								<div class="flex items-center gap-1.5">
-									<span class="w-2 h-2 rounded-full" style="background-color: {authorClub.primary_color}"></span>
-									<span class="font-bold text-white">{b.author_name}</span>
-								</div>
-								<span class="px-2 py-0.5 rounded font-mono font-bold text-[10px] bg-red-950/70 text-red-300 border border-red-800/40">
+							<div class="flex items-center justify-between text-xs">
+								<span class="font-semibold text-ink-2">{b.author_name}</span>
+								<span class="num font-outlier font-semibold text-accent">
 									{b.formation}
 								</span>
 							</div>
 
-							<h4 class="text-xs font-bold text-gray-100">{b.title}</h4>
+							<h3 class="text-base font-bold text-ink">{b.title}</h3>
 							{#if b.tactical_notes}
-								<p class="text-[11px] text-gray-400 line-clamp-2 leading-relaxed">{b.tactical_notes}</p>
+								<p class="text-sm text-ink-2 line-clamp-2 leading-relaxed">{b.tactical_notes}</p>
 							{/if}
 						</div>
 
-						<div class="pt-2 border-t border-[#1e2430] flex items-center justify-between text-xs">
-							<span class="text-[10px] text-gray-500 font-mono">
+						<div class="pt-3 border-t border-rule flex items-center justify-between text-xs">
+							<span class="num font-outlier text-muted">
 								{b.annotations.length} vectors
 							</span>
 							<button
 								type="button"
 								onclick={() => loadCommunityBoard(b)}
-								class="text-[11px] font-bold text-amber-400 hover:text-amber-300 transition"
+								class="font-semibold text-accent-2 hover:text-ink transition-colors"
 							>
-								Load to Pitch →
+								Load to pitch
 							</button>
 						</div>
-					</div>
+					</article>
 				{/each}
 			</div>
 		{/if}
-	</div>
+	</section>
 </div>

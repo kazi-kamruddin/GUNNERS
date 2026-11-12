@@ -1,4 +1,5 @@
 from .football import Club, Competition, Season, Match, SyncRun
+from .profile import Profile
 from .insight import Insight
 from .terrace import Post, PostComment, PostReaction
 from .messaging import Conversation, ConversationMember, DirectMessage
@@ -13,6 +14,7 @@ __all__ = [
     "Season",
     "Match",
     "SyncRun",
+    "Profile",
     "Insight",
     "Post",
     "PostComment",
@@ -23,6 +25,5 @@ __all__ = [
     "Player",
     "Prediction",
     "Notification",
-    "TacticalBoard"
+    "TacticalBoard",
 ]
-

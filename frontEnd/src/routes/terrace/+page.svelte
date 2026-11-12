@@ -1,19 +1,24 @@
 <script lang="ts">
-	import { fetchPosts, createPost, toggleReaction, fetchComments, createComment } from '$lib/api/football';
+	import {
+		ApiError,
+		fetchPosts,
+		createPost,
+		toggleReaction,
+		fetchComments,
+		createComment
+	} from '$lib/api/football';
 	import TacticalBoardComponent from '$lib/components/TacticalBoard.svelte';
 	import type { Post, PostComment, Insight, TopicTag, TacticalBoard } from '$lib/types/football';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
-	// Reactive states
 	let selectedTab = $state<'all' | 'tactics' | 'matchday' | 'squad'>('all');
 	let posts = $state<Post[]>([]);
 	let availableInsights = $state<Insight[]>([]);
 	let availableTacticalBoards = $state<TacticalBoard[]>([]);
 	let isLoadingFeed = $state(false);
 
-	// Composer state
 	let newPostContent = $state('');
 	let newPostImageUrl = $state('');
 	let showImageInput = $state(false);
@@ -21,23 +26,25 @@
 	let selectedTacticalBoardId = $state<string>('');
 	let isSubmitting = $state(false);
 
-	// Guest Auth Gate Modal state
 	let showAuthModal = $state(false);
 	let authModalReason = $state<'post' | 'comment' | 'react'>('post');
-
-	// Lightbox state
+	let errorBanner = $state<{ message: string; isAuth?: boolean } | null>(null);
 	let lightboxImageUrl = $state<string | null>(null);
 
-	// Comments state: map post_id -> comments list & expanded flag
 	let expandedComments = $state<Record<string, boolean>>({});
 	let postComments = $state<Record<string, PostComment[]>>({});
 	let newCommentText = $state<Record<string, string>>({});
 	let isSubmittingComment = $state<Record<string, boolean>>({});
 
-	// Search & Tag state
 	let searchQuery = $state('');
 	let selectedTag = $state('');
 	let trendingTags = $state<TopicTag[]>([]);
+
+	let imageToggleLabel = $derived(showImageInput ? 'Hide photo input' : 'Add image');
+	let publishPostLabel = $derived(isSubmitting ? 'Publishing…' : 'Publish to Terrace');
+	let commentPlaceholder = $derived(
+		data.user ? 'Write your debrief or reply…' : 'Sign in to reply to this debrief…'
+	);
 
 	$effect(() => {
 		posts = data.initialPosts;
@@ -49,7 +56,7 @@
 	});
 
 	function requireAuth(reason: 'post' | 'comment' | 'react'): boolean {
-		if (!data.user) {
+		if (!data.user || !data.session?.access_token) {
 			authModalReason = reason;
 			showAuthModal = true;
 			return false;
@@ -64,7 +71,8 @@
 				'arsenal',
 				data.user?.id,
 				searchVal !== undefined ? searchVal : searchQuery,
-				tagVal !== undefined ? tagVal : selectedTag
+				tagVal !== undefined ? tagVal : selectedTag,
+				data.session?.access_token
 			);
 		} finally {
 			isLoadingFeed = false;
@@ -114,19 +122,23 @@
 		if (!newPostContent.trim()) return;
 
 		isSubmitting = true;
+		errorBanner = null;
 		try {
 			const authorName = data.profile?.display_name || data.user?.email?.split('@')[0] || 'Gooner';
 			const authorClub = 'arsenal';
 
-			const created = await createPost({
-				content: newPostContent.trim(),
-				club_id: 'arsenal',
-				image_url: newPostImageUrl.trim() || null,
-				insight_id: selectedInsightId || null,
-				tactical_board_id: selectedTacticalBoardId || null,
-				author_name: authorName,
-				author_club_id: authorClub
-			});
+			const created = await createPost(
+				{
+					content: newPostContent.trim(),
+					club_id: 'arsenal',
+					image_url: newPostImageUrl.trim() || null,
+					insight_id: selectedInsightId || null,
+					tactical_board_id: selectedTacticalBoardId || null,
+					author_name: authorName,
+					author_club_id: authorClub
+				},
+				data.session?.access_token
+			);
 
 			if (created) {
 				if (selectedInsightId) {
@@ -144,6 +156,16 @@
 				selectedInsightId = '';
 				selectedTacticalBoardId = '';
 			}
+		} catch (err) {
+			const isAuth = err instanceof ApiError && err.status === 401;
+			errorBanner = {
+				message: isAuth
+					? 'Please sign in to publish a post to The Terrace.'
+					: err instanceof ApiError
+						? err.detail
+						: 'Could not publish your post. Please try again.',
+				isAuth
+			};
 		} finally {
 			isSubmitting = false;
 		}
@@ -152,18 +174,28 @@
 	async function handleToggleReaction(post: Post) {
 		if (!requireAuth('react')) return;
 
-		const userId = data.user?.id || 'anon_user';
+		errorBanner = null;
+		const userId = data.user?.id || null;
 		const wasReacted = post.user_reacted;
 		post.user_reacted = !wasReacted;
 		post.reactions_count += wasReacted ? -1 : 1;
 
 		try {
-			const res = await toggleReaction(post.id, userId, 'cheer');
+			const res = await toggleReaction(post.id, userId, 'cheer', data.session?.access_token);
 			post.reactions_count = res.total_reactions;
 			post.user_reacted = res.action === 'added';
-		} catch {
+		} catch (err) {
 			post.user_reacted = wasReacted;
 			post.reactions_count += wasReacted ? 1 : -1;
+			const isAuth = err instanceof ApiError && err.status === 401;
+			errorBanner = {
+				message: isAuth
+					? 'Please sign in to cheer posts on The Terrace.'
+					: err instanceof ApiError
+						? err.detail
+						: 'Could not update reaction. Please try again.',
+				isAuth
+			};
 		}
 	}
 
@@ -182,12 +214,19 @@
 		const text = newCommentText[postId]?.trim();
 		if (!text) return;
 
+		errorBanner = null;
 		isSubmittingComment[postId] = true;
 		const authorName = data.profile?.display_name || data.user?.email?.split('@')[0] || 'Gooner';
 		const authorClub = 'arsenal';
 
 		try {
-			const comment = await createComment(postId, text, authorName, authorClub);
+			const comment = await createComment(
+				postId,
+				text,
+				authorName,
+				authorClub,
+				data.session?.access_token
+			);
 			if (comment) {
 				const current = postComments[postId] || [];
 				postComments[postId] = [...current, comment];
@@ -196,6 +235,16 @@
 				const targetPost = posts.find((p) => p.id === postId);
 				if (targetPost) targetPost.comments_count += 1;
 			}
+		} catch (err) {
+			const isAuth = err instanceof ApiError && err.status === 401;
+			errorBanner = {
+				message: isAuth
+					? 'Please sign in to reply on The Terrace.'
+					: err instanceof ApiError
+						? err.detail
+						: 'Could not post your reply. Please try again.',
+				isAuth
+			};
 		} finally {
 			isSubmittingComment[postId] = false;
 		}
@@ -228,55 +277,64 @@
 	<title>The Terrace | Arsenal FC Supporter Community & Tactical Debriefs</title>
 </svelte:head>
 
-<div class="max-w-4xl mx-auto px-4 py-8 space-y-8">
+<div class="container py-12 space-y-12 max-w-4xl">
 	<!-- Page Header -->
-	<div class="border-b border-red-900/30 pb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-		<div>
-			<div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider mb-2 bg-red-950/70 text-red-400 border border-red-800/40 font-mono">
-				Emirates Community Hub
-			</div>
-			<h1 class="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-2.5">
-				<span>The Terrace</span>
-				<span class="text-xs px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono font-medium normal-case">
-					Gooners Voice
-				</span>
-			</h1>
-			<p class="text-sm text-gray-400 mt-1">
-				The beating heart of Arsenal supporters. Share match observations, debate tactical lineups, analyze stats, and interact with fellow Gooners worldwide.
+	<div class="border-b-2 border-rule-2 pb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+		<div class="space-y-3">
+			<h1>The Terrace</h1>
+			<p class="lead text-ink-2">
+				Share match observations, debate tactical lineups, attach Data Lab snapshots, and connect with fellow Gooners worldwide.
 			</p>
 		</div>
 
 		{#if !data.user}
-			<div class="p-3 rounded-lg bg-red-950/30 border border-red-900/40 text-xs text-gray-300 max-w-xs">
-				<div class="flex items-center gap-1.5 font-bold text-red-400 mb-1">
-					<span>👀 Guest Browsing Mode</span>
-				</div>
-				<p class="text-[11px] text-gray-400 leading-snug">
-					You can freely read all posts, tactics, and debriefs. <a href="/login" class="text-red-400 underline font-semibold hover:text-red-300">Sign in</a> to join debates or publish.
+			<div class="border-t border-rule pt-3 text-xs text-ink-2 max-w-xs space-y-1">
+				<div class="font-bold text-accent">Guest browsing mode</div>
+				<p class="text-muted leading-snug">
+					Read all posts, tactics, and debriefs freely. <a href="/login" class="text-ink underline font-semibold hover:text-accent">Sign in</a> to join debates or publish.
 				</p>
 			</div>
 		{/if}
 	</div>
 
+	{#if errorBanner}
+		<div role="alert" class="p-3.5 rounded-card bg-paper-2 border border-rule text-error text-xs flex items-center justify-between gap-4">
+			<div class="flex items-center gap-3 flex-wrap">
+				<span>{errorBanner.message}</span>
+				{#if errorBanner.isAuth}
+					<a href="/login" class="underline text-ink font-semibold hover:text-accent">Sign in</a>
+				{/if}
+			</div>
+			<button
+				type="button"
+				onclick={() => (errorBanner = null)}
+				class="text-muted hover:text-ink font-semibold shrink-0"
+			>
+				Dismiss
+			</button>
+		</div>
+	{/if}
+
 	<!-- Search & Category Filters -->
-	<div class="p-4 rounded-xl border border-[#1e2430] bg-[#12161f] space-y-4">
+	<section class="space-y-5">
 		<div class="flex items-center gap-3">
 			<div class="relative flex-1">
 				<input
 					type="text"
+					aria-label="Search Terrace discussions"
 					bind:value={searchQuery}
 					onkeydown={(e) => e.key === 'Enter' && handleSearch()}
-					placeholder="Search discussions, tactics, player debriefs (#Saka, #Derby, #Arteta)..."
-					class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg pl-9 pr-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition"
+					placeholder="Search discussions, tactics, player debriefs (#Saka, #Derby, #Arteta)…"
+					class="w-full h-10 bg-paper-2 border border-rule rounded-card pl-9 pr-3 text-xs text-ink placeholder-muted"
 				/>
-				<svg class="w-4 h-4 text-gray-500 absolute left-3 top-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<svg class="w-4 h-4 text-muted absolute left-3 top-3" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 				</svg>
 			</div>
 			<button
 				type="button"
 				onclick={handleSearch}
-				class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition shadow-sm"
+				class="h-10 px-4 rounded-card bg-accent hover:opacity-95 text-accent-ink text-xs font-semibold transition-opacity"
 			>
 				Search
 			</button>
@@ -284,7 +342,7 @@
 				<button
 					type="button"
 					onclick={clearFilters}
-					class="px-3 py-2 rounded-lg border border-gray-700 hover:border-gray-500 text-gray-400 hover:text-white text-xs font-medium transition"
+					class="h-10 px-3.5 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-ink-2 hover:text-ink text-xs font-semibold transition-colors"
 				>
 					Reset
 				</button>
@@ -292,201 +350,189 @@
 		</div>
 
 		<!-- Channel Navigation Tabs -->
-		<div class="flex items-center gap-2 border-t border-[#1e2430]/60 pt-3 flex-wrap">
+		<div class="flex items-center gap-2 border-y border-rule py-3 flex-wrap">
 			<button
 				type="button"
 				onclick={() => selectCategory('all')}
-				class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border {selectedTab === 'all' && !selectedTag ? 'bg-red-600 text-white border-red-500' : 'text-gray-400 hover:text-white border-[#1e2430] bg-[#0a0c10]'}"
+				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'all' && !selectedTag ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
 			>
-				<span>🔴 All Terrace</span>
+				All Terrace
 			</button>
 			<button
 				type="button"
 				onclick={() => selectCategory('tactics')}
-				class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border {selectedTab === 'tactics' ? 'bg-red-600 text-white border-red-500' : 'text-gray-400 hover:text-white border-[#1e2430] bg-[#0a0c10]'}"
+				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'tactics' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
 			>
-				<span>📋 Tactical Debriefs</span>
+				Tactical debriefs
 			</button>
 			<button
 				type="button"
 				onclick={() => selectCategory('matchday')}
-				class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border {selectedTab === 'matchday' ? 'bg-red-600 text-white border-red-500' : 'text-gray-400 hover:text-white border-[#1e2430] bg-[#0a0c10]'}"
+				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'matchday' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
 			>
-				<span>⚽ Matchday & Derby</span>
+				Matchday & derby
 			</button>
 			<button
 				type="button"
 				onclick={() => selectCategory('squad')}
-				class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 border {selectedTab === 'squad' ? 'bg-red-600 text-white border-red-500' : 'text-gray-400 hover:text-white border-[#1e2430] bg-[#0a0c10]'}"
+				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'squad' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
 			>
-				<span>👥 Squad & Transfers</span>
+				Squad & transfers
 			</button>
 		</div>
 
 		{#if trendingTags && trendingTags.length > 0}
-			<!-- Trending Topic Hashtags -->
-			<div class="flex items-center gap-2 flex-wrap text-xs pt-1">
-				<span class="text-[11px] font-mono text-gray-500 uppercase font-semibold">Hot Topics:</span>
+			<div class="flex items-center gap-2 flex-wrap text-xs">
+				<span class="text-muted font-semibold">Topics:</span>
 				{#each trendingTags as t}
 					{@const cleanTag = t.tag.replace(/^#+/, '')}
+					{@const tagLabel = `#${cleanTag} (${t.count})`}
 					<button
 						type="button"
 						onclick={() => handleTagClick(cleanTag)}
-						class="px-2.5 py-1 rounded-full text-xs font-mono transition border {selectedTag === cleanTag ? 'bg-red-950/80 text-red-300 border-red-500' : 'bg-[#0a0c10] text-gray-400 border-[#1e2430] hover:border-gray-600 hover:text-gray-200'}"
+						class="h-7 px-2.5 rounded-card text-xs transition-colors border {selectedTag === cleanTag ? 'bg-paper-3 text-accent border-rule-2 font-semibold' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 					>
-						#{cleanTag} <span class="text-[10px] text-gray-500 font-sans">({t.count})</span>
+						{tagLabel}
 					</button>
 				{/each}
 			</div>
 		{/if}
-	</div>
+	</section>
 
-	<!-- Post Composer (Interactive for Authenticated, Gentle Prompt for Guests) -->
-	<div class="p-5 rounded-xl border border-red-900/30 bg-[#12161f] space-y-4 shadow-sm">
-		<div class="flex items-center justify-between">
+	<!-- Post Composer -->
+	<section class="border-t-2 border-rule-2 pt-6 space-y-4">
+		<div class="flex items-center justify-between text-xs">
 			<div class="flex items-center gap-2">
-				<span class="w-2.5 h-2.5 rounded-full bg-red-600"></span>
-				<span class="text-xs font-bold text-white">
-					{data.profile?.display_name || (data.user ? data.user.email?.split('@')[0] : 'Gooner Guest')}
+				<span class="font-bold text-ink">
+					{data.profile?.display_name || (data.user ? data.user.email?.split('@')[0] : 'Gooner guest')}
 				</span>
-				<span class="text-[10px] text-amber-400/90 font-mono uppercase bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
-					Arsenal Supporter
-				</span>
+				<span class="text-accent-2 font-semibold">Arsenal supporter</span>
 			</div>
-			<div class="text-[11px] text-gray-500 font-mono">
-				Emirates Stadium Terrace
-			</div>
+			<span class="text-muted">Emirates Stadium Terrace</span>
 		</div>
 
-		<!-- Post Text Input -->
 		<textarea
+			aria-label="Write a Terrace post"
 			bind:value={newPostContent}
 			onfocus={() => {
 				if (!data.user) requireAuth('post');
 			}}
 			rows="3"
-			placeholder="Share tactical observations, match reactions, lineup notes, or photo link..."
-			class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg p-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition resize-none"
+			placeholder="Share tactical observations, match reactions, lineup notes, or a photo link…"
+			class="w-full bg-paper-2 border border-rule rounded-card p-3 text-xs text-ink placeholder-muted resize-none"
 		></textarea>
 
-		<!-- Image Attachment Input (Optional URL / Cloudinary) -->
 		{#if showImageInput}
-			<div class="p-3 rounded-lg bg-[#0a0c10] border border-[#1e2430] space-y-2">
-				<div class="flex items-center justify-between">
-					<label for="image-url-input" class="text-xs font-bold text-gray-300 flex items-center gap-1.5">
-						<span>🖼️ Image Attachment URL</span>
-						<span class="text-[10px] font-normal text-gray-500">(Cloudinary, Unsplash, or direct image link)</span>
+			<div class="border-t border-rule pt-3 space-y-2">
+				<div class="flex items-center justify-between text-xs">
+					<label for="image-url-input" class="font-semibold text-ink-2">
+						Image attachment URL <span class="font-normal text-muted">(Cloudinary, Unsplash, or direct link)</span>
 					</label>
 					<button
 						type="button"
 						onclick={() => { showImageInput = false; newPostImageUrl = ''; }}
-						class="text-xs text-gray-500 hover:text-red-400"
+						class="text-muted hover:text-error font-semibold"
 					>
-						✕ Cancel
+						Cancel
 					</button>
 				</div>
 				<input
 					id="image-url-input"
 					type="url"
 					bind:value={newPostImageUrl}
-					placeholder="https://images.unsplash.com/... or https://res.cloudinary.com/..."
-					class="w-full bg-[#12161f] border border-[#1e2430] rounded p-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
+					placeholder="https://images.unsplash.com/… or https://res.cloudinary.com/…"
+					class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
 				/>
 				{#if newPostImageUrl.trim()}
-					<div class="relative w-36 h-20 rounded-md overflow-hidden border border-[#1e2430] mt-2 group">
+					<div class="relative w-36 h-20 overflow-hidden border border-rule mt-2">
 						<img src={newPostImageUrl} alt="Attachment preview" class="w-full h-full object-cover" />
 						<button
 							type="button"
 							onclick={() => (newPostImageUrl = '')}
-							class="absolute top-1 right-1 bg-black/80 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-[10px]"
+							class="absolute top-1 right-1 bg-paper/90 hover:bg-accent text-ink rounded-card px-1.5 py-0.5 text-xs font-semibold"
 							title="Remove photo"
 						>
-							✕
+							Remove
 						</button>
 					</div>
 				{/if}
 			</div>
 		{/if}
 
-		<!-- Attached Insight Preview -->
 		{#if attachedInsightPreview}
-			<div class="p-3.5 rounded-lg bg-[#0a0c10] border border-amber-500/30 flex items-center justify-between gap-4">
+			<div class="border-t border-rule pt-3 flex items-center justify-between gap-4 text-xs">
 				<div class="space-y-1">
 					<div class="flex items-center gap-2">
-						<span class="text-[10px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-							Insight Attached
-						</span>
-						<span class="text-xs font-bold text-white">{attachedInsightPreview.title}</span>
+						<span class="text-accent-2 font-semibold">Insight attached</span>
+						<span class="font-bold text-ink">{attachedInsightPreview.title}</span>
 					</div>
-					<p class="text-[11px] text-gray-400 font-mono">
-						Metric: {attachedInsightPreview.metric} · Venue: {attachedInsightPreview.venue}
+					<p class="text-muted">
+						Metric: {attachedInsightPreview.metric}, venue: {attachedInsightPreview.venue}
 					</p>
 				</div>
 				<button
 					type="button"
 					onclick={() => (selectedInsightId = '')}
-					class="text-xs text-gray-500 hover:text-red-400 px-2 py-1 rounded transition"
+					class="text-muted hover:text-error font-semibold"
 				>
 					Detach
 				</button>
 			</div>
 		{/if}
 
-		<!-- Attached Tactical Board Preview -->
 		{#if attachedTacticalBoardPreview}
-			<div class="p-3.5 rounded-lg bg-[#0a0c10] border border-red-500/30 flex items-center justify-between gap-4">
+			<div class="border-t border-rule pt-3 flex items-center justify-between gap-4 text-xs">
 				<div class="space-y-1">
 					<div class="flex items-center gap-2">
-						<span class="text-[10px] uppercase font-mono font-bold px-1.5 py-0.5 rounded bg-red-950/70 text-red-400 border border-red-800/40">
-							Tactical Board Attached ({attachedTacticalBoardPreview.formation})
+						<span class="text-accent font-semibold">
+							Tactical board attached (<span class="num font-outlier">{attachedTacticalBoardPreview.formation}</span>)
 						</span>
-						<span class="text-xs font-bold text-white">{attachedTacticalBoardPreview.title}</span>
+						<span class="font-bold text-ink">{attachedTacticalBoardPreview.title}</span>
 					</div>
-					<p class="text-[11px] text-gray-400 font-mono">
-						Players: {attachedTacticalBoardPreview.lineup.length} · Annotations: {attachedTacticalBoardPreview.annotations.length}
+					<p class="text-muted num font-outlier">
+						Players: {attachedTacticalBoardPreview.lineup.length}, vectors: {attachedTacticalBoardPreview.annotations.length}
 					</p>
 				</div>
 				<button
 					type="button"
 					onclick={() => (selectedTacticalBoardId = '')}
-					class="text-xs text-gray-500 hover:text-red-400 px-2 py-1 rounded transition"
+					class="text-muted hover:text-error font-semibold"
 				>
 					Detach
 				</button>
 			</div>
 		{/if}
 
-		<!-- Composer Footer Controls -->
-		<div class="flex items-center justify-between pt-2 border-t border-[#1e2430] flex-wrap gap-2">
-			<!-- Attach Buttons / Dropdowns -->
-			<div class="flex items-center gap-2 flex-wrap">
+		<div class="flex items-center justify-between pt-3 border-t border-rule flex-wrap gap-3">
+			<div class="flex items-center gap-2.5 flex-wrap">
 				<button
 					type="button"
 					onclick={() => {
 						if (!requireAuth('post')) return;
 						showImageInput = !showImageInput;
 					}}
-					class="px-2.5 py-1.5 rounded bg-[#0a0c10] hover:bg-white/5 border border-[#1e2430] text-xs text-gray-300 font-medium transition flex items-center gap-1.5 {showImageInput ? 'border-red-500 text-red-400' : ''}"
+					class="h-9 px-3 rounded-card bg-paper-2 hover:bg-paper-3 border border-rule text-xs text-ink-2 font-semibold transition-colors {showImageInput ? 'border-accent text-accent' : ''}"
 				>
-					<span>📷</span>
-					<span>{showImageInput ? 'Hide Photo Input' : 'Add Image'}</span>
+					{imageToggleLabel}
 				</button>
 
 				<select
+					aria-label="Attach Data Lab insight"
 					bind:value={selectedInsightId}
-					class="bg-[#0a0c10] border border-[#1e2430] text-xs text-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-red-500"
+					class="h-9 bg-paper-2 border border-rule text-xs text-ink-2 rounded-card px-2.5"
 				>
-					<option value="">Attach Insight (Optional)</option>
+					<option value="">Attach insight (optional)</option>
 					{#each availableInsights as ins}
 						<option value={ins.id}>{ins.title}</option>
 					{/each}
 				</select>
 
 				<select
+					aria-label="Attach tactical board"
 					bind:value={selectedTacticalBoardId}
-					class="bg-[#0a0c10] border border-[#1e2430] text-xs text-gray-300 rounded px-2.5 py-1.5 focus:outline-none focus:border-red-500"
+					class="h-9 bg-paper-2 border border-rule text-xs text-ink-2 rounded-card px-2.5"
 				>
-					<option value="">Attach Tactic (Optional)</option>
+					<option value="">Attach tactic (optional)</option>
 					{#each availableTacticalBoards as tb}
 						<option value={tb.id}>{tb.title} ({tb.formation})</option>
 					{/each}
@@ -494,124 +540,113 @@
 
 				<a
 					href="/board"
-					class="text-[11px] text-red-400 hover:text-red-300 hover:underline hidden sm:inline"
+					class="text-xs text-accent hover:text-ink font-semibold transition-colors"
 				>
-					+ Create Tactic
+					Create tactic
 				</a>
 			</div>
 
-			<!-- Submit Post Button -->
 			<button
 				type="button"
 				onclick={handlePublishPost}
 				disabled={isSubmitting || (!newPostContent.trim() && !newPostImageUrl.trim())}
-				class="px-5 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition disabled:opacity-50 shadow-sm"
+				class="h-9 px-5 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity"
 			>
-				{isSubmitting ? 'Publishing...' : 'Publish to Terrace'}
+				{publishPostLabel}
 			</button>
 		</div>
-	</div>
+	</section>
 
 	<!-- Feed Stream -->
 	{#if isLoadingFeed}
-		<div class="py-16 text-center text-gray-500 text-sm">
-			Loading Terrace discussions...
+		<div class="py-12 text-muted text-sm">
+			Loading Terrace discussions…
 		</div>
 	{:else if posts.length === 0}
-		<div class="py-16 text-center border border-dashed border-[#1e2430] rounded-xl bg-[#12161f]/50">
-			<div class="text-3xl mb-2">🔴</div>
-			<p class="text-sm text-gray-300 font-bold">No discussions found in this channel.</p>
-			<p class="text-xs text-gray-500 mt-1">Be the first Gooner to share your thoughts above!</p>
+		<div class="py-12 border-t border-rule space-y-1">
+			<p class="text-sm text-ink font-bold">No discussions found in this channel.</p>
+			<p class="text-xs text-muted">Be the first Gooner to share your thoughts above.</p>
 		</div>
 	{:else}
-		<div class="space-y-4">
+		<div class="divide-y divide-rule border-t border-rule">
 			{#each posts as post}
-				<div class="p-5 rounded-xl border border-[#1e2430] bg-[#12161f] space-y-3.5 hover:border-gray-700/60 transition">
+				{@const debateBtnLabel = `Debates (${post.comments_count})`}
+				{@const cheerBtnLabel = `Cheer (${post.reactions_count})`}
+				<article class="py-8 space-y-4">
 					<!-- Post Author & Meta -->
-					<div class="flex items-center justify-between">
-						<div class="flex items-center gap-2.5">
-							<span class="w-3 h-3 rounded-full bg-red-600"></span>
+					<div class="flex items-center justify-between text-xs">
+						<div class="flex items-center gap-3">
 							<a
 								href="/supporters/{encodeURIComponent(post.author_name)}"
-								class="text-xs font-bold text-white hover:text-red-400 hover:underline transition"
+								class="font-bold text-ink hover:text-accent transition-colors"
 							>
 								{post.author_name}
 							</a>
-							<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-red-950/60 border border-red-900/40 text-red-300 font-semibold">
-								Arsenal
-							</span>
+							<span class="text-muted">Arsenal</span>
 							<a
 								href="/messages?recipient={encodeURIComponent(post.author_id || post.author_name)}&name={encodeURIComponent(post.author_name)}&club=arsenal"
-								class="text-[10px] text-gray-400 hover:text-amber-400 font-semibold transition flex items-center gap-0.5 ml-1"
+								class="text-accent-2 hover:text-ink font-semibold transition-colors"
 								title="Challenge {post.author_name} to a private debate"
 							>
-								<span>💬</span>
-								<span>DM</span>
+								Direct debate
 							</a>
 						</div>
-						<span class="text-[11px] text-gray-500 font-mono">{formatTimestamp(post.created_at)}</span>
+						<span class="text-muted num font-outlier">{formatTimestamp(post.created_at)}</span>
 					</div>
 
 					<!-- Post Content -->
-					<p class="text-xs text-gray-200 leading-relaxed whitespace-pre-line font-sans">
+					<p class="text-sm text-ink leading-relaxed whitespace-pre-line">
 						{post.content}
 					</p>
 
-					<!-- Attached Image (With Lightbox Click) -->
+					<!-- Attached Image -->
 					{#if post.image_url}
-						<div class="rounded-lg overflow-hidden border border-[#1e2430] max-h-96 bg-black/40">
+						<div class="rounded-card overflow-hidden border border-rule max-h-96 bg-paper-2">
 							<button
 								type="button"
 								onclick={() => (lightboxImageUrl = post.image_url || null)}
-								class="w-full text-left focus:outline-none group relative"
+								class="w-full text-left group relative"
 							>
 								<img
 									src={post.image_url}
 									alt="Post attachment"
-									class="w-full max-h-96 object-cover hover:opacity-95 transition cursor-zoom-in"
+									class="w-full max-h-96 object-cover hover:opacity-95 transition-opacity cursor-zoom-in"
 									loading="lazy"
 								/>
-								<div class="absolute bottom-2 right-2 px-2 py-1 bg-black/70 backdrop-blur rounded text-[10px] text-white opacity-0 group-hover:opacity-100 transition flex items-center gap-1">
-									<span>🔍</span>
-									<span>Enlarge</span>
-								</div>
 							</button>
 						</div>
 					{/if}
 
-					<!-- Attached Insight Post Card -->
+					<!-- Attached Insight -->
 					{#if post.insight}
 						{@const ins = post.insight}
-						<div class="p-4 rounded-lg bg-[#0a0c10] border border-amber-500/30 space-y-3">
-							<div class="flex items-center justify-between gap-2">
-								<div class="flex items-center gap-2">
-									<span class="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-										Data Lab Proof
-									</span>
-									<h4 class="text-xs font-bold text-white">{ins.title}</h4>
+						<div class="border-l-2 border-accent-2 pl-4 py-2 space-y-3 bg-paper-2 p-4">
+							<div class="flex items-center justify-between gap-2 flex-wrap">
+								<div class="space-y-0.5">
+									<span class="text-xs font-semibold text-accent-2">Data Lab snapshot</span>
+									<h3 class="text-sm font-bold text-ink">{ins.title}</h3>
 								</div>
 								<a
 									href="/lab?metric={ins.metric}&teams={ins.team_ids.join(',')}&venue={ins.venue}"
-									class="text-[11px] font-bold px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-amber-300 border border-amber-500/30 transition flex items-center gap-1"
+									class="text-xs font-semibold text-accent-2 hover:text-ink transition-colors"
 								>
-									<span>View in Lab</span>
-									<span>→</span>
+									View in Data Lab
 								</a>
 							</div>
 
 							{#if ins.snapshot && ins.snapshot.series}
-								<div class="grid grid-cols-1 sm:grid-cols-{Math.min(ins.snapshot.series.length, 2)} gap-3 pt-2 border-t border-[#1e2430]">
+								<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-rule text-xs">
 									{#each ins.snapshot.series as item}
-										<div class="p-2.5 rounded bg-[#12161f] border border-[#1e2430] space-y-1">
-											<div class="flex items-center justify-between text-[11px]">
-												<span class="text-gray-300 font-bold">{item.team_name}</span>
-												<span class="font-mono font-bold text-white">
-													{item.metric_value} <span class="text-amber-400">{item.unit}</span>
+										<div class="space-y-1">
+											<div class="flex items-center justify-between">
+												<span class="text-ink font-bold">{item.team_name}</span>
+												<span class="num font-outlier font-bold text-ink">
+													{item.metric_value} <span class="text-accent-2">{item.unit}</span>
 												</span>
 											</div>
-											<div class="flex items-center justify-between text-[10px] text-gray-500 font-mono">
+											<div class="flex items-center justify-between text-muted num font-outlier">
 												<span>{item.matches_played} matches</span>
-												<span>{item.wins}W - {item.draws}D - {item.losses}L</span>
+												<span>{item.wins}W / {item.draws}D / {item.losses}L</span>
 											</div>
 										</div>
 									{/each}
@@ -620,34 +655,32 @@
 						</div>
 					{/if}
 
-					<!-- Attached Tactical Board Post Card -->
+					<!-- Attached Tactical Board -->
 					{#if post.tactical_board}
 						{@const tb = post.tactical_board}
-						<div class="p-4 rounded-lg bg-[#0a0c10] border border-red-500/30 space-y-3">
-							<div class="flex items-center justify-between gap-2">
-								<div class="flex items-center gap-2">
-									<span class="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded bg-red-950/80 text-red-300 border border-red-800/40">
-										Lineup Blueprint ({tb.formation})
+						<div class="border-l-2 border-accent pl-4 py-2 space-y-3 bg-paper-2 p-4">
+							<div class="flex items-center justify-between gap-2 flex-wrap">
+								<div class="space-y-0.5">
+									<span class="text-xs font-semibold text-accent">
+										Lineup blueprint (<span class="num font-outlier">{tb.formation}</span>)
 									</span>
-									<h4 class="text-xs font-bold text-white">{tb.title}</h4>
+									<h3 class="text-sm font-bold text-ink">{tb.title}</h3>
 								</div>
 								<a
 									href="/board"
-									class="text-[11px] font-bold px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-red-300 border border-red-500/30 transition flex items-center gap-1"
+									class="text-xs font-semibold text-accent hover:text-ink transition-colors"
 								>
-									<span>Open in Dugout</span>
-									<span>→</span>
+									Open in lineup studio
 								</a>
 							</div>
 
 							{#if tb.tactical_notes}
-								<p class="text-[11px] text-gray-300 leading-relaxed italic bg-[#12161f] p-2.5 rounded border border-[#1e2430]">
-									"{tb.tactical_notes}"
+								<p class="text-xs text-ink-2 leading-relaxed">
+									“{tb.tactical_notes}”
 								</p>
 							{/if}
 
-							<!-- Embedded Mini Pitch -->
-							<div class="max-w-md mx-auto rounded-lg overflow-hidden border border-emerald-950/80">
+							<div class="max-w-md mx-auto">
 								<TacticalBoardComponent
 									lineup={tb.lineup}
 									annotations={tb.annotations}
@@ -659,62 +692,55 @@
 					{/if}
 
 					<!-- Post Action Bar -->
-					<div class="flex items-center gap-4 pt-2 border-t border-[#1e2430] text-xs">
-						<!-- Cheer Reaction -->
+					<div class="flex items-center gap-3 pt-2 text-xs">
 						<button
 							type="button"
 							onclick={() => handleToggleReaction(post)}
-							class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition {post.user_reacted ? 'bg-amber-500/10 text-amber-400 font-bold border border-amber-500/30' : 'text-gray-400 hover:text-white hover:bg-white/5'}"
+							class="h-8 px-3 rounded-card transition-colors border flex items-center gap-1.5 {post.user_reacted ? 'bg-paper-3 text-accent-2 font-bold border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 						>
-							<span>⚽ Cheer</span>
-							<span class="font-mono">{post.reactions_count}</span>
+							<span>{cheerBtnLabel}</span>
 						</button>
 
-						<!-- Comments Toggle -->
 						<button
 							type="button"
 							onclick={() => toggleCommentSection(post.id)}
-							class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition"
+							class="h-8 px-3 rounded-card bg-paper-2 border border-rule text-ink-2 hover:text-ink transition-colors font-semibold"
 						>
-							<span>💬 Debates ({post.comments_count})</span>
+							{debateBtnLabel}
 						</button>
 					</div>
 
-					<!-- Comments Thread (Expandable) -->
+					<!-- Comments Thread -->
 					{#if expandedComments[post.id]}
-						<div class="pt-3 border-t border-[#1e2430] space-y-3">
-							<!-- Comments List -->
+						<div class="pt-4 border-t border-rule space-y-4">
 							{#if postComments[post.id] && postComments[post.id].length > 0}
-								<div class="space-y-2">
+								<div class="divide-y divide-rule">
 									{#each postComments[post.id] as comment}
-										<div class="p-2.5 rounded bg-[#0a0c10] border border-[#1e2430] space-y-1">
+										<div class="py-3 space-y-1 text-xs">
 											<div class="flex items-center justify-between">
-												<div class="flex items-center gap-1.5">
-													<span class="w-1.5 h-1.5 rounded-full bg-red-600"></span>
-													<a
-														href="/supporters/{encodeURIComponent(comment.author_name)}"
-														class="text-[11px] font-bold text-gray-300 hover:text-white hover:underline transition"
-													>
-														{comment.author_name}
-													</a>
-												</div>
-												<span class="text-[10px] text-gray-500 font-mono">{formatTimestamp(comment.created_at)}</span>
+												<a
+													href="/supporters/{encodeURIComponent(comment.author_name)}"
+													class="font-bold text-ink hover:text-accent transition-colors"
+												>
+													{comment.author_name}
+												</a>
+												<span class="text-muted num font-outlier">{formatTimestamp(comment.created_at)}</span>
 											</div>
-											<p class="text-xs text-gray-300 leading-relaxed">{comment.content}</p>
+											<p class="text-ink-2 leading-relaxed">{comment.content}</p>
 										</div>
 									{/each}
 								</div>
 							{:else}
-								<p class="text-xs text-gray-500">No comments yet. Join the conversation below!</p>
+								<p class="text-xs text-muted">No comments yet. Join the conversation below.</p>
 							{/if}
 
-							<!-- Inline Reply Form -->
 							<div class="flex items-center gap-2">
 								<input
 									type="text"
+									aria-label="Reply to discussion"
 									bind:value={newCommentText[post.id]}
-									placeholder={data.user ? "Write your debrief or reply..." : "Sign in to reply to this debrief..."}
-									class="flex-1 bg-[#0a0c10] border border-[#1e2430] rounded p-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-red-500"
+									placeholder={commentPlaceholder}
+									class="flex-1 h-9 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
 									onfocus={() => {
 										if (!data.user) requireAuth('comment');
 									}}
@@ -724,14 +750,14 @@
 									type="button"
 									onclick={() => handleAddComment(post.id)}
 									disabled={isSubmittingComment[post.id] || !newCommentText[post.id]?.trim()}
-									class="px-3.5 py-2 rounded bg-red-600 hover:bg-red-500 text-xs font-bold text-white transition disabled:opacity-50"
+									class="h-9 px-4 rounded-card bg-accent hover:opacity-95 text-xs font-semibold text-accent-ink transition-opacity"
 								>
 									Reply
 								</button>
 							</div>
 						</div>
 					{/if}
-				</div>
+				</article>
 			{/each}
 		</div>
 	{/if}
@@ -739,24 +765,21 @@
 
 <!-- Guest Auth Gate Modal -->
 {#if showAuthModal}
-	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-		<div class="bg-[#12161f] border border-red-800/40 rounded-2xl p-6 max-w-md w-full space-y-5 shadow-2xl relative">
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-paper/85">
+		<div class="bg-paper-2 border-t-2 border-rule-2 p-6 max-w-md w-full space-y-5 relative">
 			<button
 				type="button"
 				onclick={() => (showAuthModal = false)}
-				class="absolute top-4 right-4 text-gray-400 hover:text-white text-lg p-1"
+				class="absolute top-4 right-4 text-muted hover:text-ink text-xs font-semibold"
 			>
-				✕
+				Close
 			</button>
 
-			<div class="text-center space-y-2">
-				<div class="w-12 h-12 mx-auto rounded-full bg-red-950/80 border border-red-800/60 flex items-center justify-center text-xl">
-					🔴
-				</div>
-				<h3 class="text-lg font-black text-white uppercase tracking-tight">
-					Join the Terrace Discussion
-				</h3>
-				<p class="text-xs text-gray-300 leading-relaxed">
+			<div class="space-y-2">
+				<h2 class="text-lg font-bold text-ink">
+					Join the Terrace discussion
+				</h2>
+				<p class="text-xs text-ink-2 leading-relaxed">
 					{#if authModalReason === 'post'}
 						Sign in to publish tactical debriefs, share lineup blueprints, and attach match photos.
 					{:else if authModalReason === 'comment'}
@@ -767,29 +790,29 @@
 				</p>
 			</div>
 
-			<div class="p-3 rounded-lg bg-[#0a0c10] border border-[#1e2430] text-[11px] text-gray-400 text-center">
-				Browsing the Terrace and reading discussions is free for all visitors. Authenticated accounts keep our community authentic and spam-free!
-			</div>
+			<p class="text-xs text-muted border-t border-rule pt-3">
+				Browsing the Terrace and reading discussions is free for all visitors. Authenticated accounts keep our community authentic.
+			</p>
 
-			<div class="flex flex-col gap-2.5">
+			<div class="flex flex-col gap-2.5 pt-1">
 				<a
 					href="/login"
-					class="w-full py-2.5 text-center font-bold text-xs bg-red-600 hover:bg-red-500 text-white rounded-lg transition shadow-md"
+					class="w-full h-10 inline-flex items-center justify-center font-semibold text-xs bg-accent hover:opacity-95 text-accent-ink rounded-card transition-opacity"
 				>
-					Sign In
+					Sign in
 				</a>
 				<a
 					href="/signup"
-					class="w-full py-2.5 text-center font-bold text-xs bg-white/5 hover:bg-white/10 text-gray-200 border border-[#1e2430] rounded-lg transition"
+					class="w-full h-10 inline-flex items-center justify-center font-semibold text-xs bg-paper border border-rule text-ink rounded-card transition-colors hover:bg-paper-3"
 				>
-					Create Free Gooner Account
+					Create free Gooner account
 				</a>
 				<button
 					type="button"
 					onclick={() => (showAuthModal = false)}
-					class="text-[11px] text-gray-500 hover:text-gray-300 pt-1"
+					class="text-xs text-muted hover:text-ink pt-1"
 				>
-					Continue browsing as Guest
+					Browse as guest
 				</button>
 			</div>
 		</div>
@@ -799,7 +822,7 @@
 <!-- Lightbox Modal for Post Images -->
 {#if lightboxImageUrl}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md cursor-zoom-out"
+		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-paper/90 cursor-zoom-out"
 		onclick={() => (lightboxImageUrl = null)}
 		role="button"
 		tabindex="0"
@@ -809,14 +832,14 @@
 			<button
 				type="button"
 				onclick={() => (lightboxImageUrl = null)}
-				class="absolute -top-10 right-0 text-white text-sm bg-white/10 hover:bg-white/20 px-3 py-1 rounded"
+				class="absolute -top-10 right-0 text-ink text-xs bg-paper-2 border border-rule px-3 py-1 rounded-card font-semibold"
 			>
-				✕ Close
+				Close
 			</button>
 			<img
 				src={lightboxImageUrl}
 				alt="Full size preview"
-				class="max-w-full max-h-[85vh] object-contain rounded-lg border border-white/20 shadow-2xl"
+				class="max-w-full max-h-[85vh] object-contain rounded-card border border-rule"
 			/>
 		</div>
 	</div>

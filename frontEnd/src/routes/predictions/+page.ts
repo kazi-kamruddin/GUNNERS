@@ -3,10 +3,11 @@ import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ parent }) => {
 	const { session, profile } = await parent();
-	const userId = session?.user?.id || profile?.id || 'guest_user';
+	const userId = session?.user?.id || profile?.id || null;
+	const accessToken = session?.access_token ?? null;
 
 	const [upcoming, leaderboard, clubs] = await Promise.all([
-		fetchUpcomingPredictions(userId),
+		fetchUpcomingPredictions(userId ?? undefined, accessToken),
 		fetchLeaderboard(),
 		fetchClubs()
 	]);

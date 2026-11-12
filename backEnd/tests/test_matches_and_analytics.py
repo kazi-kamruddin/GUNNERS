@@ -1,11 +1,13 @@
-import pytest
 import datetime
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+
+import pytest
+from httpx import ASGITransport, AsyncClient
+
 from app.main import app
-from app.core.database import Base, get_db
-from app.models import Club, Competition, Season, Match, SyncRun, Insight, Post, PostComment, PostReaction
+from app.models import Club, Competition, Match, Season, SyncRun
 from app.services.ingestion import FootballIngestionService
+from tests.helpers import auth_headers
+
 
 @pytest.mark.asyncio
 async def test_get_seasons_arteta_timeline():
@@ -17,6 +19,7 @@ async def test_get_seasons_arteta_timeline():
         season_ids = [s["id"] for s in seasons]
         assert "2019-2020-PL" in season_ids
         assert "2026-2027-PL" in season_ids
+
 
 @pytest.fixture(autouse=True)
 async def seed_matches_data(session_factory):
@@ -30,7 +33,7 @@ async def seed_matches_data(session_factory):
             secondary_color="#FFFFFF",
             accent_color="#9C824A",
             league="Premier League",
-            country="England"
+            country="England",
         )
         barcelona = Club(
             id="barcelona",
@@ -41,12 +44,11 @@ async def seed_matches_data(session_factory):
             secondary_color="#004D98",
             accent_color="#EDBB00",
             league="La Liga",
-            country="Spain"
+            country="Spain",
         )
         comp = Competition(id="PL", code="PL", name="Premier League", country="England")
         season = Season(id="2024-2025-PL", competition_id="PL", start_year=2024, end_year=2025, is_current=True)
-        
-        # Add 3 finished matches for Arsenal (2 Home wins, 1 Away loss)
+
         m1 = Match(
             id="m1",
             competition_id="PL",
@@ -61,7 +63,7 @@ async def seed_matches_data(session_factory):
             status="FINISHED",
             home_score=2,
             away_score=1,
-            winner="HOME_TEAM"
+            winner="HOME_TEAM",
         )
         m2 = Match(
             id="m2",
@@ -77,7 +79,7 @@ async def seed_matches_data(session_factory):
             status="FINISHED",
             home_score=3,
             away_score=0,
-            winner="HOME_TEAM"
+            winner="HOME_TEAM",
         )
         m3 = Match(
             id="m3",
@@ -93,9 +95,8 @@ async def seed_matches_data(session_factory):
             status="FINISHED",
             home_score=2,
             away_score=1,
-            winner="HOME_TEAM"
+            winner="HOME_TEAM",
         )
-        # Add 1 upcoming scheduled match
         m4 = Match(
             id="m4",
             competition_id="PL",
@@ -110,20 +111,21 @@ async def seed_matches_data(session_factory):
             status="SCHEDULED",
             home_score=None,
             away_score=None,
-            winner=None
+            winner=None,
         )
 
         sync = SyncRun(
             source="football-data.org (test)",
             status="SUCCESS",
             matches_synced=4,
-            started_at=datetime.datetime.now(datetime.timezone.utc)
+            started_at=datetime.datetime.now(datetime.timezone.utc),
         )
 
         session.add_all([arsenal, barcelona, comp, season, m1, m2, m3, m4, sync])
         await session.commit()
 
     yield
+
 
 @pytest.mark.asyncio
 async def test_get_matches():
@@ -133,6 +135,7 @@ async def test_get_matches():
     matches = response.json()
     assert len(matches) == 4
 
+
 @pytest.mark.asyncio
 async def test_get_matches_scheduled_order():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -141,6 +144,7 @@ async def test_get_matches_scheduled_order():
     matches = response.json()
     assert len(matches) == 1
     assert matches[0]["id"] == "m4"
+
 
 @pytest.mark.asyncio
 async def test_get_match_summary():
@@ -153,8 +157,8 @@ async def test_get_match_summary():
     assert data["total_scheduled"] == 1
     assert data["next_fixture"]["id"] == "m4"
     assert data["last_result"]["id"] == "m3"
-    # m1: W, m2: W, m3: L -> ['W', 'W', 'L']
     assert data["recent_form"] == ["W", "W", "L"]
+
 
 @pytest.mark.asyncio
 async def test_get_sync_status():
@@ -165,6 +169,7 @@ async def test_get_sync_status():
     assert data["status"] == "SUCCESS"
     assert "matches_synced" in data
 
+
 @pytest.mark.asyncio
 async def test_ingestion_service_mock_sync(session_factory):
     async with session_factory() as session:
@@ -172,14 +177,11 @@ async def test_ingestion_service_mock_sync(session_factory):
     assert result["status"] == "SUCCESS"
     assert result["matches_synced"] >= 40
 
+
 @pytest.mark.asyncio
 async def test_analytics_win_rate_all_venue():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        payload = {
-            "metric": "win_rate",
-            "team_ids": ["arsenal"],
-            "venue": "all"
-        }
+        payload = {"metric": "win_rate", "team_ids": ["arsenal"], "venue": "all"}
         response = await ac.post("/api/v1/matches/query", json=payload)
     assert response.status_code == 200
     data = response.json()
@@ -188,52 +190,39 @@ async def test_analytics_win_rate_all_venue():
     assert series["matches_played"] == 3
     assert series["wins"] == 2
     assert series["losses"] == 1
-    # 2/3 * 100 = 66.7%
     assert series["metric_value"] == 66.7
+
 
 @pytest.mark.asyncio
 async def test_analytics_win_rate_home_venue():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        payload = {
-            "metric": "win_rate",
-            "team_ids": ["arsenal"],
-            "venue": "home"
-        }
+        payload = {"metric": "win_rate", "team_ids": ["arsenal"], "venue": "home"}
         response = await ac.post("/api/v1/matches/query", json=payload)
     assert response.status_code == 200
-    data = response.json()
-    series = data["series"][0]
+    series = response.json()["series"][0]
     assert series["matches_played"] == 2
     assert series["wins"] == 2
     assert series["losses"] == 0
-    # 2/2 * 100 = 100.0%
     assert series["metric_value"] == 100.0
+
 
 @pytest.mark.asyncio
 async def test_analytics_clean_sheet_rate():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        payload = {
-            "metric": "clean_sheet_rate",
-            "team_ids": ["arsenal"],
-            "venue": "all"
-        }
+        payload = {"metric": "clean_sheet_rate", "team_ids": ["arsenal"], "venue": "all"}
         response = await ac.post("/api/v1/matches/query", json=payload)
     assert response.status_code == 200
     data = response.json()
     assert data["metric"] == "clean_sheet_rate"
     series = data["series"][0]
-    # m2 had Barcelona score 0 -> 1 clean sheet out of 3 matches -> 33.3%
     assert series["clean_sheets"] == 1
     assert series["metric_value"] == 33.3
+
 
 @pytest.mark.asyncio
 async def test_analytics_head_to_head_comparison():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        payload = {
-            "metric": "points_per_game",
-            "team_ids": ["arsenal", "barcelona"],
-            "venue": "all"
-        }
+        payload = {"metric": "points_per_game", "team_ids": ["arsenal", "barcelona"], "venue": "all"}
         response = await ac.post("/api/v1/matches/query", json=payload)
     assert response.status_code == 200
     data = response.json()
@@ -241,8 +230,10 @@ async def test_analytics_head_to_head_comparison():
     assert data["series"][0]["team_id"] == "arsenal"
     assert data["series"][1]["team_id"] == "barcelona"
 
+
 @pytest.mark.asyncio
-async def test_create_and_get_insight():
+async def test_create_get_and_delete_insight():
+    headers = auth_headers("usr_gooner_99", display_name="Gooner99")
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
         payload = {
             "title": "Arsenal Home Dominance Analysis",
@@ -252,11 +243,12 @@ async def test_create_and_get_insight():
             "venue": "home",
             "chart_type": "bar",
             "author_name": "Gooner99",
-            "author_club_id": "arsenal"
+            "author_club_id": "arsenal",
         }
-        create_res = await ac.post("/api/v1/insights", json=payload)
+        create_res = await ac.post("/api/v1/insights", json=payload, headers=headers)
         assert create_res.status_code == 201
         created = create_res.json()
+        assert created["user_id"] == "usr_gooner_99"
         assert created["title"] == "Arsenal Home Dominance Analysis"
         assert created["snapshot"]["metric"] == "win_rate"
         insight_id = created["id"]
@@ -267,6 +259,11 @@ async def test_create_and_get_insight():
         assert fetched["id"] == insight_id
         assert fetched["author_name"] == "Gooner99"
 
+        del_res = await ac.delete(f"/api/v1/insights/{insight_id}", headers=headers)
+        assert del_res.status_code == 200
+        assert (await ac.get(f"/api/v1/insights/{insight_id}")).status_code == 404
+
+
 @pytest.mark.asyncio
 async def test_list_insights():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
@@ -274,4 +271,3 @@ async def test_list_insights():
         assert res.status_code == 200
         insights = res.json()
         assert isinstance(insights, list)
-

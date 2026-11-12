@@ -1,10 +1,10 @@
-from fastapi import APIRouter
 from typing import List
+from fastapi import APIRouter, HTTPException
 from app.schemas.clubs import ClubResponse
 
 router = APIRouter()
 
-# The four foundational clubs as per Gunners_PROJECT_DIRECTION.md
+# Arsenal FC is the sole foundation club; comparison opponents remain available for Data Lab matchups.
 INITIAL_CLUBS: List[dict] = [
     {
         "id": "arsenal",
@@ -16,6 +16,9 @@ INITIAL_CLUBS: List[dict] = [
         "accent_color": "#9C824A",
         "league": "Premier League",
         "country": "England",
+        "crest_url": "https://crests.football-data.org/57.png",
+        "is_foundation": True,
+        "is_active": True,
     },
     {
         "id": "real-madrid",
@@ -27,6 +30,9 @@ INITIAL_CLUBS: List[dict] = [
         "accent_color": "#EEB028",
         "league": "La Liga",
         "country": "Spain",
+        "crest_url": "https://crests.football-data.org/86.png",
+        "is_foundation": False,
+        "is_active": True,
     },
     {
         "id": "barcelona",
@@ -38,6 +44,9 @@ INITIAL_CLUBS: List[dict] = [
         "accent_color": "#EDBB00",
         "league": "La Liga",
         "country": "Spain",
+        "crest_url": "https://crests.football-data.org/81.png",
+        "is_foundation": False,
+        "is_active": True,
     },
     {
         "id": "milan",
@@ -49,13 +58,18 @@ INITIAL_CLUBS: List[dict] = [
         "accent_color": "#C0C0C0",
         "league": "Serie A",
         "country": "Italy",
+        "crest_url": "https://crests.football-data.org/98.png",
+        "is_foundation": False,
+        "is_active": True,
     },
 ]
 
+
 @router.get("", response_model=List[ClubResponse])
 async def list_clubs():
-    """Retrieve all supported clubs."""
+    """Retrieve Arsenal FC (foundation club) and supported Data Lab comparison opponents."""
     return INITIAL_CLUBS
+
 
 @router.get("/{club_slug}", response_model=ClubResponse)
 async def get_club(club_slug: str):
@@ -63,5 +77,4 @@ async def get_club(club_slug: str):
     for club in INITIAL_CLUBS:
         if club["slug"] == club_slug:
             return club
-    from fastapi import HTTPException
     raise HTTPException(status_code=404, detail="Club not found")

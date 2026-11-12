@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { CLUBS, themeState } from '$lib/stores/theme.svelte';
-	import { queryAnalytics, createInsight, fetchInsights } from '$lib/api/football';
+	import { CLUBS } from '$lib/stores/theme.svelte';
+	import { ApiError, queryAnalytics, createInsight } from '$lib/api/football';
 	import type { AnalyticsResponse, Insight } from '$lib/types/football';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
-	// Modes: single or comparison
 	let mode = $state<'single' | 'comparison'>('single');
 	let team1 = $state<string>('arsenal');
 	let team2 = $state<string>('real-madrid');
@@ -30,25 +29,31 @@
 		insights = data.insights || [];
 	});
 
-	// Insight creation modal state
 	let isModalOpen = $state(false);
 	let insightTitle = $state('');
 	let insightDesc = $state('');
 	let isSavingInsight = $state(false);
+	let modalError = $state<{ message: string; isAuth?: boolean } | null>(null);
 	let toastMessage = $state<string | null>(null);
+	let toastKind = $state<'success' | 'error'>('success');
+	let toastNeedsLogin = $state(false);
+	let toastTimer: ReturnType<typeof setTimeout> | null = null;
+
+	let queryBtnLabel = $derived(loading ? 'Computing…' : 'Calculate analytics');
+	let publishBtnLabel = $derived(isSavingInsight ? 'Publishing…' : 'Publish insight');
+	let primaryClubLabel = $derived(mode === 'single' ? 'Club' : 'Club A');
 
 	const clubList = Object.values(CLUBS);
 
 	const metricsList = [
-		{ id: 'win_rate', label: 'Win Rate (%)' },
-		{ id: 'goals_per_match', label: 'Goals Per Match' },
-		{ id: 'points_per_game', label: 'Points Per Game (PPG)' },
-		{ id: 'goal_difference', label: 'Goal Difference' },
-		{ id: 'clean_sheet_rate', label: 'Clean Sheet Rate (%)' },
-		{ id: 'loss_rate', label: 'Loss Rate (%)' }
+		{ id: 'win_rate', label: 'Win rate (%)' },
+		{ id: 'goals_per_match', label: 'Goals per match' },
+		{ id: 'points_per_game', label: 'Points per game (PPG)' },
+		{ id: 'goal_difference', label: 'Goal difference' },
+		{ id: 'clean_sheet_rate', label: 'Clean sheet rate (%)' },
+		{ id: 'loss_rate', label: 'Loss rate (%)' }
 	];
 
-	// Run analytics query
 	async function runQuery() {
 		loading = true;
 		const team_ids = mode === 'single' ? [team1] : [team1, team2];
@@ -83,45 +88,68 @@
 	function copyShareLink() {
 		if (typeof window !== 'undefined') {
 			navigator.clipboard.writeText(window.location.href);
-			showToast('Reproducible analysis link copied to clipboard!');
+			showToast('Reproducible analysis link copied to clipboard.');
 		}
 	}
 
 	function openCreateModal() {
 		if (!result || result.series.length === 0) return;
+		if (!data.user || !data.session?.access_token) {
+			showToast('Please sign in to publish Data Lab insights.', 'error', true);
+			return;
+		}
+		modalError = null;
 		const t1 = result.series[0];
 		if (result.series.length === 1) {
 			insightTitle = `${t1.team_name} ${getMetricLabel(metric)}: ${t1.metric_value} ${t1.unit} (${venue})`;
 		} else {
 			const t2 = result.series[1];
-			insightTitle = `${t1.team_name} vs ${t2.team_name}: ${getMetricLabel(metric)} Comparison`;
+			insightTitle = `${t1.team_name} vs ${t2.team_name}: ${getMetricLabel(metric)} comparison`;
 		}
-		insightDesc = `Computed across eligible completed matches (Venue filter: ${venue}).`;
+		insightDesc = `Computed across eligible completed matches (venue filter: ${venue}).`;
 		isModalOpen = true;
 	}
 
 	async function submitInsight() {
 		if (!result || !insightTitle) return;
+		if (!data.user || !data.session?.access_token) {
+			modalError = { message: 'Please sign in to publish Data Lab insights.', isAuth: true };
+			showToast('Please sign in to publish Data Lab insights.', 'error', true);
+			return;
+		}
+		modalError = null;
 		isSavingInsight = true;
 		try {
 			const team_ids = mode === 'single' ? [team1] : [team1, team2];
-			const newInsight = await createInsight({
-				title: insightTitle,
-				description: insightDesc,
-				metric,
-				team_ids,
-				venue,
-				chart_type: mode === 'single' ? 'bar' : 'comparison',
-				author_name: data.profile?.display_name || 'Supporter',
-				author_club_id: data.profile?.favorite_club_id || team1,
-				snapshot: result
-			});
+			const newInsight = await createInsight(
+				{
+					title: insightTitle,
+					description: insightDesc,
+					metric,
+					team_ids,
+					venue,
+					chart_type: mode === 'single' ? 'bar' : 'comparison',
+					author_name: data.profile?.display_name || data.user?.email?.split('@')[0] || 'Supporter',
+					author_club_id: data.profile?.favorite_club_id || 'arsenal',
+					snapshot: result
+				},
+				data.session?.access_token
+			);
 
 			if (newInsight) {
 				insights = [newInsight, ...insights];
 				isModalOpen = false;
-				showToast('Insight published successfully! Visible in community feed.');
+				showToast('Insight published to the community feed.', 'success', false);
 			}
+		} catch (err) {
+			const isAuth = err instanceof ApiError && err.status === 401;
+			const msg = isAuth
+				? 'Please sign in to publish Data Lab insights.'
+				: err instanceof ApiError
+					? err.detail
+					: 'Could not publish insight. Please try again.';
+			modalError = { message: msg, isAuth };
+			showToast(msg, 'error', isAuth);
 		} finally {
 			isSavingInsight = false;
 		}
@@ -140,21 +168,24 @@
 		}
 		result = ins.snapshot;
 		updateUrlState(ins.team_ids);
-		showToast(`Loaded insight: "${ins.title}"`);
+		showToast(`Loaded insight: “${ins.title}”`, 'success', false);
 	}
 
 	function getMetricLabel(id: string): string {
 		return metricsList.find((m) => m.id === id)?.label || id;
 	}
 
-	function showToast(msg: string) {
+	function showToast(msg: string, kind: 'success' | 'error' = 'success', needsLogin: boolean = false) {
+		if (toastTimer) clearTimeout(toastTimer);
 		toastMessage = msg;
-		setTimeout(() => {
+		toastKind = kind;
+		toastNeedsLogin = needsLogin;
+		toastTimer = setTimeout(() => {
 			toastMessage = null;
-		}, 4000);
+			toastNeedsLogin = false;
+		}, 5000);
 	}
 
-	// Calculated helpers for comparative bars
 	let maxMetricVal = $derived(
 		result && result.series.length > 0
 			? Math.max(...result.series.map((s) => Math.abs(s.metric_value)), 1)
@@ -176,94 +207,95 @@
 </script>
 
 <svelte:head>
-	<title>The Data Lab | GUNNERS Reborn</title>
+	<title>The Data Lab | GUNNERS</title>
 </svelte:head>
 
-<div class="max-w-7xl mx-auto px-4 py-8 space-y-8">
+<div class="container py-12 space-y-12">
 	<!-- Toast Notification -->
 	{#if toastMessage}
-		<div class="fixed bottom-6 right-6 z-50 bg-[#12161f] border border-emerald-500/40 text-emerald-300 px-4 py-3 rounded-lg shadow-xl text-xs flex items-center gap-2">
-			<span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+		<div
+			role={toastKind === 'error' ? 'alert' : 'status'}
+			class="fixed bottom-6 right-6 z-50 bg-paper-2 border border-rule-2 px-4 py-3 rounded-card text-xs flex items-center gap-3 {toastKind === 'error' ? 'text-error' : 'text-success'}"
+		>
 			<span>{toastMessage}</span>
+			{#if toastNeedsLogin}
+				<a href="/login" class="underline text-ink font-semibold hover:text-accent">Sign in</a>
+			{/if}
 		</div>
 	{/if}
 
 	<!-- Header -->
-	<div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[#1e2430] pb-6">
-		<div>
-			<div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider mb-2 bg-amber-500/10 text-amber-400 border border-amber-500/20 font-mono">
-				Verified Canonical Analytics
-			</div>
-			<h1 class="text-2xl font-black text-white uppercase tracking-tight">The Data Lab</h1>
-			<p class="text-sm text-gray-400 mt-1">
-				Generate reproducible, explainable football statistics and publish shareable insight charts.
+	<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b-2 border-rule-2 pb-8">
+		<div class="space-y-3">
+			<h1>The Data Lab</h1>
+			<p class="lead text-ink-2">
+				Generate reproducible, explainable football statistics across the Mikel Arteta era and publish shareable insight snapshots.
 			</p>
 		</div>
 
 		<!-- Action Bar -->
-		<div class="flex items-center gap-2">
+		<div class="flex items-center gap-3 flex-wrap">
 			<a
 				href="/lab/historical"
-				class="px-3.5 py-2 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-xs text-amber-300 font-semibold transition flex items-center gap-1.5"
+				class="h-10 px-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs text-accent-2 font-semibold transition-colors inline-flex items-center"
 			>
-				<span>StatsBomb 2D Pitch</span>
+				StatsBomb 2D pitch
 			</a>
 			<button
 				type="button"
 				onclick={copyShareLink}
-				class="px-3.5 py-2 rounded-lg border border-[#1e2430] bg-[#12161f] hover:border-gray-600 text-xs text-gray-300 hover:text-white font-medium transition flex items-center gap-1.5"
+				class="h-10 px-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs text-ink-2 hover:text-ink font-semibold transition-colors"
 			>
-				<span>Share Analysis Link</span>
+				Share analysis link
 			</button>
 			{#if result && result.series.length > 0}
 				<button
 					type="button"
 					onclick={openCreateModal}
-					class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-xs text-white font-bold transition shadow-sm"
+					class="h-10 px-4 rounded-card bg-accent hover:opacity-95 text-xs text-accent-ink font-semibold transition-opacity"
 				>
-					Save as Insight
+					Save as insight
 				</button>
 			{/if}
 		</div>
 	</div>
 
 	<!-- Query Builder -->
-	<div class="p-6 rounded-lg border border-[#1e2430] bg-[#12161f] space-y-4">
+	<section class="border-t border-rule pt-6 space-y-6">
 		<!-- Mode Switcher -->
-		<div class="flex items-center justify-between border-b border-[#1e2430] pb-4">
-			<div class="flex items-center gap-1 bg-[#0a0c10] p-1 rounded-lg border border-[#1e2430] text-xs">
+		<div class="flex items-center justify-between border-b border-rule pb-4 flex-wrap gap-4">
+			<div class="flex items-center gap-2 text-xs">
 				<button
 					type="button"
 					onclick={() => { mode = 'single'; runQuery(); }}
-					class="px-3 py-1.5 rounded transition font-semibold {mode === 'single' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}"
+					class="h-9 px-3.5 rounded-card transition-colors font-semibold border {mode === 'single' ? 'bg-paper-3 text-ink border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 				>
-					Single Club Analysis
+					Single club analysis
 				</button>
 				<button
 					type="button"
 					onclick={() => { mode = 'comparison'; runQuery(); }}
-					class="px-3 py-1.5 rounded transition font-semibold {mode === 'comparison' ? 'bg-white/10 text-white' : 'text-gray-400 hover:text-white'}"
+					class="h-9 px-3.5 rounded-card transition-colors font-semibold border {mode === 'comparison' ? 'bg-paper-3 text-ink border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 				>
-					Head-to-Head Comparison
+					Head-to-head comparison
 				</button>
 			</div>
 
-			<span class="text-xs text-amber-400 font-mono hidden sm:inline">
-				Coverage: Mikel Arteta Era (2019 – Present)
+			<span class="text-xs text-accent-2 font-semibold">
+				Coverage: Mikel Arteta era (<span class="num font-outlier">2019</span> to present)
 			</span>
 		</div>
 
 		<!-- Inputs Grid -->
 		<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
-			<!-- Primary Club -->
 			<div>
-				<label for="primary-club" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-					{mode === 'single' ? 'Club' : 'Club A'}
+				<label for="primary-club" class="block text-xs font-semibold text-ink-2 mb-1.5">
+					{primaryClubLabel}
 				</label>
 				<select
 					id="primary-club"
 					bind:value={team1}
-					class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-gray-500"
+					class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink"
 				>
 					{#each clubList as club}
 						<option value={club.id}>{club.name}</option>
@@ -271,16 +303,15 @@
 				</select>
 			</div>
 
-			<!-- Secondary Club (if comparison) -->
 			{#if mode === 'comparison'}
 				<div>
-					<label for="secondary-club" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-						Club B (Compare)
+					<label for="secondary-club" class="block text-xs font-semibold text-ink-2 mb-1.5">
+						Club B (compare)
 					</label>
 					<select
 						id="secondary-club"
 						bind:value={team2}
-						class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-gray-500"
+						class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink"
 					>
 						{#each clubList as club}
 							<option value={club.id} disabled={club.id === team1}>{club.name}</option>
@@ -289,15 +320,14 @@
 				</div>
 			{/if}
 
-			<!-- Metric -->
 			<div>
-				<label for="metric-select" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
+				<label for="metric-select" class="block text-xs font-semibold text-ink-2 mb-1.5">
 					Metric
 				</label>
 				<select
 					id="metric-select"
 					bind:value={metric}
-					class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-gray-500"
+					class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink"
 				>
 					{#each metricsList as m}
 						<option value={m.id}>{m.label}</option>
@@ -305,126 +335,119 @@
 				</select>
 			</div>
 
-			<!-- Venue Filter -->
 			<div>
-				<label for="venue-filter" class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">
-					Venue Filter
+				<label for="venue-filter" class="block text-xs font-semibold text-ink-2 mb-1.5">
+					Venue filter
 				</label>
 				<select
 					id="venue-filter"
 					bind:value={venue}
-					class="w-full bg-[#0a0c10] border border-[#1e2430] rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-gray-500"
+					class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink"
 				>
-					<option value="all">All Matches</option>
-					<option value="home">Home Matches Only</option>
-					<option value="away">Away Matches Only</option>
+					<option value="all">All matches</option>
+					<option value="home">Home matches only</option>
+					<option value="away">Away matches only</option>
 				</select>
 			</div>
 
-			<!-- Season / Arteta Era Filter -->
 			<div>
-				<label for="season-filter" class="block text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
-					Arteta Season
+				<label for="season-filter" class="block text-xs font-semibold text-accent-2 mb-1.5">
+					Arteta season
 				</label>
 				<select
 					id="season-filter"
 					bind:value={selectedSeason}
 					onchange={runQuery}
-					class="w-full bg-[#0a0c10] border border-amber-500/30 rounded-lg px-3 py-2 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400"
+					class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-xs text-accent-2 num font-outlier"
 				>
-					<option value="all">All (2019-Present)</option>
+					<option value="all">All (2019 to present)</option>
 					{#each seasons as s}
 						<option value={s.id}>{s.label}</option>
 					{/each}
 				</select>
 			</div>
 
-			<!-- Run Query Button -->
-			<div class="flex items-end {mode === 'single' ? 'sm:col-span-1' : ''}">
+			<div class="flex items-end">
 				<button
 					type="button"
 					onclick={runQuery}
 					disabled={loading}
-					class="w-full py-2.5 px-4 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-lg transition disabled:opacity-50"
+					class="w-full h-10 px-4 bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs rounded-card transition-opacity"
 				>
-					{loading ? 'Computing...' : 'Calculate Analytics'}
+					{queryBtnLabel}
 				</button>
 			</div>
 		</div>
-	</div>
+	</section>
 
 	<!-- Output Display -->
 	{#if loading}
-		<div class="py-16 text-center text-gray-400 text-sm">
-			Computing verified analytics across eligible completed records...
+		<div class="py-16 text-muted text-sm">
+			Computing verified analytics across eligible completed records…
 		</div>
 	{:else if result && result.series.length > 0}
 		{#if mode === 'single'}
 			{@const s = result.series[0]}
-			{@const clubObj = CLUBS[s.team_id] || CLUBS['arsenal']}
-			<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-				<!-- Big Metric Hero Card -->
-				<div class="p-6 rounded-lg border border-[#1e2430] bg-[#12161f] flex flex-col justify-between">
-					<div>
-						<div class="flex items-center gap-2 mb-3">
-							<span class="w-3 h-3 rounded-full" style="background-color: {clubObj.primary_color}"></span>
-							<span class="text-xs font-mono font-bold uppercase text-gray-300">{s.team_name}</span>
+			<div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+				<!-- Big Metric Hero -->
+				<div class="lg:col-span-5 border-t-2 border-rule-2 pt-5 flex flex-col justify-between space-y-6">
+					<div class="space-y-2">
+						<span class="text-xs font-semibold text-ink-2">{s.team_name}</span>
+						<div class="text-4xl font-bold text-ink num font-outlier">
+							{s.metric_value} <span class="text-lg text-accent-2 font-normal">{s.unit}</span>
 						</div>
-						<div class="text-5xl font-black text-white font-mono my-2">
-							{s.metric_value} <span class="text-xl text-amber-400 font-normal">{s.unit}</span>
-						</div>
-						<p class="text-xs text-gray-500 font-mono mt-1">Formula: {result.formula}</p>
+						<p class="text-xs text-muted">Formula: {result.formula}</p>
 					</div>
 
 					<!-- Visual Record Bar -->
-					<div class="mt-6 pt-4 border-t border-[#1e2430]">
-						<div class="flex items-center justify-between text-xs text-gray-400 mb-2">
-							<span>Sample: <strong class="text-white">{s.matches_played} matches</strong></span>
-							<div class="flex gap-2">
-								<span class="text-emerald-400 font-bold">{s.wins}W</span>
-								<span class="text-amber-400 font-bold">{s.draws}D</span>
-								<span class="text-red-400 font-bold">{s.losses}L</span>
+					<div class="pt-4 border-t border-rule space-y-2">
+						<div class="flex items-center justify-between text-xs text-ink-2">
+							<span>Sample: <strong class="text-ink num font-outlier">{s.matches_played}</strong> matches</span>
+							<div class="flex gap-3 num font-outlier font-semibold">
+								<span class="text-success">{s.wins}W</span>
+								<span class="text-accent-2">{s.draws}D</span>
+								<span class="text-error">{s.losses}L</span>
 							</div>
 						</div>
 						{#if s.matches_played > 0}
-							<div class="w-full h-2 rounded bg-black/50 overflow-hidden flex">
-								<div style="width: {(s.wins / s.matches_played) * 100}%; background-color: #10b981;" title="Wins"></div>
-								<div style="width: {(s.draws / s.matches_played) * 100}%; background-color: #f59e0b;" title="Draws"></div>
-								<div style="width: {(s.losses / s.matches_played) * 100}%; background-color: #ef4444;" title="Losses"></div>
+							<div class="w-full h-2 rounded-card bg-paper-2 overflow-hidden flex">
+								<div class="bg-success" style="width: {(s.wins / s.matches_played) * 100}%;" title="Wins"></div>
+								<div class="bg-accent-2" style="width: {(s.draws / s.matches_played) * 100}%;" title="Draws"></div>
+								<div class="bg-error" style="width: {(s.losses / s.matches_played) * 100}%;" title="Losses"></div>
 							</div>
 						{/if}
 					</div>
 				</div>
 
 				<!-- Statistical Breakdown -->
-				<div class="lg:col-span-2 p-6 rounded-lg border border-[#1e2430] bg-[#12161f] flex flex-col justify-between">
-					<div>
-						<h2 class="text-sm font-bold text-white uppercase tracking-wider mb-4">Performance Breakdown</h2>
-						<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-							<div class="p-3.5 rounded bg-[#0a0c10] border border-[#1e2430]">
-								<span class="text-[11px] text-gray-500 uppercase">Goals For</span>
-								<div class="text-xl font-bold text-white mt-1 font-mono">{s.goals_for}</div>
+				<div class="lg:col-span-7 border-t-2 border-rule-2 pt-5 flex flex-col justify-between space-y-6">
+					<div class="space-y-4">
+						<h2 class="text-lg font-bold text-ink">Performance breakdown</h2>
+						<div class="grid grid-cols-2 sm:grid-cols-4 gap-6 border-t border-rule pt-4">
+							<div>
+								<span class="text-xs text-muted">Goals for</span>
+								<div class="text-2xl font-bold text-ink mt-1 num font-outlier">{s.goals_for}</div>
 							</div>
-							<div class="p-3.5 rounded bg-[#0a0c10] border border-[#1e2430]">
-								<span class="text-[11px] text-gray-500 uppercase">Goals Against</span>
-								<div class="text-xl font-bold text-white mt-1 font-mono">{s.goals_against}</div>
+							<div>
+								<span class="text-xs text-muted">Goals against</span>
+								<div class="text-2xl font-bold text-ink mt-1 num font-outlier">{s.goals_against}</div>
 							</div>
-							<div class="p-3.5 rounded bg-[#0a0c10] border border-[#1e2430]">
-								<span class="text-[11px] text-gray-500 uppercase">Goal Diff</span>
-								<div class="text-xl font-bold mt-1 font-mono {s.goal_difference >= 0 ? 'text-emerald-400' : 'text-red-400'}">
+							<div>
+								<span class="text-xs text-muted">Goal diff</span>
+								<div class="text-2xl font-bold mt-1 num font-outlier {s.goal_difference >= 0 ? 'text-success' : 'text-error'}">
 									{s.goal_difference > 0 ? `+${s.goal_difference}` : s.goal_difference}
 								</div>
 							</div>
-							<div class="p-3.5 rounded bg-[#0a0c10] border border-[#1e2430]">
-								<span class="text-[11px] text-gray-500 uppercase">Clean Sheets</span>
-								<div class="text-xl font-bold text-white mt-1 font-mono">{s.clean_sheets || 0}</div>
+							<div>
+								<span class="text-xs text-muted">Clean sheets</span>
+								<div class="text-2xl font-bold text-ink mt-1 num font-outlier">{s.clean_sheets || 0}</div>
 							</div>
 						</div>
 					</div>
 
-					<div class="mt-6 pt-4 border-t border-[#1e2430] text-[11px] text-gray-500 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+					<div class="pt-4 border-t border-rule text-xs text-muted flex flex-col sm:flex-row sm:items-center justify-between gap-2">
 						<span>{result.disclaimer}</span>
-						<span>Venue filter: <strong class="text-gray-300 capitalize">{result.venue_filter}</strong></span>
+						<span>Venue filter: <strong class="text-ink-2">{result.venue_filter}</strong></span>
 					</div>
 				</div>
 			</div>
@@ -432,107 +455,94 @@
 			<!-- Head-to-Head Comparison View -->
 			{@const t1 = result.series[0]}
 			{@const t2 = result.series[1]}
-			{@const club1 = CLUBS[t1.team_id] || CLUBS['arsenal']}
-			{@const club2 = CLUBS[t2.team_id] || CLUBS['real-madrid']}
 
-			<div class="space-y-6">
-				<!-- Comparison Leader Banner -->
+			<div class="space-y-8">
 				{#if deltaDiff}
-					<div class="p-4 rounded-lg bg-[#0a0c10] border border-[#1e2430] flex items-center justify-between flex-wrap gap-2">
+					<div class="border-y border-rule py-4 flex items-center justify-between flex-wrap gap-2 text-xs">
 						<div class="flex items-center gap-2">
-							<span class="text-xs text-gray-400 font-mono">Metric Result:</span>
-							<span class="text-sm font-bold text-amber-400">{deltaDiff.text}</span>
+							<span class="text-muted">Result:</span>
+							<span class="text-sm font-bold text-accent-2">{deltaDiff.text}</span>
 						</div>
-						<div class="text-xs text-gray-500">
-							Comparing <strong>{t1.team_name}</strong> vs <strong>{t2.team_name}</strong> ({result.venue_filter} matches)
+						<div class="text-muted">
+							Comparing <strong class="text-ink">{t1.team_name}</strong> vs <strong class="text-ink">{t2.team_name}</strong> ({result.venue_filter} matches)
 						</div>
 					</div>
 				{/if}
 
-				<!-- Side-by-Side Stat Cards -->
-				<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-					<!-- Team 1 Card -->
-					<div class="p-6 rounded-lg border border-[#1e2430] bg-[#12161f] space-y-4">
+				<!-- Side-by-Side Stat Blocks -->
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+					<div class="border-t-2 border-rule-2 pt-5 space-y-4">
 						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-2">
-								<span class="w-3 h-3 rounded-full" style="background-color: {club1.primary_color}"></span>
-								<h3 class="text-base font-bold text-white">{t1.team_name}</h3>
-							</div>
-							<span class="text-xs font-mono text-gray-400">{t1.matches_played} matches</span>
+							<h3 class="text-base font-bold text-ink">{t1.team_name}</h3>
+							<span class="text-xs num font-outlier text-muted">{t1.matches_played} matches</span>
 						</div>
-						<div class="text-4xl font-black font-mono text-white">
-							{t1.metric_value} <span class="text-lg text-amber-400">{t1.unit}</span>
+						<div class="text-3xl font-bold num font-outlier text-ink">
+							{t1.metric_value} <span class="text-base text-accent-2">{t1.unit}</span>
 						</div>
-						<!-- Proportional Bar -->
-						<div class="w-full bg-[#0a0c10] h-3 rounded overflow-hidden">
+						<div class="w-full bg-paper-2 h-2.5 rounded-card overflow-hidden">
 							<div
-								class="h-full transition-all duration-500"
-								style="width: {(Math.abs(t1.metric_value) / maxMetricVal) * 100}%; background-color: {club1.primary_color};"
+								class="h-full bg-accent"
+								style="width: {(Math.abs(t1.metric_value) / maxMetricVal) * 100}%;"
 							></div>
 						</div>
 					</div>
 
-					<!-- Team 2 Card -->
-					<div class="p-6 rounded-lg border border-[#1e2430] bg-[#12161f] space-y-4">
+					<div class="border-t-2 border-rule-2 pt-5 space-y-4">
 						<div class="flex items-center justify-between">
-							<div class="flex items-center gap-2">
-								<span class="w-3 h-3 rounded-full" style="background-color: {club2.primary_color}"></span>
-								<h3 class="text-base font-bold text-white">{t2.team_name}</h3>
-							</div>
-							<span class="text-xs font-mono text-gray-400">{t2.matches_played} matches</span>
+							<h3 class="text-base font-bold text-ink">{t2.team_name}</h3>
+							<span class="text-xs num font-outlier text-muted">{t2.matches_played} matches</span>
 						</div>
-						<div class="text-4xl font-black font-mono text-white">
-							{t2.metric_value} <span class="text-lg text-amber-400">{t2.unit}</span>
+						<div class="text-3xl font-bold num font-outlier text-ink">
+							{t2.metric_value} <span class="text-base text-accent-2">{t2.unit}</span>
 						</div>
-						<!-- Proportional Bar -->
-						<div class="w-full bg-[#0a0c10] h-3 rounded overflow-hidden">
+						<div class="w-full bg-paper-2 h-2.5 rounded-card overflow-hidden">
 							<div
-								class="h-full transition-all duration-500"
-								style="width: {(Math.abs(t2.metric_value) / maxMetricVal) * 100}%; background-color: {club2.primary_color};"
+								class="h-full bg-accent-2"
+								style="width: {(Math.abs(t2.metric_value) / maxMetricVal) * 100}%;"
 							></div>
 						</div>
 					</div>
 				</div>
 
 				<!-- Comparison Breakdown Table -->
-				<div class="overflow-x-auto rounded-lg border border-[#1e2430] bg-[#12161f]">
+				<div class="overflow-x-auto border-t border-rule">
 					<table class="w-full text-xs text-left">
-						<thead class="bg-[#0a0c10] text-gray-400 uppercase font-mono border-b border-[#1e2430]">
+						<thead class="text-muted border-b border-rule">
 							<tr>
-								<th class="py-3 px-4">Statistical Metric</th>
-								<th class="py-3 px-4 font-bold text-white">{t1.team_name}</th>
-								<th class="py-3 px-4 font-bold text-white">{t2.team_name}</th>
+								<th class="py-3 pr-4 font-semibold">Statistical metric</th>
+								<th class="py-3 px-4 font-bold text-ink">{t1.team_name}</th>
+								<th class="py-3 pl-4 font-bold text-ink">{t2.team_name}</th>
 							</tr>
 						</thead>
-						<tbody class="divide-y divide-[#1e2430] text-gray-300 font-mono">
+						<tbody class="divide-y divide-rule text-ink-2 num font-outlier">
 							<tr>
-								<td class="py-2.5 px-4 font-sans text-gray-400">Wins / Draws / Losses</td>
-								<td class="py-2.5 px-4">{t1.wins}W / {t1.draws}D / {t1.losses}L</td>
-								<td class="py-2.5 px-4">{t2.wins}W / {t2.draws}D / {t2.losses}L</td>
+								<td class="py-3 pr-4 font-body text-muted">Wins / draws / losses</td>
+								<td class="py-3 px-4">{t1.wins}W / {t1.draws}D / {t1.losses}L</td>
+								<td class="py-3 pl-4">{t2.wins}W / {t2.draws}D / {t2.losses}L</td>
 							</tr>
 							<tr>
-								<td class="py-2.5 px-4 font-sans text-gray-400">Goals For / Goals Against</td>
-								<td class="py-2.5 px-4">{t1.goals_for} GF / {t1.goals_against} GA</td>
-								<td class="py-2.5 px-4">{t2.goals_for} GF / {t2.goals_against} GA</td>
+								<td class="py-3 pr-4 font-body text-muted">Goals for / goals against</td>
+								<td class="py-3 px-4">{t1.goals_for} GF / {t1.goals_against} GA</td>
+								<td class="py-3 pl-4">{t2.goals_for} GF / {t2.goals_against} GA</td>
 							</tr>
 							<tr>
-								<td class="py-2.5 px-4 font-sans text-gray-400">Goal Difference</td>
-								<td class="py-2.5 px-4 font-bold {t1.goal_difference >= 0 ? 'text-emerald-400' : 'text-red-400'}">
+								<td class="py-3 pr-4 font-body text-muted">Goal difference</td>
+								<td class="py-3 px-4 font-bold {t1.goal_difference >= 0 ? 'text-success' : 'text-error'}">
 									{t1.goal_difference > 0 ? `+${t1.goal_difference}` : t1.goal_difference}
 								</td>
-								<td class="py-2.5 px-4 font-bold {t2.goal_difference >= 0 ? 'text-emerald-400' : 'text-red-400'}">
+								<td class="py-3 pl-4 font-bold {t2.goal_difference >= 0 ? 'text-success' : 'text-error'}">
 									{t2.goal_difference > 0 ? `+${t2.goal_difference}` : t2.goal_difference}
 								</td>
 							</tr>
 							<tr>
-								<td class="py-2.5 px-4 font-sans text-gray-400">Clean Sheets</td>
-								<td class="py-2.5 px-4">{t1.clean_sheets || 0}</td>
-								<td class="py-2.5 px-4">{t2.clean_sheets || 0}</td>
+								<td class="py-3 pr-4 font-body text-muted">Clean sheets</td>
+								<td class="py-3 px-4">{t1.clean_sheets || 0}</td>
+								<td class="py-3 pl-4">{t2.clean_sheets || 0}</td>
 							</tr>
 							<tr>
-								<td class="py-2.5 px-4 font-sans text-gray-400 font-bold">Selected Metric ({getMetricLabel(metric)})</td>
-								<td class="py-2.5 px-4 font-bold text-amber-400">{t1.metric_value} {t1.unit}</td>
-								<td class="py-2.5 px-4 font-bold text-amber-400">{t2.metric_value} {t2.unit}</td>
+								<td class="py-3 pr-4 font-body text-ink font-semibold">Selected metric ({getMetricLabel(metric)})</td>
+								<td class="py-3 px-4 font-bold text-accent-2">{t1.metric_value} {t1.unit}</td>
+								<td class="py-3 pl-4 font-bold text-accent-2">{t2.metric_value} {t2.unit}</td>
 							</tr>
 						</tbody>
 					</table>
@@ -540,107 +550,113 @@
 			</div>
 		{/if}
 	{:else}
-		<div class="p-12 text-center border border-[#1e2430] rounded-lg bg-[#12161f] text-gray-400">
+		<div class="py-12 border-t border-rule text-muted text-sm">
 			No completed matches found matching the specified parameters.
 		</div>
 	{/if}
 
 	<!-- Saved Insights Shelf -->
-	<div class="border-t border-[#1e2430] pt-8 space-y-4">
-		<div class="flex items-center justify-between">
-			<div>
-				<h2 class="text-lg font-bold text-white uppercase tracking-tight">Recent Shareable Insights</h2>
-				<p class="text-xs text-gray-400">Reproducible analysis snapshots created by supporters.</p>
-			</div>
+	<section class="border-t-2 border-rule-2 pt-8 space-y-6">
+		<div class="space-y-1">
+			<h2 class="text-xl font-bold text-ink">Recent shareable insights</h2>
+			<p class="text-sm text-muted">Reproducible analysis snapshots published by Arsenal supporters.</p>
 		</div>
 
 		{#if insights.length === 0}
-			<p class="text-xs text-gray-500 py-4">No community insights saved yet. Be the first to publish one above!</p>
+			<p class="text-sm text-muted py-4">No community insights saved yet. Publish the first one above.</p>
 		{:else}
-			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
 				{#each insights as ins}
-					<div class="p-4 rounded-lg border border-[#1e2430] bg-[#12161f] hover:border-gray-700 transition flex flex-col justify-between space-y-3">
-						<div>
-							<div class="flex items-center justify-between gap-2 mb-2">
-								<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 font-bold uppercase">
+					<article class="border-t border-rule pt-4 flex flex-col justify-between space-y-4">
+						<div class="space-y-2">
+							<div class="flex items-center justify-between gap-2 text-xs">
+								<span class="text-accent-2 font-semibold">
 									{getMetricLabel(ins.metric)}
 								</span>
-								<span class="text-[10px] text-gray-500 font-mono">
+								<span class="text-muted num font-outlier">
 									{new Date(ins.created_at).toLocaleDateString()}
 								</span>
 							</div>
-							<h3 class="text-sm font-bold text-white leading-snug">{ins.title}</h3>
+							<h3 class="text-base font-bold text-ink leading-snug">{ins.title}</h3>
 							{#if ins.description}
-								<p class="text-xs text-gray-400 mt-1 line-clamp-2">{ins.description}</p>
+								<p class="text-sm text-ink-2 line-clamp-2">{ins.description}</p>
 							{/if}
 						</div>
 
-						<div class="pt-3 border-t border-[#1e2430] flex items-center justify-between">
-							<span class="text-[11px] text-gray-400">By <strong>{ins.author_name}</strong></span>
+						<div class="pt-3 border-t border-rule flex items-center justify-between text-xs">
+							<span class="text-muted">By <strong class="text-ink-2">{ins.author_name}</strong></span>
 							<button
 								type="button"
 								onclick={() => loadExistingInsight(ins)}
-								class="text-xs font-semibold px-2.5 py-1 rounded bg-white/5 hover:bg-white/10 text-white border border-[#1e2430] transition"
+								class="font-semibold text-accent hover:text-ink transition-colors"
 							>
 								Open in Data Lab
 							</button>
 						</div>
-					</div>
+					</article>
 				{/each}
 			</div>
 		{/if}
-	</div>
+	</section>
 
 	<!-- Create Insight Modal -->
 	{#if isModalOpen}
-		<div class="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-			<div class="bg-[#12161f] border border-[#1e2430] rounded-xl max-w-lg w-full p-6 space-y-4">
-				<div class="flex items-center justify-between border-b border-[#1e2430] pb-3">
-					<h3 class="text-base font-bold text-white">Publish Shareable Insight</h3>
+		<div class="fixed inset-0 z-50 bg-paper/85 flex items-center justify-center p-4">
+			<div class="bg-paper-2 border-t-2 border-rule-2 max-w-lg w-full p-6 space-y-5">
+				<div class="flex items-center justify-between border-b border-rule pb-3">
+					<h3 class="text-base font-bold text-ink">Publish shareable insight</h3>
 					<button
 						type="button"
 						onclick={() => (isModalOpen = false)}
-						class="text-gray-400 hover:text-white text-sm"
+						class="text-muted hover:text-ink text-xs font-semibold"
 					>
-						✕
+						Close
 					</button>
 				</div>
 
-				<div class="space-y-3 text-xs">
+				<div class="space-y-4 text-xs">
 					<div>
-						<label for="ins-title" class="block font-bold text-gray-300 mb-1">Insight Title</label>
+						<label for="ins-title" class="block font-semibold text-ink-2 mb-1">Insight title</label>
 						<input
 							id="ins-title"
 							type="text"
 							bind:value={insightTitle}
-							class="w-full bg-[#0a0c10] border border-[#1e2430] rounded p-2 text-white focus:outline-none focus:border-gray-500"
+							class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-ink"
 						/>
 					</div>
 
 					<div>
-						<label for="ins-desc" class="block font-bold text-gray-300 mb-1">Notes / Description (Optional)</label>
+						<label for="ins-desc" class="block font-semibold text-ink-2 mb-1">Notes & description (optional)</label>
 						<textarea
 							id="ins-desc"
 							rows="3"
 							bind:value={insightDesc}
-							class="w-full bg-[#0a0c10] border border-[#1e2430] rounded p-2 text-white focus:outline-none focus:border-gray-500"
+							class="w-full bg-paper border border-rule rounded-card p-3 text-ink"
 						></textarea>
 					</div>
 
-					<div class="p-3 rounded bg-[#0a0c10] border border-[#1e2430] text-[11px] text-gray-400 space-y-1">
-						<p><strong>Metric:</strong> {getMetricLabel(metric)}</p>
-						<p><strong>Venue Filter:</strong> {venue}</p>
-						<p class="text-gray-500">
-							This insight will store the exact parameters and current statistical snapshot as an immutable object.
+					<div class="border-t border-rule pt-3 text-xs text-muted space-y-1">
+						<p><strong class="text-ink-2">Metric:</strong> {getMetricLabel(metric)}</p>
+						<p><strong class="text-ink-2">Venue filter:</strong> {venue}</p>
+						<p>
+							This insight stores the exact query parameters and current statistical snapshot as an immutable record.
 						</p>
 					</div>
 				</div>
 
-				<div class="flex items-center justify-end gap-2 pt-2">
+				<div class="flex items-center justify-end gap-3 pt-2">
+					{#if modalError}
+						<div role="alert" class="mr-auto text-xs text-error flex items-center gap-2">
+							<span>{modalError.message}</span>
+							{#if modalError.isAuth}
+								<a href="/login" class="underline text-ink font-semibold hover:text-accent">Sign in</a>
+							{/if}
+						</div>
+					{/if}
 					<button
 						type="button"
 						onclick={() => (isModalOpen = false)}
-						class="px-3 py-1.5 rounded text-xs text-gray-400 hover:text-white"
+						class="h-9 px-3 rounded-card text-xs font-semibold text-ink-2 hover:text-ink"
 					>
 						Cancel
 					</button>
@@ -648,9 +664,9 @@
 						type="button"
 						onclick={submitInsight}
 						disabled={isSavingInsight || !insightTitle}
-						class="px-4 py-1.5 rounded text-xs font-bold bg-red-600 hover:bg-red-500 text-white disabled:opacity-50"
+						class="h-9 px-4 rounded-card text-xs font-semibold bg-accent hover:opacity-95 text-accent-ink transition-opacity"
 					>
-						{isSavingInsight ? 'Publishing...' : 'Publish Insight'}
+						{publishBtnLabel}
 					</button>
 				</div>
 			</div>

@@ -4,10 +4,10 @@ import datetime
 from app.schemas.analytics import MatchResponse
 
 class PredictionCreateRequest(BaseModel):
-    user_id: str = Field(..., max_length=100)
+    user_id: Optional[str] = Field(None, max_length=100)
     user_name: str = Field("Supporter", max_length=100)
     user_club_id: str = Field("arsenal", max_length=50)
-    match_id: str = Field(..., max_length=50)
+    match_id: str = Field(..., max_length=100)
     predicted_home_score: int = Field(..., ge=0, le=20)
     predicted_away_score: int = Field(..., ge=0, le=20)
 

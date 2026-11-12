@@ -10,7 +10,7 @@ class Post(Base):
     __tablename__ = "posts"
 
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    author_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    author_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     author_name: Mapped[str] = mapped_column(String(100), default="Supporter")
     author_club_id: Mapped[str] = mapped_column(String(50), default="arsenal")
     club_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)  # NULL or specific club
@@ -29,6 +29,7 @@ class Post(Base):
     __table_args__ = (
         Index("idx_posts_created_at", "created_at"),
         Index("idx_posts_club_id", "club_id"),
+        Index("idx_posts_author_id", "author_id"),
     )
 
 class PostComment(Base):
@@ -36,7 +37,7 @@ class PostComment(Base):
 
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
     post_id: Mapped[str] = mapped_column(String(50), ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
-    author_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    author_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     author_name: Mapped[str] = mapped_column(String(100), default="Supporter")
     author_club_id: Mapped[str] = mapped_column(String(50), default="arsenal")
     content: Mapped[str] = mapped_column(Text, nullable=False)
@@ -51,9 +52,9 @@ class PostComment(Base):
 class PostReaction(Base):
     __tablename__ = "post_reactions"
 
-    id: Mapped[str] = mapped_column(String(50), primary_key=True)
+    id: Mapped[str] = mapped_column(String(120), primary_key=True)
     post_id: Mapped[str] = mapped_column(String(50), ForeignKey("posts.id", ondelete="CASCADE"), nullable=False)
-    user_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    user_id: Mapped[str] = mapped_column(String(100), nullable=False)
     reaction_type: Mapped[str] = mapped_column(String(20), default="cheer")
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.utcnow)
 

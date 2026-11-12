@@ -10,6 +10,7 @@ export interface Club {
 	country: string;
 	crest_url?: string;
 	is_foundation?: boolean;
+	is_active?: boolean;
 }
 
 export interface Season {
@@ -188,6 +189,12 @@ export interface Player {
 	yellow_cards: number;
 	red_cards: number;
 	photo_url?: string | null;
+	portrait_url?: string | null;
+	action_url?: string | null;
+	bio?: string | null;
+	date_of_birth?: string | null;
+	height?: string | null;
+	joined_date?: string | null;
 	goals_per_game: number;
 	assists_per_game: number;
 	goal_contributions: number;

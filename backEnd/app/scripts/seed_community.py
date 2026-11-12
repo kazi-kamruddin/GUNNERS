@@ -2,10 +2,11 @@ import asyncio
 import datetime
 import json
 import sys
-from sqlalchemy import select, text
+from sqlalchemy import select, text, func
 from app.core.database import AsyncSessionLocal, engine, Base
 from app.services.ingestion import FootballIngestionService
 from app.services.arteta_timeline import ArtetaTimelineService
+from app.models.profile import Profile
 from app.models.squad import Player
 from app.models.tactics import TacticalBoard
 from app.models.insight import Insight
@@ -33,13 +34,65 @@ async def seed_all():
 
     async with AsyncSessionLocal() as session:
         # 2. Foundation Competitions, Seasons, Clubs & Matches
-        print("[1/8] Ingesting foundation clubs and baseline matches...")
+        print("[1/9] Ingesting foundation clubs and baseline matches...")
         await FootballIngestionService.run_sync(session, force_mock=True)
-        print("[1b/8] Ingesting complete Mikel Arteta Era timeline (2019 - Present)...")
+        print("[1b/9] Ingesting complete Mikel Arteta Era timeline (2019 - Present)...")
         await ArtetaTimelineService.seed_arteta_timeline(session)
 
-        # 3. Squad Players for 4 Foundation Clubs
-        print("[2/8] Seeding squad players...")
+        # 2b. Seeded Arsenal Analyst Profiles
+        print("[2/9] Seeding Arsenal analyst profiles...")
+        seed_profiles = [
+            {
+                "id": "usr_seed_alex",
+                "username": "GoonerAlex",
+                "display_name": "GoonerAlex",
+                "favorite_club_id": "arsenal",
+                "bio": "Emirates matchday tactician tracking high-press triggers, rest defense, and right-side overload patterns.",
+            },
+            {
+                "id": "usr_seed_clock",
+                "username": "ClockEndTactician",
+                "display_name": "ClockEndTactician",
+                "favorite_club_id": "arsenal",
+                "bio": "Midfield structure analyst focused on Declan Rice, Martin Odegaard, and 3-2-4-1 progression.",
+            },
+            {
+                "id": "usr_seed_nb",
+                "username": "NorthBankFan",
+                "display_name": "NorthBankFan",
+                "favorite_club_id": "arsenal",
+                "bio": "North Bank regular documenting set-piece routines, xG swings, and big-match atmospheres.",
+            },
+            {
+                "id": "usr_seed_ash",
+                "username": "AshburtonAnalyst",
+                "display_name": "AshburtonAnalyst",
+                "favorite_club_id": "arsenal",
+                "bio": "Data Lab contributor breaking down defensive suppression, PPG consistency, and title-race trends.",
+            },
+        ]
+        author_id_map = {p["username"]: p["id"] for p in seed_profiles}
+        for prof_data in seed_profiles:
+            existing_by_id = await session.get(Profile, prof_data["id"])
+            existing_by_uname = (
+                await session.execute(
+                    select(Profile).where(func.lower(Profile.username) == prof_data["username"].lower())
+                )
+            ).scalar_one_or_none()
+            if not existing_by_id and not existing_by_uname:
+                session.add(
+                    Profile(
+                        id=prof_data["id"],
+                        username=prof_data["username"],
+                        display_name=prof_data["display_name"],
+                        favorite_club_id=prof_data["favorite_club_id"],
+                        bio=prof_data["bio"],
+                    )
+                )
+        await session.commit()
+
+        # 3. Squad Players for Foundation Clubs
+        print("[3/9] Seeding squad players...")
         for p_data in DEFAULT_PLAYERS:
             existing = await session.get(Player, p_data["id"])
             if not existing:
@@ -58,13 +111,19 @@ async def seed_all():
                     minutes_played=p_data.get("minutes_played", 0),
                     yellow_cards=p_data.get("yellow_cards", 0),
                     red_cards=p_data.get("red_cards", 0),
-                    photo_url=p_data.get("photo_url")
+                    photo_url=p_data.get("photo_url"),
+                    portrait_url=p_data.get("portrait_url"),
+                    action_url=p_data.get("action_url"),
+                    bio=p_data.get("bio"),
+                    date_of_birth=p_data.get("date_of_birth"),
+                    height=p_data.get("height"),
+                    joined_date=p_data.get("joined_date"),
                 )
                 session.add(player)
         await session.commit()
 
-        # 4. Tactical Boards across all 4 clubs
-        print("[3/8] Seeding tactical blueprints...")
+        # 4. Tactical Boards across Arsenal & Demo Presets
+        print("[4/9] Seeding tactical blueprints...")
         for b_data in DEMO_BOARDS:
             existing = await session.get(TacticalBoard, b_data.id)
             if not existing:
@@ -72,7 +131,7 @@ async def seed_all():
                 annotations_dict = [a.model_dump() for a in b_data.annotations] if b_data.annotations else []
                 tb = TacticalBoard(
                     id=b_data.id,
-                    user_id=f"usr_seed_{b_data.author_name.lower()}",
+                    user_id=author_id_map.get(b_data.author_name, f"usr_seed_{b_data.author_name.lower()}"),
                     author_name=b_data.author_name,
                     author_club_id=b_data.author_club_id,
                     title=b_data.title,
@@ -88,7 +147,7 @@ async def seed_all():
         await session.commit()
 
         # 5. Data Lab Insights
-        print("[4/8] Seeding Data Lab reproducible insights...")
+        print("[5/9] Seeding Data Lab reproducible insights...")
         for ins_data in DEFAULT_INSIGHTS:
             existing = await session.get(Insight, ins_data.id)
             if not existing:
@@ -113,7 +172,7 @@ async def seed_all():
         await session.commit()
 
         # 6. Terrace Debates (Posts, Comments, Reactions)
-        print("[5/8] Seeding The Terrace debates and interactions...")
+        print("[6/9] Seeding The Terrace debates and interactions...")
         posts_data = [
             {
                 "id": "post_seed_1",
@@ -255,7 +314,7 @@ async def seed_all():
         await session.commit()
 
         # 7. Predictor Matchday & Leaderboard Records
-        print("[6/8] Seeding match predictions and leaderboard standings...")
+        print("[7/9] Seeding match predictions and leaderboard standings...")
         matches_res = await session.execute(select(Match).limit(5))
         seeded_matches = matches_res.scalars().all()
 
@@ -288,7 +347,7 @@ async def seed_all():
             await session.commit()
 
         # 8. Direct Debates in The Dressing Room
-        print("[7/8] Seeding direct messaging conversations...")
+        print("[8/9] Seeding direct messaging conversations...")
         conv_id = "conv_seed_alex_clock"
         existing_conv = await session.get(Conversation, conv_id)
         if not existing_conv:
@@ -326,7 +385,7 @@ async def seed_all():
             await session.commit()
 
         # 9. In-App Notifications
-        print("[8/8] Seeding sample notifications...")
+        print("[9/9] Seeding sample notifications...")
         sample_notifications = [
             {
                 "id": "notif_seed_1",

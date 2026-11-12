@@ -3,9 +3,11 @@ import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ parent, url }) => {
 	const { session, profile } = await parent();
-	const userId = session?.user?.id || profile?.id || 'guest_supporter';
+	const userId = session?.user?.id || profile?.id || null;
+	const accessToken = session?.access_token ?? null;
+
 	const [conversations, clubs] = await Promise.all([
-		fetchConversations(userId),
+		userId && accessToken ? fetchConversations(userId, accessToken) : Promise.resolve([]),
 		fetchClubs()
 	]);
 

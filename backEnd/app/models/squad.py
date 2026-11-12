@@ -1,7 +1,9 @@
 import datetime
-from sqlalchemy import String, Integer, DateTime, ForeignKey, Index
+from typing import Optional
+from sqlalchemy import String, Integer, DateTime, Text, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
+
 
 class Player(Base):
     __tablename__ = "players"
@@ -20,7 +22,13 @@ class Player(Base):
     minutes_played: Mapped[int] = mapped_column(Integer, default=0)
     yellow_cards: Mapped[int] = mapped_column(Integer, default=0)
     red_cards: Mapped[int] = mapped_column(Integer, default=0)
-    photo_url: Mapped[str] = mapped_column(String(255), nullable=True)
+    photo_url: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    portrait_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    action_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    bio: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    date_of_birth: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    height: Mapped[Optional[str]] = mapped_column(String(30), nullable=True)
+    joined_date: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.utcnow)
 
     club = relationship("Club", backref="players")

@@ -19,7 +19,7 @@ class CommentCreateRequest(BaseModel):
     author_club_id: str = Field("arsenal", max_length=50)
 
 class ReactionToggleRequest(BaseModel):
-    user_id: str = Field(..., max_length=100)
+    user_id: Optional[str] = Field(None, max_length=100)
     reaction_type: str = Field("cheer", max_length=20)
 
 class CommentResponse(BaseModel):

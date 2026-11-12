@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc, func
 from typing import List, Optional
 from app.core.database import get_db
+from app.core.security import CurrentUserDep
 from app.models.insight import Insight
 from app.schemas.insight import InsightCreateRequest, InsightResponse
 from app.schemas.analytics import AnalyticsQueryRequest, AnalyticsResponse
@@ -163,10 +164,10 @@ DEFAULT_INSIGHTS: List[InsightResponse] = [
 @router.post("", response_model=InsightResponse, status_code=201)
 async def create_insight(
     request: InsightCreateRequest,
+    current_user: CurrentUserDep,
     db: AsyncSession = Depends(get_db)
 ):
     """Save an immutable, reproducible analytics insight."""
-    # Ensure snapshot exists, compute if not provided
     snapshot = request.snapshot
     if not snapshot:
         analytics_query = AnalyticsQueryRequest(
@@ -179,12 +180,18 @@ async def create_insight(
 
     insight_id = f"ins_{uuid.uuid4().hex[:12]}"
     serialized_snapshot = json.dumps(snapshot.model_dump(), default=str)
+    author_name = (
+        current_user.display_name
+        if not request.author_name or request.author_name == "Supporter"
+        else request.author_name
+    )
+    author_club_id = request.author_club_id or current_user.club_id or "arsenal"
 
     new_insight = Insight(
         id=insight_id,
-        user_id=None,
-        author_name=request.author_name,
-        author_club_id=request.author_club_id,
+        user_id=current_user.id,
+        author_name=author_name,
+        author_club_id=author_club_id,
         title=request.title,
         description=request.description,
         metric=request.metric,
@@ -296,3 +303,22 @@ async def get_insight(
         is_public=insight.is_public,
         created_at=insight.created_at
     )
+
+
+@router.delete("/{insight_id}")
+async def delete_insight(
+    insight_id: str,
+    current_user: CurrentUserDep,
+    db: AsyncSession = Depends(get_db)
+):
+    """Delete an insight owned by the authenticated user."""
+    stmt = select(Insight).where(Insight.id == insight_id)
+    insight = (await db.execute(stmt)).scalar_one_or_none()
+    if not insight:
+        raise HTTPException(status_code=404, detail="Insight not found")
+    if insight.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this insight")
+
+    await db.delete(insight)
+    await db.commit()
+    return {"status": "deleted", "id": insight_id}

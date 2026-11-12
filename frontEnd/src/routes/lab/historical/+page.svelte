@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { CLUBS } from '$lib/stores/theme.svelte';
 	import { fetchHistoricalMatchDetail } from '$lib/api/football';
-	import type { HistoricalMatchDetail, ShotEvent, HistoricalMatchSummary } from '$lib/types/football';
+	import type { HistoricalMatchDetail, ShotEvent } from '$lib/types/football';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
@@ -44,70 +43,66 @@
 	function getShotColor(outcome: string): string {
 		switch (outcome) {
 			case 'Goal':
-				return '#10B981'; // emerald-500
+				return 'var(--color-success)';
 			case 'Saved':
-				return '#0EA5E9'; // sky-500
+				return 'var(--color-ink)';
 			case 'Blocked':
-				return '#F59E0B'; // amber-500
+				return 'var(--color-accent-2)';
 			default:
-				return '#F43F5E'; // rose-500
+				return 'var(--color-error)';
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>Historical Tactical Analytics (StatsBomb) | Data Lab</title>
+	<title>Historical Tactical Analytics (StatsBomb) | GUNNERS</title>
 </svelte:head>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+<div class="container py-12 space-y-12">
 	<!-- Page Header -->
-	<div class="border-b border-[#1e2430] pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-		<div>
-			<div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider mb-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 font-mono">
-				StatsBomb Open Data Telemetry
-			</div>
-			<h1 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">Deep Tactical Event Visualizations</h1>
-			<p class="text-xs sm:text-sm text-gray-400 mt-1">
-				Examine coordinate-level shot maps, expected goals (xG), and passing network telemetry from iconic matches.
+	<div class="border-b-2 border-rule-2 pb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
+		<div class="space-y-3">
+			<h1>Deep tactical event visualizations</h1>
+			<p class="lead text-ink-2">
+				Examine coordinate-level shot maps, expected goals (xG), and passing network telemetry from landmark Arsenal fixtures.
 			</p>
 		</div>
 
 		<a
 			href="/lab"
-			class="px-3.5 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-[#1e2430] text-xs font-bold text-gray-300 transition self-start md:self-auto"
+			class="h-10 px-4 rounded-card bg-paper-2 hover:bg-paper-3 border border-rule text-xs font-semibold text-ink transition-colors inline-flex items-center self-start md:self-auto"
 		>
-			← Back to Standard Data Lab
+			Back to Data Lab
 		</a>
 	</div>
 
 	<!-- Match Selector & View Mode Toolbar -->
-	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#12161f] p-4 rounded-xl border border-[#1e2430]">
-		<!-- Match Picker -->
+	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rule pb-5">
 		<div class="flex items-center gap-2 flex-wrap">
-			<span class="text-xs uppercase font-bold text-gray-400 mr-1">Match:</span>
+			<span class="text-xs font-semibold text-muted mr-1">Match:</span>
 			{#each data.matches as m}
 				{@const isSelected = selectedMatchId === m.id}
+				{@const matchLabel = `${m.home_team_name} ${m.home_score}–${m.away_score} ${m.away_team_name} (${m.season})`}
 				<button
 					type="button"
 					onclick={() => switchMatch(m.id)}
-					class="px-3 py-1.5 rounded-lg text-xs font-bold transition border {isSelected ? 'bg-red-600 text-white border-red-500' : 'bg-[#0d1017] text-gray-400 border-[#1e2430] hover:text-white'}"
+					class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {isSelected ? 'bg-accent text-accent-ink border-accent' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 				>
-					{m.home_team_name} {m.home_score} - {m.away_score} {m.away_team_name} ({m.season})
+					{matchLabel}
 				</button>
 			{/each}
 		</div>
 
-		<!-- Mode Switcher -->
-		<div class="flex items-center gap-1.5 bg-[#0d1017] p-1 rounded-lg border border-[#1e2430]">
+		<div class="flex items-center gap-2">
 			<button
 				type="button"
 				onclick={() => {
 					viewMode = 'shot_map';
 					selectedShot = null;
 				}}
-				class="px-3 py-1 rounded text-xs font-bold transition {viewMode === 'shot_map' ? 'bg-amber-400 text-black' : 'text-gray-400 hover:text-white'}"
+				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {viewMode === 'shot_map' ? 'bg-paper-3 text-accent-2 border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 			>
-				Shot Map (xG)
+				Shot map (xG)
 			</button>
 			<button
 				type="button"
@@ -115,105 +110,106 @@
 					viewMode = 'pass_network';
 					selectedShot = null;
 				}}
-				class="px-3 py-1 rounded text-xs font-bold transition {viewMode === 'pass_network' ? 'bg-amber-400 text-black' : 'text-gray-400 hover:text-white'}"
+				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {viewMode === 'pass_network' ? 'bg-paper-3 text-accent-2 border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 			>
-				Passing Network
+				Passing network
 			</button>
 		</div>
 	</div>
 
-	{#if activeDetail}
+	{#if isLoading}
+		<div class="py-12 text-sm text-muted">Loading StatsBomb match telemetry…</div>
+	{:else if activeDetail}
 		<!-- Match Telemetry Overview Bar -->
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-[#12161f] p-4 rounded-xl border border-[#1e2430] text-center text-xs">
+		<div class="grid grid-cols-2 sm:grid-cols-4 gap-6 border-b border-rule pb-6 text-xs">
 			<div>
-				<p class="text-[10px] text-gray-500 uppercase font-mono">Home Total xG</p>
-				<p class="text-lg font-black text-emerald-400 font-mono">{activeDetail.total_xg_home} xG</p>
-				<p class="text-[10px] text-gray-400">({activeDetail.total_shots_home} shots)</p>
+				<p class="text-muted">Home total xG</p>
+				<p class="text-2xl font-bold text-success num font-outlier mt-1">{activeDetail.total_xg_home} xG</p>
+				<p class="text-muted num font-outlier">({activeDetail.total_shots_home} shots)</p>
 			</div>
 			<div>
-				<p class="text-[10px] text-gray-500 uppercase font-mono">Away Total xG</p>
-				<p class="text-lg font-black text-amber-400 font-mono">{activeDetail.total_xg_away} xG</p>
-				<p class="text-[10px] text-gray-400">({activeDetail.total_shots_away} shots)</p>
+				<p class="text-muted">Away total xG</p>
+				<p class="text-2xl font-bold text-accent-2 num font-outlier mt-1">{activeDetail.total_xg_away} xG</p>
+				<p class="text-muted num font-outlier">({activeDetail.total_shots_away} shots)</p>
 			</div>
 			<div>
-				<p class="text-[10px] text-gray-500 uppercase font-mono">Competition</p>
-				<p class="text-xs font-bold text-white mt-1">{activeDetail.competition}</p>
-				<p class="text-[10px] text-gray-400">{activeDetail.season}</p>
+				<p class="text-muted">Competition</p>
+				<p class="text-sm font-bold text-ink mt-1">{activeDetail.competition}</p>
+				<p class="text-muted num font-outlier">{activeDetail.season}</p>
 			</div>
 			<div>
-				<p class="text-[10px] text-gray-500 uppercase font-mono">Venue</p>
-				<p class="text-xs font-bold text-white mt-1 truncate">{activeDetail.venue}</p>
-				<p class="text-[10px] text-gray-400">{activeDetail.match_date}</p>
+				<p class="text-muted">Venue</p>
+				<p class="text-sm font-bold text-ink mt-1 truncate">{activeDetail.venue}</p>
+				<p class="text-muted num font-outlier">{activeDetail.match_date}</p>
 			</div>
 		</div>
 
 		<!-- Interactive Pitch Stage -->
-		<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-			<!-- 2D Football Pitch SVG -->
-			<div class="lg:col-span-2 p-6 rounded-2xl border border-[#1e2430] bg-[#0c120c] relative shadow-2xl overflow-hidden flex flex-col items-center">
-				<div class="w-full flex items-center justify-between mb-4 text-xs font-mono">
+		<div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+			<!-- 2D Football Pitch SVG (8 cols) -->
+			<div class="lg:col-span-8 space-y-4">
+				<div class="w-full flex items-center justify-between flex-wrap gap-3 text-xs">
 					<div class="flex items-center gap-2">
 						{#if viewMode === 'shot_map'}
-							<span class="text-gray-400 uppercase text-[10px] font-bold">Filter Team:</span>
+							{@const homeName = activeDetail?.home_team_name || 'Home'}
+							{@const awayName = activeDetail?.away_team_name || 'Away'}
+							<span class="text-muted font-semibold">Filter team:</span>
 							<button
 								type="button"
 								onclick={() => (teamFilter = 'all')}
-								class="text-[10px] px-2 py-0.5 rounded transition {teamFilter === 'all' ? 'bg-white text-black font-bold' : 'bg-black/40 text-gray-400'}"
+								class="h-7 px-2.5 rounded-card transition-colors border {teamFilter === 'all' ? 'bg-paper-3 text-ink border-rule-2 font-semibold' : 'bg-paper-2 text-ink-2 border-rule'}"
 							>
 								All
 							</button>
 							<button
 								type="button"
 								onclick={() => activeDetail && (teamFilter = activeDetail.home_team_id)}
-								class="text-[10px] px-2 py-0.5 rounded transition {activeDetail && teamFilter === activeDetail.home_team_id ? 'bg-emerald-400 text-black font-bold' : 'bg-black/40 text-gray-400'}"
+								class="h-7 px-2.5 rounded-card transition-colors border whitespace-nowrap {activeDetail && teamFilter === activeDetail.home_team_id ? 'bg-paper-3 text-success border-rule-2 font-semibold' : 'bg-paper-2 text-ink-2 border-rule'}"
 							>
-								{activeDetail?.home_team_name}
+								{homeName}
 							</button>
 							<button
 								type="button"
 								onclick={() => activeDetail && (teamFilter = activeDetail.away_team_id)}
-								class="text-[10px] px-2 py-0.5 rounded transition {activeDetail && teamFilter === activeDetail.away_team_id ? 'bg-amber-400 text-black font-bold' : 'bg-black/40 text-gray-400'}"
+								class="h-7 px-2.5 rounded-card transition-colors border whitespace-nowrap {activeDetail && teamFilter === activeDetail.away_team_id ? 'bg-paper-3 text-accent-2 border-rule-2 font-semibold' : 'bg-paper-2 text-ink-2 border-rule'}"
 							>
-								{activeDetail?.away_team_name}
+								{awayName}
 							</button>
 						{:else}
-							<span class="text-emerald-400 text-[10px] font-bold uppercase">Pass Volume & Positional Nodes</span>
+							<span class="text-accent-2 font-semibold">Pass volume & average positional nodes</span>
 						{/if}
 					</div>
 
-					<div class="flex items-center gap-3 text-[10px] text-gray-400">
-						{#if viewMode === 'shot_map'}
-							<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> Goal</span>
-							<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-sky-400"></span> Saved</span>
-							<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span> Blocked</span>
-							<span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-400"></span> Miss</span>
-						{/if}
-					</div>
+					{#if viewMode === 'shot_map'}
+						<div class="flex items-center gap-4 text-xs text-muted">
+							<span class="text-success font-semibold">Goal</span>
+							<span class="text-ink font-semibold">Saved</span>
+							<span class="text-accent-2 font-semibold">Blocked</span>
+							<span class="text-error font-semibold">Miss</span>
+						</div>
+					{/if}
 				</div>
 
 				<!-- Pitch SVG Container -->
-				<svg viewBox="0 0 700 480" class="w-full h-auto border-2 border-emerald-900/40 rounded-xl bg-[#091509]">
-					<!-- Pitch Markings -->
-					<!-- Boundary -->
-					<rect x="15" y="15" width="670" height="450" fill="none" stroke="#166534" stroke-width="2" />
-					<!-- Halfway Line -->
-					<line x1="350" y1="15" x2="350" y2="465" stroke="#166534" stroke-width="2" />
-					<!-- Center Circle -->
-					<circle cx="350" cy="240" r="55" fill="none" stroke="#166534" stroke-width="2" />
-					<circle cx="350" cy="240" r="3" fill="#166534" />
+				<svg
+					viewBox="0 0 700 480"
+					aria-label="StatsBomb 2D tactical event pitch"
+					class="w-full h-auto border border-rule rounded-card bg-pitch"
+				>
+					<rect x="15" y="15" width="670" height="450" fill="none" stroke="var(--color-success)" stroke-width="2" stroke-opacity="0.35" />
+					<line x1="350" y1="15" x2="350" y2="465" stroke="var(--color-success)" stroke-width="2" stroke-opacity="0.35" />
+					<circle cx="350" cy="240" r="55" fill="none" stroke="var(--color-success)" stroke-width="2" stroke-opacity="0.35" />
+					<circle cx="350" cy="240" r="3" fill="var(--color-success)" fill-opacity="0.5" />
 
-					<!-- Left Penalty Box -->
-					<rect x="15" y="120" width="115" height="240" fill="none" stroke="#166534" stroke-width="2" />
-					<rect x="15" y="175" width="40" height="130" fill="none" stroke="#166534" stroke-width="2" />
-					<circle cx="85" cy="240" r="2.5" fill="#166534" />
+					<rect x="15" y="120" width="115" height="240" fill="none" stroke="var(--color-success)" stroke-width="2" stroke-opacity="0.35" />
+					<rect x="15" y="175" width="40" height="130" fill="none" stroke="var(--color-success)" stroke-width="2" stroke-opacity="0.35" />
+					<circle cx="85" cy="240" r="2.5" fill="var(--color-success)" fill-opacity="0.5" />
 
-					<!-- Right Penalty Box -->
-					<rect x="570" y="120" width="115" height="240" fill="none" stroke="#166534" stroke-width="2" />
-					<rect x="645" y="175" width="40" height="130" fill="none" stroke="#166534" stroke-width="2" />
-					<circle cx="615" cy="240" r="2.5" fill="#166534" />
+					<rect x="570" y="120" width="115" height="240" fill="none" stroke="var(--color-success)" stroke-width="2" stroke-opacity="0.35" />
+					<rect x="645" y="175" width="40" height="130" fill="none" stroke="var(--color-success)" stroke-width="2" stroke-opacity="0.35" />
+					<circle cx="615" cy="240" r="2.5" fill="var(--color-success)" fill-opacity="0.5" />
 
 					{#if viewMode === 'shot_map'}
-						<!-- Render Shots -->
 						{#each filteredShots as shot}
 							{@const cx = (shot.x / 100) * 670 + 15}
 							{@const cy = (shot.y / 100) * 450 + 15}
@@ -224,24 +220,23 @@
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
 							<g
 								onclick={() => (selectedShot = shot)}
-								class="cursor-pointer transition transform hover:scale-125"
+								class="cursor-pointer"
 							>
 								{#if shot.outcome === 'Goal'}
-									<circle cx={cx} cy={cy} r={radius + 4} fill="none" stroke="#10B981" stroke-width="2" opacity="0.6" class="animate-ping" />
+									<circle cx={cx} cy={cy} r={radius + 4} fill="none" stroke="var(--color-success)" stroke-width="2" opacity="0.6" />
 								{/if}
 								<circle
 									cx={cx}
 									cy={cy}
 									r={radius}
 									fill={color}
-									stroke={isSelected ? '#FFFFFF' : '#000000'}
+									stroke={isSelected ? 'var(--color-ink)' : 'var(--color-paper)'}
 									stroke-width={isSelected ? '2.5' : '1.5'}
 									opacity="0.9"
 								/>
 							</g>
 						{/each}
 					{:else}
-						<!-- Render Pass Network Links -->
 						{#each activeDetail.pass_links as link}
 							{@const srcNode = activeDetail.pass_nodes.find((n) => n.player_name === link.source)}
 							{@const tgtNode = activeDetail.pass_nodes.find((n) => n.player_name === link.target)}
@@ -255,27 +250,26 @@
 									y1={y1}
 									x2={x2}
 									y2={y2}
-									stroke="#F59E0B"
+									stroke="var(--color-accent-2)"
 									stroke-width={Math.max(1.5, link.pass_count / 4)}
 									stroke-opacity="0.6"
 								/>
 							{/if}
 						{/each}
 
-						<!-- Render Pass Nodes -->
 						{#each activeDetail.pass_nodes as node}
 							{@const nx = (node.x / 100) * 670 + 15}
 							{@const ny = (node.y / 100) * 450 + 15}
 							<g class="cursor-pointer">
-								<circle cx={nx} cy={ny} r="14" fill="#1e2430" stroke="#F59E0B" stroke-width="2" />
+								<circle cx={nx} cy={ny} r="14" fill="var(--color-paper-2)" stroke="var(--color-accent-2)" stroke-width="2" />
 								<text
 									x={nx}
 									y={ny + 4}
 									text-anchor="middle"
-									fill="#FFFFFF"
+									fill="var(--color-ink)"
 									font-size="10"
 									font-weight="bold"
-									font-family="monospace"
+									font-family="var(--font-outlier)"
 								>
 									{node.jersey_number}
 								</text>
@@ -283,9 +277,9 @@
 									x={nx}
 									y={ny + 24}
 									text-anchor="middle"
-									fill="#9CA3AF"
+									fill="var(--color-ink-2)"
 									font-size="9"
-									font-family="sans-serif"
+									font-family="var(--font-body)"
 								>
 									{node.player_name}
 								</text>
@@ -294,86 +288,84 @@
 					{/if}
 				</svg>
 
-				<!-- License Notice directly under pitch -->
-				<div class="mt-4 text-[10px] text-gray-500 font-mono text-center">
-					⚡ {activeDetail.license_notice}
+				<div class="text-xs text-muted">
+					{activeDetail.license_notice}
 				</div>
 			</div>
 
-			<!-- Right Sidebar: Selected Shot or Telemetry Inspector -->
-			<div class="space-y-4">
+			<!-- Right Sidebar: Selected Shot or Telemetry Inspector (4 cols) -->
+			<aside class="lg:col-span-4 space-y-6">
 				{#if viewMode === 'shot_map'}
-					<div class="p-5 rounded-2xl border border-[#1e2430] bg-[#12161f] space-y-4">
-						<div class="border-b border-[#1e2430] pb-3">
-							<h3 class="text-sm font-bold text-white uppercase tracking-wider">Shot Event Inspector</h3>
-							<p class="text-[11px] text-gray-400">Click any shot circle on the pitch to examine telemetry</p>
+					<div class="border-t-2 border-rule-2 pt-5 space-y-4">
+						<div class="border-b border-rule pb-3">
+							<h2 class="text-lg font-bold text-ink">Shot event inspector</h2>
+							<p class="text-xs text-muted">Select any shot circle on the pitch to examine telemetry.</p>
 						</div>
 
 						{#if selectedShot}
-							<div class="space-y-3 font-mono text-xs">
-								<div class="flex items-center justify-between py-1 border-b border-[#1e2430]">
-									<span class="text-gray-400">Shooter:</span>
-									<span class="font-bold text-white">{selectedShot.player_name}</span>
+							<dl class="space-y-3 text-xs">
+								<div class="flex items-center justify-between py-1.5 border-b border-rule">
+									<dt class="text-muted">Shooter</dt>
+									<dd class="font-bold text-ink">{selectedShot.player_name}</dd>
 								</div>
-								<div class="flex items-center justify-between py-1 border-b border-[#1e2430]">
-									<span class="text-gray-400">Team:</span>
-									<span class="text-amber-400">{selectedShot.team_name}</span>
+								<div class="flex items-center justify-between py-1.5 border-b border-rule">
+									<dt class="text-muted">Team</dt>
+									<dd class="text-accent-2 font-semibold">{selectedShot.team_name}</dd>
 								</div>
-								<div class="flex items-center justify-between py-1 border-b border-[#1e2430]">
-									<span class="text-gray-400">Minute:</span>
-									<span class="text-white">{selectedShot.minute}'{selectedShot.second}"</span>
+								<div class="flex items-center justify-between py-1.5 border-b border-rule">
+									<dt class="text-muted">Timestamp</dt>
+									<dd class="text-ink num font-outlier">{selectedShot.minute}m {selectedShot.second}s</dd>
 								</div>
-								<div class="flex items-center justify-between py-1 border-b border-[#1e2430]">
-									<span class="text-gray-400">Outcome:</span>
-									<span class="font-bold {selectedShot.outcome === 'Goal' ? 'text-emerald-400' : 'text-gray-200'}">
+								<div class="flex items-center justify-between py-1.5 border-b border-rule">
+									<dt class="text-muted">Outcome</dt>
+									<dd class="font-bold {selectedShot.outcome === 'Goal' ? 'text-success' : 'text-ink'}">
 										{selectedShot.outcome}
-									</span>
+									</dd>
 								</div>
-								<div class="flex items-center justify-between py-1 border-b border-[#1e2430]">
-									<span class="text-gray-400">Expected Goals (xG):</span>
-									<span class="font-bold text-emerald-400 text-sm">{selectedShot.xg}</span>
+								<div class="flex items-center justify-between py-1.5 border-b border-rule">
+									<dt class="text-muted">Expected goals (xG)</dt>
+									<dd class="font-bold text-success text-sm num font-outlier">{selectedShot.xg}</dd>
 								</div>
-								<div class="flex items-center justify-between py-1 border-b border-[#1e2430]">
-									<span class="text-gray-400">Body Part:</span>
-									<span class="text-gray-300">{selectedShot.body_part}</span>
+								<div class="flex items-center justify-between py-1.5 border-b border-rule">
+									<dt class="text-muted">Body part</dt>
+									<dd class="text-ink-2">{selectedShot.body_part}</dd>
 								</div>
-								<div class="flex items-center justify-between py-1">
-									<span class="text-gray-400">Play Type:</span>
-									<span class="text-gray-300">{selectedShot.shot_type}</span>
+								<div class="flex items-center justify-between py-1.5">
+									<dt class="text-muted">Play pattern</dt>
+									<dd class="text-ink-2">{selectedShot.shot_type}</dd>
 								</div>
-							</div>
+							</dl>
 						{:else}
-							<div class="py-12 text-center text-gray-500 text-xs">
+							<div class="py-10 text-muted text-xs">
 								Select a shot on the pitch to inspect expected goal value (xG) and shooting coordinates.
 							</div>
 						{/if}
 					</div>
 				{:else}
-					<div class="p-5 rounded-2xl border border-[#1e2430] bg-[#12161f] space-y-4">
-						<div class="border-b border-[#1e2430] pb-3">
-							<h3 class="text-sm font-bold text-white uppercase tracking-wider">Passing Combinations</h3>
-							<p class="text-[11px] text-gray-400">Key passing channels between players</p>
+					<div class="border-t-2 border-rule-2 pt-5 space-y-4">
+						<div class="border-b border-rule pb-3">
+							<h2 class="text-lg font-bold text-ink">Passing combinations</h2>
+							<p class="text-xs text-muted">High-volume passing channels between Arsenal players.</p>
 						</div>
 
-						<div class="divide-y divide-[#1e2430] text-xs font-mono">
+						<div class="divide-y divide-rule text-xs">
 							{#each activeDetail.pass_links as link}
-								<div class="py-2 flex items-center justify-between">
-									<span class="text-gray-300">{link.source} ➔ {link.target}</span>
-									<span class="font-bold text-amber-400">{link.pass_count} passes</span>
+								<div class="py-2.5 flex items-center justify-between">
+									<span class="text-ink-2">{link.source} to {link.target}</span>
+									<span class="font-bold text-accent-2 num font-outlier">{link.pass_count} passes</span>
 								</div>
 							{/each}
 						</div>
 					</div>
 				{/if}
 
-				<!-- Data Lab Export Banner -->
-				<div class="p-4 rounded-xl border border-[#1e2430] bg-[#0d1017] text-xs text-gray-400 space-y-2">
-					<p class="font-bold text-white">StatsBomb Open Data Architecture</p>
-					<p class="text-[11px] leading-relaxed">
-						All event coordinates and xG metrics comply with the open-data schema conventions, preserving academic and portfolio integrity.
+				<div class="border-t border-rule pt-4 text-xs text-muted space-y-1.5">
+					<p class="font-bold text-ink-2">StatsBomb open data architecture</p>
+					<p class="leading-relaxed">
+						All event coordinates and xG metrics follow the open-data 120x80 yard pitch schema, normalized for browser rendering.
 					</p>
 				</div>
-			</div>
+			</aside>
 		</div>
 	{/if}
 </div>
