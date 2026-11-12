@@ -3,8 +3,8 @@ name: Football Data Ingestion Pipeline
 on:
   # Scheduled cron disabled to prevent automated failure alerts when repository secrets are not configured.
   # Can be re-enabled once DATABASE_URL and FOOTBALL_DATA_API_KEY are configured in repo secrets.
-  # schedule:
-  #   - cron: '0 6,18 * * *'
+  schedule:
+    - cron: '0 6,18 * * *'
   workflow_dispatch:
     inputs:
       force_mock:
