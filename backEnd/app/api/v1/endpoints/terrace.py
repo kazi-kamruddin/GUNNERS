@@ -16,8 +16,10 @@ from app.models.tactics import TacticalBoard
 from app.services.notifications import create_notification
 from app.schemas.terrace import (
     PostCreateRequest,
+    PostUpdateRequest,
     PostResponse,
     CommentCreateRequest,
+    CommentUpdateRequest,
     CommentResponse,
     ReactionToggleRequest,
 )
@@ -199,6 +201,7 @@ async def list_posts(
                 tactical_board_id=p.tactical_board_id,
                 tactical_board=serialize_tactical_board_response(p.tactical_board),
                 created_at=p.created_at,
+                updated_at=p.updated_at,
                 reactions_count=reactions_cnt,
                 comments_count=comments_cnt,
                 user_reacted=user_reacted,
@@ -281,9 +284,73 @@ async def create_post(
         tactical_board_id=new_post.tactical_board_id,
         tactical_board=serialize_tactical_board_response(attached_board),
         created_at=new_post.created_at,
+        updated_at=new_post.updated_at,
         reactions_count=0,
         comments_count=0,
         user_reacted=False,
+    )
+
+
+@router.patch("/posts/{post_id}", response_model=PostResponse)
+async def update_post(
+    post_id: str,
+    request: PostUpdateRequest,
+    current_user: CurrentUserDep,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a Terrace post owned by the authenticated user."""
+    post_res = await db.execute(select(Post).where(Post.id == post_id))
+    post = post_res.scalar_one_or_none()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    if not post.author_id or post.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this post")
+
+    trimmed_content = request.content.strip()
+    if not trimmed_content:
+        raise HTTPException(status_code=422, detail="Post content cannot be empty")
+
+    post.content = trimmed_content
+    if "image_url" in request.model_fields_set:
+        post.image_url = (
+            request.image_url.strip()
+            if request.image_url and request.image_url.strip()
+            else None
+        )
+    post.updated_at = datetime.datetime.now(datetime.timezone.utc)
+
+    await db.commit()
+
+    reloaded_stmt = (
+        select(Post)
+        .where(Post.id == post_id)
+        .options(
+            selectinload(Post.insight),
+            selectinload(Post.tactical_board),
+            selectinload(Post.comments),
+            selectinload(Post.reactions),
+        )
+        .execution_options(populate_existing=True)
+    )
+    reloaded = (await db.execute(reloaded_stmt)).scalar_one()
+
+    return PostResponse(
+        id=reloaded.id,
+        author_id=reloaded.author_id,
+        author_name=reloaded.author_name,
+        author_club_id=reloaded.author_club_id,
+        club_id=reloaded.club_id,
+        content=reloaded.content,
+        image_url=reloaded.image_url,
+        insight_id=reloaded.insight_id,
+        insight=serialize_insight_response(reloaded.insight),
+        tactical_board_id=reloaded.tactical_board_id,
+        tactical_board=serialize_tactical_board_response(reloaded.tactical_board),
+        created_at=reloaded.created_at,
+        updated_at=reloaded.updated_at,
+        reactions_count=len(reloaded.reactions),
+        comments_count=len(reloaded.comments),
+        user_reacted=any(r.user_id == current_user.id for r in reloaded.reactions),
     )
 
 
@@ -448,6 +515,34 @@ async def create_comment(
     await db.commit()
     await db.refresh(new_comment)
     return new_comment
+
+
+@router.patch("/posts/{post_id}/comments/{comment_id}", response_model=CommentResponse)
+async def update_comment(
+    post_id: str,
+    comment_id: str,
+    request: CommentUpdateRequest,
+    current_user: CurrentUserDep,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a comment owned by the authenticated user."""
+    stmt = select(PostComment).where(
+        and_(PostComment.id == comment_id, PostComment.post_id == post_id)
+    )
+    comment = (await db.execute(stmt)).scalar_one_or_none()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+    if not comment.author_id or comment.author_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to update this comment")
+
+    trimmed_content = request.content.strip()
+    if not trimmed_content:
+        raise HTTPException(status_code=422, detail="Comment content cannot be empty")
+
+    comment.content = trimmed_content
+    await db.commit()
+    await db.refresh(comment)
+    return comment
 
 
 @router.delete("/posts/{post_id}/comments/{comment_id}")

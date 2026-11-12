@@ -1,4 +1,4 @@
-import { fetchUpcomingPredictions, fetchLeaderboard, fetchClubs } from '$lib/api/football';
+import { fetchUpcomingPredictions, fetchLeaderboard, fetchClubs, fetchSeasons } from '$lib/api/football';
 import { fetchPredictionHistory } from '$lib/api/community';
 import type { PageLoad } from './$types';
 
@@ -8,10 +8,11 @@ export const load: PageLoad = async ({ parent }) => {
 	const accessToken = session?.access_token ?? null;
 	const isSignedIn = Boolean(userId && accessToken);
 
-	const [upcoming, leaderboard, clubs, history] = await Promise.all([
+	const [upcoming, leaderboard, clubs, seasons, history] = await Promise.all([
 		fetchUpcomingPredictions(userId ?? undefined, accessToken),
 		fetchLeaderboard(),
 		fetchClubs(),
+		fetchSeasons(),
 		isSignedIn ? fetchPredictionHistory(accessToken) : Promise.resolve([])
 	]);
 
@@ -19,6 +20,7 @@ export const load: PageLoad = async ({ parent }) => {
 		upcoming,
 		leaderboard,
 		clubs,
+		seasons,
 		history,
 		currentUserId: userId,
 		userName: profile?.display_name || session?.user?.email?.split('@')[0] || 'Supporter',

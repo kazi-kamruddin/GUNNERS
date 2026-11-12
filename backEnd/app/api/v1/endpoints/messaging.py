@@ -162,7 +162,10 @@ async def create_conversation(
 ):
     """Start a new direct messaging debate or return existing conversation between two users."""
     initiator_id = current_user.id
-    if request.recipient_id == initiator_id:
+    recipient_id = request.recipient_id.strip()
+    if not recipient_id:
+        raise HTTPException(status_code=400, detail="Recipient ID is required")
+    if recipient_id == initiator_id:
         raise HTTPException(status_code=400, detail="Cannot start conversation with yourself")
 
     # Optionally enrich initiator name from Profile if available
@@ -190,7 +193,7 @@ async def create_conversation(
         ConversationMember.user_id == initiator_id
     )
     member_convs_2 = select(ConversationMember.conversation_id).where(
-        ConversationMember.user_id == request.recipient_id
+        ConversationMember.user_id == recipient_id
     )
     common_stmt = (
         select(Conversation)
@@ -210,7 +213,7 @@ async def create_conversation(
     now = datetime.datetime.now(datetime.timezone.utc)
 
     recipient_prof_res = await db.execute(
-        select(Profile).where(Profile.id == request.recipient_id)
+        select(Profile).where(Profile.id == recipient_id)
     )
     recipient_profile = recipient_prof_res.scalar_one_or_none()
     other_participant = _to_participant(recipient_profile)
@@ -283,7 +286,7 @@ async def create_conversation(
     )
     m2 = ConversationMember(
         conversation_id=conv_id,
-        user_id=request.recipient_id,
+        user_id=recipient_id,
         joined_at=now,
         last_read_at=recipient_last_read,
     )
@@ -304,7 +307,7 @@ async def create_conversation(
         db.add(last_msg)
         await create_notification(
             db,
-            user_id=request.recipient_id,
+            user_id=recipient_id,
             notif_type="direct_message",
             title="New Direct Message",
             message=f"{initiator_name}: {_message_snippet(request.initial_message)}",
@@ -317,7 +320,7 @@ async def create_conversation(
         id=conv_id,
         created_at=now,
         updated_at=now,
-        members=[initiator_id, request.recipient_id],
+        members=[initiator_id, recipient_id],
         last_message=serialize_message(last_msg),
         unread_count=0,
         other_member_profile=other_participant,

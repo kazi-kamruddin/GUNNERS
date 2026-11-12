@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.football import Club, Competition, Season, Match, SyncRun
 from app.providers.football_data import FootballDataProvider
+from app.services.predictor_grading import grade_match_predictions
 
 
 class FootballIngestionService:
@@ -151,6 +152,7 @@ class FootballIngestionService:
 
         # Idempotent upsert of all matches
         synced_count = 0
+        finished_matches: Dict[str, Match] = {}
         now = datetime.datetime.now(datetime.timezone.utc)
 
         for m_data in normalized_matches:
@@ -177,6 +179,7 @@ class FootballIngestionService:
                 if m_data.get("highlights") is not None:
                     existing.highlights = m_data.get("highlights", [])
                 existing.last_updated_at = now
+                match_obj = existing
             else:
                 new_match = Match(
                     id=m_id,
@@ -203,6 +206,14 @@ class FootballIngestionService:
                     last_updated_at=now,
                 )
                 db.add(new_match)
+                match_obj = new_match
+
+            if (
+                match_obj.status == "FINISHED"
+                and match_obj.home_score is not None
+                and match_obj.away_score is not None
+            ):
+                finished_matches[match_obj.id] = match_obj
             synced_count += 1
 
         # Record SyncRun
@@ -215,6 +226,11 @@ class FootballIngestionService:
             completed_at=completed_at,
         )
         db.add(sync_record)
+        await db.flush()
+
+        for finished_match in finished_matches.values():
+            await grade_match_predictions(db, finished_match)
+
         await db.commit()
 
         duration = (completed_at - started_at).total_seconds()

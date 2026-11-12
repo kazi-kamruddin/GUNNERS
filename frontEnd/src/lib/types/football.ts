@@ -123,6 +123,60 @@ export interface AnalyticsResponse {
 	disclaimer: string;
 }
 
+export interface SeasonTrendItem {
+	season_id: string;
+	label: string;
+	start_year: number;
+	end_year: number;
+	matches_played: number;
+	wins: number;
+	draws: number;
+	losses: number;
+	clean_sheets: number;
+	goals_for: number;
+	goals_against: number;
+	goal_difference: number;
+	win_rate: number;
+	points_per_game: number;
+	goals_per_match: number;
+	clean_sheet_rate: number;
+	loss_rate: number;
+	arteta_milestone: string;
+}
+
+export interface MultiSeasonTrendsResponse {
+	club_id: string;
+	club_name: string;
+	venue_filter: string;
+	trends: SeasonTrendItem[];
+	computed_at: string;
+}
+
+export interface OpponentH2HOption {
+	opponent_id: string;
+	opponent_name: string;
+	matches_played: number;
+}
+
+export interface OpponentH2HResponse {
+	club_id: string;
+	opponent_id: string;
+	opponent_name: string;
+	venue_filter: string;
+	matches_played: number;
+	wins: number;
+	draws: number;
+	losses: number;
+	clean_sheets: number;
+	goals_for: number;
+	goals_against: number;
+	goal_difference: number;
+	win_rate: number;
+	recent_matches: Match[];
+	available_opponents: OpponentH2HOption[];
+	computed_at: string;
+}
+
 export interface Insight {
 	id: string;
 	user_id?: string | null;
@@ -166,6 +220,7 @@ export interface Post {
 	tactical_board_id?: string | null;
 	tactical_board?: TacticalBoard | null;
 	created_at: string;
+	updated_at?: string | null;
 	reactions_count: number;
 	comments_count: number;
 	user_reacted: boolean;

@@ -1,8 +1,11 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
+	import { onDestroy, untrack } from 'svelte';
+	import { afterNavigate, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
 	import { CLUBS, themeState } from '$lib/stores/theme.svelte';
 	import {
 		ApiError,
+		fetchConversations,
 		fetchMessages,
 		sendMessage,
 		createConversation
@@ -35,8 +38,8 @@
 	let isSearchingSupporters = $state(false);
 	let supporterSearchError = $state<string | null>(null);
 
-	let isInitialized = false;
 	let hasInitializedSearch = false;
+	let lastHandledRecipientKey = '';
 	let realtimeChannel: ReturnType<typeof data.supabase.channel> | null = null;
 
 	let sendBtnLabel = $derived(isSending ? 'Sending…' : 'Send');
@@ -92,28 +95,101 @@
 	});
 
 	$effect(() => {
-		if (!isInitialized && data.conversations) {
-			conversations = data.conversations;
+		if (!isSignedIn) {
+			conversations = [];
+			supporterResults = [];
+			activeConvId = null;
+			messages = [];
+			showStartModal = false;
+			lastHandledRecipientKey = '';
+			if (realtimeChannel) {
+				data.supabase.removeChannel(realtimeChannel);
+				realtimeChannel = null;
+			}
+			return;
+		}
+
+		const loadedConvs = data.conversations || [];
+		conversations = loadedConvs;
+
+		if (!untrack(() => supporterQuery).trim()) {
 			supporterResults = (data.initialSupporters || []).filter(
 				(s) => s.user_id !== data.currentUserId
 			);
-			if (isSignedIn) {
-				if (data.initialRecipient) {
-					targetUserId = data.initialRecipient.id;
-					targetUserName = data.initialRecipient.name;
-					targetClubId = data.initialRecipient.club;
-					showStartModal = true;
-				} else if (
-					data.initialConversationId &&
-					data.conversations.some((c) => c.id === data.initialConversationId)
-				) {
-					void selectConversation(data.initialConversationId);
-				} else if (data.conversations.length > 0 && !activeConvId) {
-					void selectConversation(data.conversations[0].id);
-				}
-			}
-			isInitialized = true;
 		}
+
+		if (data.initialRecipient) {
+			const recipientKey = `${data.initialRecipient.id}:${data.initialRecipient.name}:${data.initialRecipient.club}`;
+			if (recipientKey !== lastHandledRecipientKey) {
+				lastHandledRecipientKey = recipientKey;
+				targetUserId = data.initialRecipient.id;
+				targetUserName = data.initialRecipient.name;
+				targetClubId = data.initialRecipient.club;
+				showStartModal = true;
+			}
+		} else {
+			lastHandledRecipientKey = '';
+			const requestedConvId = data.initialConversationId;
+			if (requestedConvId && loadedConvs.some((c) => c.id === requestedConvId)) {
+				if (untrack(() => activeConvId) !== requestedConvId) {
+					void selectConversation(requestedConvId, false);
+				}
+			} else if (loadedConvs.length > 0 && !untrack(() => activeConvId)) {
+				void selectConversation(loadedConvs[0].id, false);
+			}
+		}
+	});
+
+	afterNavigate(({ to }) => {
+		if (!isSignedIn) return;
+		const requestedConvId = to?.url.searchParams.get('c');
+		if (
+			requestedConvId &&
+			conversations.some((c) => c.id === requestedConvId) &&
+			activeConvId !== requestedConvId
+		) {
+			void selectConversation(requestedConvId, false);
+		}
+	});
+
+	$effect(() => {
+		const userId = data.currentUserId;
+		const token = data.session?.access_token ?? null;
+		const supabase = data.supabase;
+		if (!isSignedIn || !userId || !token || !supabase) return;
+
+		let cancelled = false;
+		const notifChannel = supabase
+			.channel(`messages-inbox-notifs:${userId}`)
+			.on(
+				'postgres_changes',
+				{
+					event: 'INSERT',
+					schema: 'public',
+					table: 'notifications',
+					filter: `user_id=eq.${userId}`
+				},
+				(payload: { new?: { type?: string; link?: string } }) => {
+					if (cancelled) return;
+					if (payload.new?.type !== 'direct_message') return;
+
+					void fetchConversations(userId, token).then((latest) => {
+						if (cancelled) return;
+						const currentActive = untrack(() => activeConvId);
+						conversations = latest.map((conv) =>
+							currentActive && conv.id === currentActive
+								? { ...conv, unread_count: 0 }
+								: conv
+						);
+					});
+				}
+			)
+			.subscribe();
+
+		return () => {
+			cancelled = true;
+			supabase.removeChannel(notifChannel);
+		};
 	});
 
 	$effect(() => {
@@ -176,11 +252,15 @@
 		}
 	}
 
-	async function selectConversation(convId: string) {
+	async function selectConversation(convId: string, syncUrl = true) {
 		if (!isSignedIn) return;
 		activeConvId = convId;
 		isLoadingMessages = true;
 		errorBanner = null;
+
+		if (syncUrl && typeof window !== 'undefined' && page.url.searchParams.get('c') !== convId) {
+			replaceState(`/messages?c=${encodeURIComponent(convId)}`, page.state);
+		}
 
 		if (realtimeChannel) {
 			data.supabase.removeChannel(realtimeChannel);
@@ -331,7 +411,7 @@
 				if (!conversations.some((c) => c.id === conv.id)) {
 					conversations = [conv, ...conversations];
 				}
-				await selectConversation(conv.id);
+				await selectConversation(conv.id, true);
 			}
 		} catch (err) {
 			modalError =

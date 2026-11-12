@@ -16,6 +16,10 @@ function formatBenchmark(res: AnalyticsResponse | null): string {
 	return val.toFixed(2);
 }
 
+function formatSamples(res: AnalyticsResponse | null): number {
+	return res?.series?.[0]?.matches_played ?? 0;
+}
+
 export const load: PageLoad = async () => {
 	const [summary, insights, posts, syncStatus, homeWinRes, cleanSheetRes, goalsPerMatchRes] =
 		await Promise.all([
@@ -35,8 +39,11 @@ export const load: PageLoad = async () => {
 		syncStatus,
 		benchmarks: {
 			homeWinRate: formatBenchmark(homeWinRes),
+			homeWinSamples: formatSamples(homeWinRes),
 			cleanSheetRate: formatBenchmark(cleanSheetRes),
-			goalsPerMatch: formatBenchmark(goalsPerMatchRes)
+			cleanSheetSamples: formatSamples(cleanSheetRes),
+			goalsPerMatch: formatBenchmark(goalsPerMatchRes),
+			goalsPerMatchSamples: formatSamples(goalsPerMatchRes)
 		}
 	};
 };

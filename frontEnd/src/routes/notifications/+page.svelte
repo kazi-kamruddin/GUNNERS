@@ -1,5 +1,11 @@
 <script lang="ts">
-	import { ApiError, markNotificationRead, markAllNotificationsRead } from '$lib/api/football';
+	import {
+		ApiError,
+		fetchNotifications,
+		fetchUnreadNotificationsCount,
+		markNotificationRead,
+		markAllNotificationsRead
+	} from '$lib/api/football';
 	import type { Notification } from '$lib/types/football';
 	import type { PageProps } from './$types';
 
@@ -8,16 +14,53 @@
 	let notifications = $state<Notification[]>([]);
 	let unreadCount = $state(0);
 	let errorBanner = $state<string | null>(null);
-	let isInitialized = false;
 	let markAllLabel = $derived(`Mark all read (${unreadCount})`);
 	let isSignedIn = $derived(Boolean(data.user && data.session?.access_token && data.currentUserId));
 
 	$effect(() => {
-		if (!isInitialized && data.notifications) {
-			notifications = data.notifications;
-			unreadCount = data.unreadCount;
-			isInitialized = true;
+		if (!isSignedIn) {
+			notifications = [];
+			unreadCount = 0;
+			return;
 		}
+		notifications = data.notifications ? data.notifications.map((n) => ({ ...n })) : [];
+		unreadCount = data.unreadCount ?? 0;
+	});
+
+	$effect(() => {
+		const userId = data.currentUserId;
+		const token = data.session?.access_token ?? null;
+		const supabase = data.supabase;
+		if (!isSignedIn || !userId || !token || !supabase) return;
+
+		let cancelled = false;
+		const channel = supabase
+			.channel(`notifications-page:${userId}`)
+			.on(
+				'postgres_changes',
+				{
+					event: 'INSERT',
+					schema: 'public',
+					table: 'notifications',
+					filter: `user_id=eq.${userId}`
+				},
+				() => {
+					void Promise.all([
+						fetchNotifications(userId, token),
+						fetchUnreadNotificationsCount(userId, token)
+					]).then(([items, count]) => {
+						if (cancelled) return;
+						notifications = items;
+						unreadCount = count;
+					});
+				}
+			)
+			.subscribe();
+
+		return () => {
+			cancelled = true;
+			supabase.removeChannel(channel);
+		};
 	});
 
 	async function handleMarkRead(notif: Notification) {
@@ -27,14 +70,17 @@
 		notif.is_read = true;
 		const nextUnread = Math.max(0, unreadCount - 1);
 		unreadCount = nextUnread;
+		window.dispatchEvent(
+			new CustomEvent('gunners:notifications-updated', { detail: { unreadCount: nextUnread } })
+		);
 		try {
 			await markNotificationRead(notif.id, data.session?.access_token);
-			window.dispatchEvent(
-				new CustomEvent('gunners:notifications-updated', { detail: { unreadCount: nextUnread } })
-			);
 		} catch (err) {
 			notif.is_read = false;
 			unreadCount = prevUnread;
+			window.dispatchEvent(
+				new CustomEvent('gunners:notifications-updated', { detail: { unreadCount: prevUnread } })
+			);
 			errorBanner =
 				err instanceof ApiError
 					? err.detail
@@ -51,16 +97,19 @@
 			n.is_read = true;
 		}
 		unreadCount = 0;
+		window.dispatchEvent(
+			new CustomEvent('gunners:notifications-updated', { detail: { unreadCount: 0 } })
+		);
 		try {
 			await markAllNotificationsRead(data.currentUserId, data.session?.access_token);
-			window.dispatchEvent(
-				new CustomEvent('gunners:notifications-updated', { detail: { unreadCount: 0 } })
-			);
 		} catch (err) {
 			notifications.forEach((n, idx) => {
 				n.is_read = prevStates[idx];
 			});
 			unreadCount = prevUnread;
+			window.dispatchEvent(
+				new CustomEvent('gunners:notifications-updated', { detail: { unreadCount: prevUnread } })
+			);
 			errorBanner =
 				err instanceof ApiError
 					? err.detail
@@ -149,16 +198,21 @@
 			<p>You will receive alerts when supporters cheer your insights or reply to your debates.</p>
 		</div>
 	{:else}
-		<div class="divide-y divide-rule border-y border-rule">
-			{#each notifications as notif}
-				<a
-					href={notif.link}
-					onclick={() => handleMarkRead(notif)}
-					class="py-4 px-3 flex items-start justify-between gap-4 transition-colors block {notif.is_read ? 'hover:bg-paper-2' : 'bg-paper-2 border-l-2 border-accent-2'}"
+		<ul aria-label="Activity notifications" class="divide-y divide-rule border-y border-rule">
+			{#each notifications as notif (notif.id)}
+				<li
+					class="flex items-start justify-between gap-4 py-4 px-3 transition-colors {notif.is_read ? 'hover:bg-paper-2' : 'bg-paper-2 border-l-2 border-accent-2'}"
 				>
-					<div class="space-y-1 min-w-0">
-						<div class="flex items-center gap-2.5 text-xs">
+					<a
+						href={notif.link}
+						onclick={() => handleMarkRead(notif)}
+						class="flex-1 min-w-0 space-y-1 rounded-card"
+					>
+						<div class="flex items-center gap-2.5 text-xs flex-wrap">
 							<span class="font-semibold text-accent-2">{getNotificationLabel(notif.type)}</span>
+							{#if !notif.is_read}
+								<span class="text-xs font-bold text-ink">Unread</span>
+							{/if}
 							<h2 class="text-sm font-bold text-ink truncate">
 								{notif.title}
 							</h2>
@@ -166,12 +220,24 @@
 						<p class="text-xs text-ink-2 leading-relaxed">
 							{notif.message}
 						</p>
+					</a>
+					<div class="flex flex-col items-end gap-2 shrink-0">
+						<span class="text-xs text-muted num font-outlier">
+							{formatTimestamp(notif.created_at)}
+						</span>
+						{#if !notif.is_read}
+							<button
+								type="button"
+								onclick={() => handleMarkRead(notif)}
+								aria-label="Mark notification '{notif.title}' as read"
+								class="h-7 px-2.5 rounded-card border border-rule bg-paper hover:bg-paper-3 text-ink-2 hover:text-ink text-xs font-semibold transition-colors"
+							>
+								Mark read
+							</button>
+						{/if}
 					</div>
-					<span class="text-xs text-muted num font-outlier shrink-0">
-						{formatTimestamp(notif.created_at)}
-					</span>
-				</a>
+				</li>
 			{/each}
-		</div>
+		</ul>
 	{/if}
 </div>

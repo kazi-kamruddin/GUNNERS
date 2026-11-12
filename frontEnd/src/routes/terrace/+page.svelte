@@ -2,19 +2,25 @@
 	import {
 		ApiError,
 		fetchPosts,
+		fetchTrendingTags,
 		createPost,
 		toggleReaction,
 		fetchComments,
 		createComment
 	} from '$lib/api/football';
-	import { deleteTerracePost, deleteTerraceComment } from '$lib/api/community';
+	import {
+		deleteTerracePost,
+		deleteTerraceComment,
+		updateTerracePost,
+		updateTerraceComment
+	} from '$lib/api/community';
 	import TacticalBoardComponent from '$lib/components/TacticalBoard.svelte';
 	import type { Post, PostComment, Insight, TopicTag, TacticalBoard } from '$lib/types/football';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
-	let selectedTab = $state<'all' | 'tactics' | 'matchday' | 'squad'>('all');
+	let selectedTab = $state<'all' | 'insights' | 'tactics' | 'photos'>('all');
 	let posts = $state<Post[]>([]);
 	let availableInsights = $state<Insight[]>([]);
 	let availableTacticalBoards = $state<TacticalBoard[]>([]);
@@ -35,6 +41,17 @@
 	let deletingPostId = $state<string | null>(null);
 	let confirmDeleteCommentId = $state<string | null>(null);
 	let deletingCommentId = $state<string | null>(null);
+
+	let editingPostId = $state<string | null>(null);
+	let editPostContent = $state('');
+	let editPostImageUrl = $state('');
+	let savingPostId = $state<string | null>(null);
+	let editPostError = $state<string | null>(null);
+
+	let editingCommentId = $state<string | null>(null);
+	let editCommentContent = $state('');
+	let savingCommentId = $state<string | null>(null);
+	let editCommentError = $state<string | null>(null);
 
 	let showAuthModal = $state(false);
 	let authModalReason = $state<'post' | 'comment' | 'react'>('post');
@@ -101,21 +118,16 @@
 		}
 	}
 
-	async function selectCategory(tab: 'all' | 'tactics' | 'matchday' | 'squad') {
-		selectedTab = tab;
-		if (tab === 'tactics') {
-			selectedTag = 'Tactics';
-			await reloadFeed(undefined, 'Tactics');
-		} else if (tab === 'matchday') {
-			selectedTag = 'NorthLondonDerby';
-			await reloadFeed(undefined, 'NorthLondonDerby');
-		} else if (tab === 'squad') {
-			selectedTag = 'Arsenal';
-			await reloadFeed(undefined, 'Arsenal');
-		} else {
-			selectedTag = '';
-			await reloadFeed('', '');
+	async function refreshTrendingTags() {
+		try {
+			trendingTags = await fetchTrendingTags();
+		} catch {
+			// Keep existing tags if tag refresh fails
 		}
+	}
+
+	function selectCategory(tab: 'all' | 'insights' | 'tactics' | 'photos') {
+		selectedTab = tab;
 	}
 
 	async function handleSearch() {
@@ -124,7 +136,7 @@
 
 	async function handleTagClick(tag: string) {
 		const clean = tag.replace(/^#+/, '');
-		if (selectedTag === clean) {
+		if (selectedTag.toLowerCase() === clean.toLowerCase()) {
 			selectedTag = '';
 		} else {
 			selectedTag = clean;
@@ -180,6 +192,7 @@
 				showImageInput = false;
 				selectedInsightId = '';
 				selectedTacticalBoardId = '';
+				await refreshTrendingTags();
 			}
 		} catch (err) {
 			const isAuth = err instanceof ApiError && err.status === 401;
@@ -270,6 +283,10 @@
 			await deleteTerracePost(postId, data.session?.access_token);
 			posts = posts.filter((p) => p.id !== postId);
 			confirmDeletePostId = null;
+			if (editingPostId === postId) {
+				editingPostId = null;
+			}
+			await refreshTrendingTags();
 		} catch (err) {
 			errorBanner = {
 				message:
@@ -280,6 +297,112 @@
 			};
 		} finally {
 			deletingPostId = null;
+		}
+	}
+
+	function startEditPost(post: Post) {
+		confirmDeletePostId = null;
+		editingPostId = post.id;
+		editPostContent = post.content;
+		editPostImageUrl = post.image_url || '';
+		editPostError = null;
+	}
+
+	function cancelEditPost() {
+		editingPostId = null;
+		editPostContent = '';
+		editPostImageUrl = '';
+		editPostError = null;
+	}
+
+	async function handleSavePostEdit(post: Post) {
+		if (!requireAuth('post')) return;
+		const trimmed = editPostContent.trim();
+		if (!trimmed) {
+			editPostError = 'Post content cannot be empty.';
+			return;
+		}
+		savingPostId = post.id;
+		editPostError = null;
+		try {
+			const updated = await updateTerracePost(
+				post.id,
+				{
+					content: trimmed,
+					image_url: editPostImageUrl.trim() || null
+				},
+				data.session?.access_token
+			);
+			posts = posts.map((p) => (p.id === post.id ? updated : p));
+			editingPostId = null;
+			editPostContent = '';
+			editPostImageUrl = '';
+			await refreshTrendingTags();
+		} catch (err) {
+			if (err instanceof ApiError && err.status === 401) {
+				errorBanner = {
+					message: 'Please sign in to edit posts on The Terrace.',
+					isAuth: true
+				};
+			} else {
+				editPostError =
+					err instanceof ApiError
+						? err.detail
+						: 'Could not save post changes. Please try again.';
+			}
+		} finally {
+			savingPostId = null;
+		}
+	}
+
+	function startEditComment(comment: PostComment) {
+		confirmDeleteCommentId = null;
+		editingCommentId = comment.id;
+		editCommentContent = comment.content;
+		editCommentError = null;
+	}
+
+	function cancelEditComment() {
+		editingCommentId = null;
+		editCommentContent = '';
+		editCommentError = null;
+	}
+
+	async function handleSaveCommentEdit(postId: string, comment: PostComment) {
+		if (!requireAuth('comment')) return;
+		const trimmed = editCommentContent.trim();
+		if (!trimmed) {
+			editCommentError = 'Reply content cannot be empty.';
+			return;
+		}
+		savingCommentId = comment.id;
+		editCommentError = null;
+		try {
+			const updated = await updateTerraceComment(
+				postId,
+				comment.id,
+				trimmed,
+				data.session?.access_token
+			);
+			postComments[postId] = (postComments[postId] || []).map((c) =>
+				c.id === comment.id ? updated : c
+			);
+			editingCommentId = null;
+			editCommentContent = '';
+		} catch (err) {
+			if (err instanceof ApiError && err.status === 401) {
+				errorBanner = {
+					message: 'Please sign in to edit replies on The Terrace.',
+					isAuth: true
+				};
+			} else {
+				editCommentError =
+					err instanceof ApiError
+						? err.detail
+						: 'Could not save reply changes. Please try again.';
+			}
+		} finally {
+			savingCommentId = null;
 		}
 	}
 
@@ -395,6 +518,48 @@
 		selectedTacticalBoardId ? availableTacticalBoards.find((b) => b.id === selectedTacticalBoardId) : null
 	);
 
+	let visiblePosts = $derived.by(() => {
+		if (selectedTab === 'insights') {
+			return posts.filter((p) => Boolean(p.insight_id || p.insight));
+		}
+		if (selectedTab === 'tactics') {
+			return posts.filter((p) => Boolean(p.tactical_board_id || p.tactical_board));
+		}
+		if (selectedTab === 'photos') {
+			return posts.filter((p) => Boolean(p.image_url));
+		}
+		return posts;
+	});
+
+	type TextSegment = { text: string; tag?: string };
+
+	function parsePostSegments(content: string): TextSegment[] {
+		const segments: TextSegment[] = [];
+		const regex = /#[A-Za-z0-9_]+/g;
+		let lastIndex = 0;
+		let match: RegExpExecArray | null;
+		while ((match = regex.exec(content)) !== null) {
+			if (match.index > lastIndex) {
+				segments.push({ text: content.slice(lastIndex, match.index) });
+			}
+			const full = match[0];
+			segments.push({ text: full, tag: full.slice(1) });
+			lastIndex = regex.lastIndex;
+		}
+		if (lastIndex < content.length) {
+			segments.push({ text: content.slice(lastIndex) });
+		}
+		return segments;
+	}
+
+	function isPostEdited(post: Post): boolean {
+		if (!post.updated_at) return false;
+		const createdMs = new Date(post.created_at).getTime();
+		const updatedMs = new Date(post.updated_at).getTime();
+		if (Number.isNaN(createdMs) || Number.isNaN(updatedMs)) return false;
+		return updatedMs - createdMs > 2000;
+	}
+
 	function formatTimestamp(isoStr: string): string {
 		try {
 			const d = new Date(isoStr);
@@ -486,48 +651,54 @@
 			{/if}
 		</div>
 
-		<!-- Channel Navigation Tabs -->
+		<!-- Structural Feed Filter Tabs -->
 		<div class="flex items-center gap-2 border-y border-rule py-3 flex-wrap">
 			<button
 				type="button"
+				aria-pressed={selectedTab === 'all'}
 				onclick={() => selectCategory('all')}
-				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'all' && !selectedTag ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
+				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'all' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
 			>
 				All Terrace
 			</button>
 			<button
 				type="button"
+				aria-pressed={selectedTab === 'insights'}
+				onclick={() => selectCategory('insights')}
+				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'insights' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
+			>
+				With insights
+			</button>
+			<button
+				type="button"
+				aria-pressed={selectedTab === 'tactics'}
 				onclick={() => selectCategory('tactics')}
 				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'tactics' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
 			>
-				Tactical debriefs
+				With tactics
 			</button>
 			<button
 				type="button"
-				onclick={() => selectCategory('matchday')}
-				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'matchday' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
+				aria-pressed={selectedTab === 'photos'}
+				onclick={() => selectCategory('photos')}
+				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'photos' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
 			>
-				Matchday & derby
-			</button>
-			<button
-				type="button"
-				onclick={() => selectCategory('squad')}
-				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'squad' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
-			>
-				Squad & transfers
+				With photos
 			</button>
 		</div>
 
 		{#if trendingTags && trendingTags.length > 0}
 			<div class="flex items-center gap-2 flex-wrap text-xs">
-				<span class="text-muted font-semibold">Topics:</span>
+				<span class="text-muted font-semibold">Trending topics:</span>
 				{#each trendingTags as t}
 					{@const cleanTag = t.tag.replace(/^#+/, '')}
+					{@const isTagActive = selectedTag.toLowerCase() === cleanTag.toLowerCase()}
 					{@const tagLabel = `#${cleanTag} (${t.count})`}
 					<button
 						type="button"
+						aria-pressed={isTagActive}
 						onclick={() => handleTagClick(cleanTag)}
-						class="h-7 px-2.5 rounded-card text-xs transition-colors border {selectedTag === cleanTag ? 'bg-paper-3 text-accent border-rule-2 font-semibold' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
+						class="h-7 px-2.5 rounded-card text-xs transition-colors border {isTagActive ? 'bg-paper-3 text-accent border-rule-2 font-semibold' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 					>
 						{tagLabel}
 					</button>
@@ -732,17 +903,18 @@
 		<div class="py-12 text-muted text-sm">
 			Loading Terrace discussions…
 		</div>
-	{:else if posts.length === 0}
-		<div class="py-12 border-t border-rule space-y-1">
-			<p class="text-sm text-ink font-bold">No discussions found in this channel.</p>
-			<p class="text-xs text-muted">Be the first Gooner to share your thoughts above.</p>
+	{:else if visiblePosts.length === 0}
+		<div class="py-12 border-t border-rule space-y-2">
+			<p class="text-sm text-ink font-bold">No discussions match the active filters.</p>
+			<p class="text-xs text-muted">Be the first Gooner to share your thoughts above, or reset your active filters.</p>
 		</div>
 	{:else}
 		<div class="divide-y divide-rule border-t border-rule">
-			{#each posts as post}
+			{#each visiblePosts as post}
 				{@const debateBtnLabel = `Debates (${post.comments_count})`}
 				{@const cheerBtnLabel = `Cheer (${post.reactions_count})`}
 				{@const isPostOwner = Boolean(data.user?.id && post.author_id === data.user.id)}
+				{@const edited = isPostEdited(post)}
 				<article id="post-{post.id}" class="py-8 space-y-4">
 					<!-- Post Author & Meta -->
 					<div class="flex items-center justify-between text-xs gap-3 flex-wrap">
@@ -764,6 +936,9 @@
 						</div>
 						<div class="flex items-center gap-3">
 							<span class="text-muted num font-outlier">{formatTimestamp(post.created_at)}</span>
+							{#if edited}
+								<span class="text-muted">(edited)</span>
+							{/if}
 							{#if isPostOwner}
 								{#if confirmDeletePostId === post.id}
 									{@const confirmPostBtn = deletingPostId === post.id ? 'Deleting…' : 'Confirm delete'}
@@ -785,7 +960,15 @@
 											Cancel
 										</button>
 									</div>
-								{:else}
+								{:else if editingPostId !== post.id}
+									<button
+										type="button"
+										onclick={() => startEditPost(post)}
+										aria-label="Edit post by {post.author_name}"
+										class="text-muted hover:text-ink font-semibold transition-colors"
+									>
+										Edit
+									</button>
 									<button
 										type="button"
 										onclick={() => (confirmDeletePostId = post.id)}
@@ -799,10 +982,65 @@
 						</div>
 					</div>
 
-					<!-- Post Content -->
-					<p class="text-sm text-ink leading-relaxed whitespace-pre-line">
-						{post.content}
-					</p>
+					<!-- Post Content or Inline Editor -->
+					{#if editingPostId === post.id}
+						{@const savePostLabel = savingPostId === post.id ? 'Saving…' : 'Save'}
+						<div class="space-y-3 border-l-2 border-accent-2 pl-4 py-2">
+							<label for="edit-post-{post.id}" class="block text-xs font-semibold text-ink-2">
+								Edit post
+							</label>
+							<textarea
+								id="edit-post-{post.id}"
+								aria-label="Edit post content"
+								bind:value={editPostContent}
+								rows="3"
+								disabled={savingPostId === post.id}
+								class="w-full bg-paper-2 border border-rule rounded-card p-3 text-xs text-ink placeholder-muted resize-y"
+							></textarea>
+							<div class="space-y-1">
+								<label for="edit-post-img-{post.id}" class="block text-xs font-semibold text-ink-2">
+									Image URL (optional)
+								</label>
+								<input
+									id="edit-post-img-{post.id}"
+									type="url"
+									bind:value={editPostImageUrl}
+									disabled={savingPostId === post.id}
+									placeholder="https://…"
+									class="w-full h-9 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
+								/>
+							</div>
+							{#if editPostError}
+								<p role="alert" class="text-xs text-error font-semibold">{editPostError}</p>
+							{/if}
+							<div class="flex items-center justify-end gap-2">
+								<button
+									type="button"
+									onclick={cancelEditPost}
+									disabled={savingPostId === post.id}
+									class="h-8 px-3 rounded-card border border-rule bg-paper-2 text-ink-2 hover:text-ink text-xs font-semibold disabled:opacity-50"
+								>
+									Cancel
+								</button>
+								<button
+									type="button"
+									onclick={() => handleSavePostEdit(post)}
+									disabled={savingPostId === post.id || !editPostContent.trim()}
+									class="h-8 px-3.5 rounded-card bg-accent hover:opacity-95 text-accent-ink text-xs font-semibold disabled:opacity-50"
+								>
+									{savePostLabel}
+								</button>
+							</div>
+						</div>
+					{:else}
+						<p class="text-sm text-ink leading-relaxed whitespace-pre-line">
+							{#each parsePostSegments(post.content) as seg}{#if seg.tag}<button
+									type="button"
+									onclick={() => handleTagClick(seg.tag!)}
+									class="font-semibold underline decoration-rule-2 underline-offset-2 transition-colors {selectedTag.toLowerCase() === seg.tag.toLowerCase() ? 'text-accent' : 'text-accent-2 hover:text-accent'}"
+								>{seg.text}</button>{:else}{seg.text}{/if}{/each}
+						</p>
+					{/if}
 
 					<!-- Attached Image -->
 					{#if post.image_url}
@@ -953,7 +1191,15 @@
 																	Cancel
 																</button>
 															</div>
-														{:else}
+														{:else if editingCommentId !== comment.id}
+															<button
+																type="button"
+																onclick={() => startEditComment(comment)}
+																aria-label="Edit comment"
+																class="text-muted hover:text-ink font-semibold transition-colors"
+															>
+																Edit
+															</button>
 															<button
 																type="button"
 																onclick={() => (confirmDeleteCommentId = comment.id)}
@@ -966,7 +1212,41 @@
 													{/if}
 												</div>
 											</div>
-											<p class="text-ink-2 leading-relaxed">{comment.content}</p>
+											{#if editingCommentId === comment.id}
+												{@const saveCommentLabel = savingCommentId === comment.id ? 'Saving…' : 'Save'}
+												<div class="space-y-2 pt-1">
+													<textarea
+														aria-label="Edit comment content"
+														bind:value={editCommentContent}
+														rows="2"
+														disabled={savingCommentId === comment.id}
+														class="w-full bg-paper-2 border border-rule rounded-card p-2 text-xs text-ink resize-y"
+													></textarea>
+													{#if editCommentError}
+														<p role="alert" class="text-xs text-error font-semibold">{editCommentError}</p>
+													{/if}
+													<div class="flex items-center justify-end gap-1.5">
+														<button
+															type="button"
+															onclick={cancelEditComment}
+															disabled={savingCommentId === comment.id}
+															class="h-6 px-2.5 rounded-card border border-rule bg-paper-2 text-ink-2 hover:text-ink font-semibold text-xs disabled:opacity-50"
+														>
+															Cancel
+														</button>
+														<button
+															type="button"
+															onclick={() => handleSaveCommentEdit(post.id, comment)}
+															disabled={savingCommentId === comment.id || !editCommentContent.trim()}
+															class="h-6 px-2.5 rounded-card bg-accent text-accent-ink font-semibold text-xs disabled:opacity-50"
+														>
+															{saveCommentLabel}
+														</button>
+													</div>
+												</div>
+											{:else}
+												<p class="text-ink-2 leading-relaxed">{comment.content}</p>
+											{/if}
 										</div>
 									{/each}
 								</div>
@@ -1084,3 +1364,7 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	/* Hallmark · dropped selectCategory('matchday'), selectCategory('squad') · replaced hardcoded tag category tabs with structural feed filter tabs and dynamic DB trending tags */
+</style>

@@ -17,7 +17,7 @@ from app.schemas.predictions import (
     PredictionHistoryItem,
 )
 from app.schemas.analytics import MatchResponse
-from app.services.notifications import create_notification
+from app.services.predictor_grading import _outcome_sign, grade_match_predictions
 
 router = APIRouter()
 
@@ -26,14 +26,6 @@ def _to_utc(dt: datetime.datetime) -> datetime.datetime:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=datetime.timezone.utc)
     return dt.astimezone(datetime.timezone.utc)
-
-
-def _outcome_sign(home: int, away: int) -> int:
-    if home > away:
-        return 1
-    if home < away:
-        return -1
-    return 0
 
 
 def _grade_prediction(pred: Prediction, match: Optional[Match]) -> tuple[int, bool, bool, bool]:
@@ -196,6 +188,10 @@ async def submit_prediction(
 @router.get("/leaderboard", response_model=List[LeaderboardEntry])
 async def get_supporter_leaderboard(
     club_id: Optional[str] = Query(None, description="Filter leaderboard by club"),
+    season_id: Optional[str] = Query(
+        None,
+        description="Season filter (all, campaign YYYY-YYYY, or exact season_id)",
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     """Get supporter prediction rankings and points computed strictly from DB records."""
@@ -206,6 +202,13 @@ async def get_supporter_leaderboard(
     )
     if club_id:
         stmt = stmt.where(Prediction.user_club_id == club_id)
+    if season_id:
+        cleaned_season = season_id.strip()
+        if cleaned_season and cleaned_season.lower() != "all":
+            if len(cleaned_season.split("-")) == 2:
+                stmt = stmt.where(Match.season_id.like(f"{cleaned_season}-%"))
+            else:
+                stmt = stmt.where(Match.season_id == cleaned_season)
 
     rows = (await db.execute(stmt)).all()
     if not rows:
@@ -267,63 +270,6 @@ async def get_supporter_leaderboard(
             )
         )
     return result
-
-
-async def grade_match_predictions(db: AsyncSession, match: Match) -> int:
-    """Grade all ungraded predictions for a finished match and emit notifications."""
-    if match.status != "FINISHED" or match.home_score is None or match.away_score is None:
-        return 0
-
-    stmt = select(Prediction).where(
-        and_(
-            Prediction.match_id == match.id,
-            Prediction.points_awarded.is_(None),
-        )
-    )
-    predictions = (await db.execute(stmt)).scalars().all()
-    if not predictions:
-        return 0
-
-    home_label = (
-        match.home_team_name
-        if match.home_team_name and match.home_team_name != "Home Team"
-        else match.home_team_id
-    )
-    away_label = (
-        match.away_team_name
-        if match.away_team_name and match.away_team_name != "Away Team"
-        else match.away_team_id
-    )
-
-    for pred in predictions:
-        if (
-            pred.predicted_home_score == match.home_score
-            and pred.predicted_away_score == match.away_score
-        ):
-            pts = 3
-        elif _outcome_sign(pred.predicted_home_score, pred.predicted_away_score) == _outcome_sign(
-            match.home_score, match.away_score
-        ):
-            pts = 1
-        else:
-            pts = 0
-
-        pred.points_awarded = pts
-        pt_word = "pt" if pts == 1 else "pts"
-        await create_notification(
-            db,
-            user_id=pred.user_id,
-            notif_type="prediction_result",
-            title="Prediction Graded",
-            message=(
-                f"{home_label} {match.home_score}-{match.away_score} {away_label}: "
-                f"you earned {pts} {pt_word} "
-                f"(predicted {pred.predicted_home_score}-{pred.predicted_away_score})."
-            ),
-            link="/predictions",
-        )
-
-    return len(predictions)
 
 
 @router.post("/grade/{match_id}", response_model=PredictionGradeResponse)

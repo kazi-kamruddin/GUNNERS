@@ -5,7 +5,47 @@ import {
 	throwApiError,
 	toNetworkApiError
 } from '$lib/api/football';
-import type { PredictionHistoryItem, SupporterSummary } from '$lib/types/football';
+import type { Post, PostComment, PredictionHistoryItem, SupporterSummary } from '$lib/types/football';
+
+export async function updateTerracePost(
+	postId: string,
+	payload: { content: string; image_url?: string | null },
+	accessToken?: string | null
+): Promise<Post> {
+	try {
+		const res = await fetch(`${API_BASE}/terrace/posts/${encodeURIComponent(postId)}`, {
+			method: 'PATCH',
+			headers: buildHeaders(accessToken, { 'Content-Type': 'application/json' }),
+			body: JSON.stringify(payload)
+		});
+		if (!res.ok) await throwApiError(res, 'Failed to update post');
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach server while updating post');
+	}
+}
+
+export async function updateTerraceComment(
+	postId: string,
+	commentId: string,
+	content: string,
+	accessToken?: string | null
+): Promise<PostComment> {
+	try {
+		const res = await fetch(
+			`${API_BASE}/terrace/posts/${encodeURIComponent(postId)}/comments/${encodeURIComponent(commentId)}`,
+			{
+				method: 'PATCH',
+				headers: buildHeaders(accessToken, { 'Content-Type': 'application/json' }),
+				body: JSON.stringify({ content })
+			}
+		);
+		if (!res.ok) await throwApiError(res, 'Failed to update comment');
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach server while updating comment');
+	}
+}
 
 export async function deleteTerracePost(
 	postId: string,

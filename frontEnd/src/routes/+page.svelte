@@ -1,18 +1,9 @@
 <script lang="ts">
-	import type { MatchSummary } from '$lib/types/football';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
-	let summary = $state<MatchSummary | null>(null);
-	let isInitialized = false;
-
-	$effect(() => {
-		if (!isInitialized && data.summary) {
-			summary = data.summary;
-			isInitialized = true;
-		}
-	});
+	let summary = $derived(data.summary);
 
 	function formatDate(utcString?: string): string {
 		if (!utcString) return 'TBD';
@@ -78,39 +69,68 @@
 			</div>
 
 			<!-- Next Fixture Row -->
-			<div class="space-y-2 border-b border-rule pb-5">
-				<div class="flex items-center justify-between text-xs text-muted">
-					<span>Next fixture ({summary?.next_fixture?.competition_name || 'Premier League'})</span>
-					<time class="num">{summary?.next_fixture ? formatDate(summary.next_fixture.utc_date) : 'Scheduled'}</time>
-				</div>
+			<div class="border-b border-rule pb-5">
 				{#if summary?.next_fixture}
-					<div class="flex items-baseline justify-between gap-4 pt-1">
-						<span class="font-semibold text-ink text-base truncate">{summary.next_fixture.home_team_name}</span>
-						<span class="text-xs text-muted shrink-0">vs</span>
-						<span class="font-semibold text-ink text-base truncate text-right">{summary.next_fixture.away_team_name}</span>
-					</div>
-					<p class="text-xs text-muted">{summary.next_fixture.venue || 'Emirates Stadium'}</p>
+					<a
+						href="/matches/{encodeURIComponent(summary.next_fixture.id)}"
+						class="group block space-y-2 rounded-card hover:bg-paper-3 p-2 -m-2 transition-colors"
+					>
+						<div class="flex items-center justify-between text-xs text-muted">
+							<span>Next fixture ({summary.next_fixture.competition_name || 'Premier League'})</span>
+							<time class="num">{formatDate(summary.next_fixture.utc_date)}</time>
+						</div>
+						<div class="flex items-baseline justify-between gap-4 pt-1">
+							<span class="font-semibold text-ink group-hover:text-accent transition-colors text-base truncate">{summary.next_fixture.home_team_name}</span>
+							<span class="text-xs text-muted shrink-0">vs</span>
+							<span class="font-semibold text-ink group-hover:text-accent transition-colors text-base truncate text-right">{summary.next_fixture.away_team_name}</span>
+						</div>
+						<div class="flex items-center justify-between text-xs text-muted">
+							<span>{summary.next_fixture.venue || 'Emirates Stadium'}</span>
+							<span class="text-accent font-semibold group-hover:underline">Match center</span>
+						</div>
+					</a>
 				{:else}
-					<p class="text-sm text-muted py-2">No upcoming matches scheduled.</p>
+					<div class="space-y-2">
+						<div class="flex items-center justify-between text-xs text-muted">
+							<span>Next fixture (Premier League)</span>
+							<span>Scheduled</span>
+						</div>
+						<p class="text-sm text-muted py-2">No upcoming matches scheduled.</p>
+					</div>
 				{/if}
 			</div>
 
 			<!-- Latest Result Row -->
-			<div class="space-y-2">
-				<div class="flex items-center justify-between text-xs text-muted">
-					<span>Latest result ({summary?.last_result?.competition_name || 'Premier League'})</span>
-					<time class="num">{summary?.last_result ? formatDate(summary.last_result.utc_date) : ''}</time>
-				</div>
+			<div>
 				{#if summary?.last_result}
-					<div class="flex items-baseline justify-between gap-4 pt-1">
-						<span class="font-semibold text-ink text-base truncate">{summary.last_result.home_team_name}</span>
-						<span class="num font-outlier font-semibold text-xl text-ink px-2 py-0.5 bg-paper-3 rounded-card shrink-0">
-							{summary.last_result.home_score ?? 0} : {summary.last_result.away_score ?? 0}
-						</span>
-						<span class="font-semibold text-ink text-base truncate text-right">{summary.last_result.away_team_name}</span>
-					</div>
+					<a
+						href="/matches/{encodeURIComponent(summary.last_result.id)}"
+						class="group block space-y-2 rounded-card hover:bg-paper-3 p-2 -m-2 transition-colors"
+					>
+						<div class="flex items-center justify-between text-xs text-muted">
+							<span>Latest result ({summary.last_result.competition_name || 'Premier League'})</span>
+							<time class="num">{formatDate(summary.last_result.utc_date)}</time>
+						</div>
+						<div class="flex items-baseline justify-between gap-4 pt-1">
+							<span class="font-semibold text-ink group-hover:text-accent transition-colors text-base truncate">{summary.last_result.home_team_name}</span>
+							<span class="num font-outlier font-semibold text-xl text-ink shrink-0">
+								{summary.last_result.home_score ?? 0} : {summary.last_result.away_score ?? 0}
+							</span>
+							<span class="font-semibold text-ink group-hover:text-accent transition-colors text-base truncate text-right">{summary.last_result.away_team_name}</span>
+						</div>
+						<div class="flex items-center justify-between text-xs text-muted">
+							<span>{summary.last_result.venue || 'Emirates Stadium'}</span>
+							<span class="text-accent font-semibold group-hover:underline">Match center</span>
+						</div>
+					</a>
 				{:else}
-					<p class="text-sm text-muted py-2">No completed results recorded.</p>
+					<div class="space-y-2">
+						<div class="flex items-center justify-between text-xs text-muted">
+							<span>Latest result (Premier League)</span>
+							<span></span>
+						</div>
+						<p class="text-sm text-muted py-2">No completed results recorded.</p>
+					</div>
 				{/if}
 			</div>
 
@@ -220,7 +240,11 @@
 			>
 				<div class="num font-display font-bold text-3xl text-ink group-hover:text-accent transition-colors">{data.benchmarks.homeWinRate}</div>
 				<div class="text-sm font-semibold text-ink-2">Emirates home win rate</div>
-				<p class="text-xs text-muted">Inspect home dominance query in Data Lab</p>
+				<p class="text-xs text-muted num">
+					{data.benchmarks.homeWinSamples > 0
+						? `Across ${data.benchmarks.homeWinSamples} completed home matches`
+						: 'Inspect home dominance query in Data Lab'}
+				</p>
 			</a>
 
 			<a
@@ -229,7 +253,11 @@
 			>
 				<div class="num font-display font-bold text-3xl text-ink group-hover:text-accent transition-colors">{data.benchmarks.cleanSheetRate}</div>
 				<div class="text-sm font-semibold text-ink-2">Clean sheet rate</div>
-				<p class="text-xs text-muted">Inspect defensive shutout ratio across venues</p>
+				<p class="text-xs text-muted num">
+					{data.benchmarks.cleanSheetSamples > 0
+						? `Across ${data.benchmarks.cleanSheetSamples} completed matches`
+						: 'Inspect defensive shutout ratio across venues'}
+				</p>
 			</a>
 
 			<a
@@ -238,7 +266,11 @@
 			>
 				<div class="num font-display font-bold text-3xl text-ink group-hover:text-accent transition-colors">{data.benchmarks.goalsPerMatch}</div>
 				<div class="text-sm font-semibold text-ink-2">Goals per match</div>
-				<p class="text-xs text-muted">Inspect attacking output per 90 minutes</p>
+				<p class="text-xs text-muted num">
+					{data.benchmarks.goalsPerMatchSamples > 0
+						? `Across ${data.benchmarks.goalsPerMatchSamples} completed matches`
+						: 'Inspect attacking output per 90 minutes'}
+				</p>
 			</a>
 		</div>
 	</section>

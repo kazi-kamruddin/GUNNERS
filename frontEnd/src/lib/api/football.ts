@@ -5,6 +5,8 @@ import type {
 	MatchSummary,
 	SyncStatus,
 	AnalyticsResponse,
+	MultiSeasonTrendsResponse,
+	OpponentH2HResponse,
 	Insight,
 	InsightCreatePayload,
 	Post,
@@ -317,6 +319,42 @@ export async function queryAnalytics(params: {
 	}
 }
 
+export async function fetchMultiSeasonTrends(
+	clubId: string = 'arsenal',
+	venue: string = 'all'
+): Promise<MultiSeasonTrendsResponse | null> {
+	try {
+		const query = new URLSearchParams();
+		if (clubId) query.set('club_id', clubId);
+		if (venue) query.set('venue', venue);
+		const res = await fetch(`${API_BASE}/matches/trends?${query.toString()}`);
+		if (!res.ok) throw new Error(`Failed to fetch multi-season trends: ${res.status}`);
+		return await res.json();
+	} catch (err) {
+		console.warn('Error fetching multi-season trends:', err);
+		return null;
+	}
+}
+
+export async function fetchOpponentH2H(
+	opponentId: string,
+	clubId: string = 'arsenal',
+	venue: string = 'all'
+): Promise<OpponentH2HResponse | null> {
+	try {
+		const query = new URLSearchParams();
+		query.set('opponent_id', opponentId);
+		if (clubId) query.set('club_id', clubId);
+		if (venue) query.set('venue', venue);
+		const res = await fetch(`${API_BASE}/matches/h2h?${query.toString()}`);
+		if (!res.ok) throw new Error(`Failed to fetch opponent H2H: ${res.status}`);
+		return await res.json();
+	} catch (err) {
+		console.warn('Error fetching opponent H2H:', err);
+		return null;
+	}
+}
+
 export async function createInsight(
 	payload: InsightCreatePayload,
 	accessToken?: string | null
@@ -600,11 +638,13 @@ export async function submitPrediction(
 	}
 }
 
-export async function fetchLeaderboard(clubId?: string): Promise<LeaderboardEntry[]> {
+export async function fetchLeaderboard(clubId?: string, seasonId?: string): Promise<LeaderboardEntry[]> {
 	try {
-		const url = clubId
-			? `${API_BASE}/predictions/leaderboard?club_id=${encodeURIComponent(clubId)}`
-			: `${API_BASE}/predictions/leaderboard`;
+		const query = new URLSearchParams();
+		if (clubId) query.set('club_id', clubId);
+		if (seasonId && seasonId !== 'all') query.set('season_id', seasonId);
+		const qs = query.toString();
+		const url = qs ? `${API_BASE}/predictions/leaderboard?${qs}` : `${API_BASE}/predictions/leaderboard`;
 		const res = await fetch(url);
 		if (!res.ok) throw new Error('Failed to fetch leaderboard');
 		return await res.json();

@@ -102,3 +102,61 @@ class AnalyticsResponse(BaseModel):
     series: List[AnalyticsSeriesItem]
     computed_at: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
     disclaimer: str = "Calculated strictly across eligible completed matches."
+
+
+class SeasonTrendItem(BaseModel):
+    season_id: str
+    label: str
+    start_year: int
+    end_year: int
+    matches_played: int
+    wins: int
+    draws: int
+    losses: int
+    clean_sheets: int = 0
+    goals_for: int
+    goals_against: int
+    goal_difference: int
+    win_rate: float
+    points_per_game: float
+    goals_per_match: float
+    clean_sheet_rate: float
+    loss_rate: float
+    arteta_milestone: str
+
+
+class MultiSeasonTrendsResponse(BaseModel):
+    club_id: str
+    club_name: str
+    venue_filter: str
+    trends: List[SeasonTrendItem]
+    computed_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
+    )
+
+
+class OpponentH2HOption(BaseModel):
+    opponent_id: str
+    opponent_name: str
+    matches_played: int
+
+
+class OpponentH2HResponse(BaseModel):
+    club_id: str
+    opponent_id: str
+    opponent_name: str
+    venue_filter: str
+    matches_played: int
+    wins: int
+    draws: int
+    losses: int
+    clean_sheets: int = 0
+    goals_for: int
+    goals_against: int
+    goal_difference: int
+    win_rate: float
+    recent_matches: List[MatchResponse]
+    available_opponents: List[OpponentH2HOption]
+    computed_at: datetime.datetime = Field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
+    )

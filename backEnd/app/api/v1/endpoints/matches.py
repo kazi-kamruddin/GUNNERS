@@ -11,7 +11,9 @@ from app.schemas.analytics import (
     SyncStatusResponse,
     SeasonResponse,
     AnalyticsQueryRequest,
-    AnalyticsResponse
+    AnalyticsResponse,
+    MultiSeasonTrendsResponse,
+    OpponentH2HResponse,
 )
 from app.services.analytics import AnalyticsEngine
 from app.services.arteta_timeline import ArtetaTimelineService
@@ -161,6 +163,30 @@ async def query_analytics(
 ):
     """Run validated, reproducible statistical analysis across eligible completed matches."""
     return await AnalyticsEngine.compute_analytics(db, request)
+
+
+@router.get("/trends", response_model=MultiSeasonTrendsResponse)
+async def get_multi_season_trends(
+    club_id: str = Query("arsenal", description="Club ID"),
+    venue: str = Query("all", pattern="^(all|home|away)$", description="Venue filter: all, home, or away"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve chronological multi-season Arteta-era trends for a club."""
+    return await AnalyticsEngine.compute_multi_season_trends(db, club_id=club_id, venue=venue)
+
+
+@router.get("/h2h", response_model=OpponentH2HResponse)
+async def get_opponent_h2h(
+    club_id: str = Query("arsenal", description="Primary club ID"),
+    opponent_id: str = Query("chelsea", description="Opponent club ID"),
+    venue: str = Query("all", pattern="^(all|home|away)$", description="Venue filter: all, home, or away"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Retrieve head-to-head record and recent matches against a specific opponent."""
+    return await AnalyticsEngine.compute_opponent_h2h(
+        db, club_id=club_id, opponent_id=opponent_id, venue=venue
+    )
+
 
 @router.get("/{match_id}", response_model=MatchResponse)
 async def get_match_detail(

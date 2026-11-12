@@ -18,8 +18,39 @@
 	let notificationMessage = $state<string | null>(null);
 	let errorBanner = $state<{ message: string; isAuth?: boolean } | null>(null);
 	let nowMs = $state(Date.now());
+	let leaderboardMode = $state<'all' | 'seasonal'>('all');
+	let selectedCampaign = $state<string>('');
+	let isLoadingLeaderboard = $state(false);
 
 	let isSignedIn = $derived(Boolean(data.user && data.session?.access_token));
+
+	let campaignOptions = $derived.by(() => {
+		const seen = new Map<string, { value: string; label: string; startYear: number; isCurrent: boolean }>();
+		for (const s of data.seasons || []) {
+			if (!s.start_year || !s.end_year) continue;
+			const value = `${s.start_year}-${s.end_year}`;
+			const existing = seen.get(value);
+			const isCurrent = Boolean(s.is_current || existing?.isCurrent);
+			seen.set(value, {
+				value,
+				label: isCurrent ? `${value} (Current)` : value,
+				startYear: s.start_year,
+				isCurrent
+			});
+		}
+		return Array.from(seen.values()).sort((a, b) => b.startYear - a.startYear);
+	});
+
+	let selectedLeaderboardSeason = $derived(
+		leaderboardMode === 'seasonal' ? selectedCampaign || campaignOptions[0]?.value : undefined
+	);
+
+	$effect(() => {
+		if (campaignOptions.length > 0 && !campaignOptions.some((c) => c.value === selectedCampaign)) {
+			const currentOpt = campaignOptions.find((c) => c.isCurrent) || campaignOptions[0];
+			selectedCampaign = currentOpt.value;
+		}
+	});
 
 	$effect(() => {
 		const intervalId = setInterval(() => {
@@ -120,7 +151,7 @@
 				}
 				notificationMessage = `Score prediction (${scores.home}:${scores.away}) locked in.`;
 				const [nextLeaderboard, nextHistory] = await Promise.all([
-					fetchLeaderboard(),
+					fetchLeaderboard(undefined, selectedLeaderboardSeason),
 					fetchPredictionHistory(data.session?.access_token)
 				]);
 				leaderboard = nextLeaderboard;
@@ -139,6 +170,29 @@
 		} finally {
 			isSubmitting[matchId] = false;
 		}
+	}
+
+	async function refreshLeaderboard(seasonParam?: string) {
+		isLoadingLeaderboard = true;
+		try {
+			leaderboard = await fetchLeaderboard(undefined, seasonParam);
+		} finally {
+			isLoadingLeaderboard = false;
+		}
+	}
+
+	async function setLeaderboardMode(mode: 'all' | 'seasonal') {
+		leaderboardMode = mode;
+		const seasonParam =
+			mode === 'seasonal' ? selectedCampaign || campaignOptions[0]?.value : undefined;
+		await refreshLeaderboard(seasonParam);
+	}
+
+	async function handleCampaignChange() {
+		if (leaderboardMode !== 'seasonal') {
+			leaderboardMode = 'seasonal';
+		}
+		await refreshLeaderboard(selectedCampaign);
 	}
 
 	function formatDate(utcDate: string): string {
@@ -408,13 +462,62 @@
 
 		<!-- Right 4 Cols: Supporter Leaderboard Widget -->
 		<aside class="lg:col-span-4 border-t-2 border-rule-2 pt-5 space-y-5">
-			<div class="border-b border-rule pb-3">
-				<h2 class="text-lg font-bold text-ink">Supporter leaderboard</h2>
-				<p class="text-xs text-muted">Rankings across all matchday predictors</p>
+			<div class="border-b border-rule pb-3 space-y-3">
+				<div>
+					<h2 class="text-lg font-bold text-ink">Supporter leaderboard</h2>
+					<p class="text-xs text-muted">
+						{leaderboardMode === 'all'
+							? 'All-time rankings across all matchday predictors'
+							: `Campaign standings for ${selectedCampaign || 'selected season'}`}
+					</p>
+				</div>
+
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						aria-pressed={leaderboardMode === 'all'}
+						onclick={() => setLeaderboardMode('all')}
+						class="flex-1 h-8 px-3 rounded-card text-xs font-semibold transition-colors border {leaderboardMode === 'all' ? 'bg-accent text-accent-ink border-accent' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
+					>
+						All-time
+					</button>
+					<button
+						type="button"
+						aria-pressed={leaderboardMode === 'seasonal'}
+						onclick={() => setLeaderboardMode('seasonal')}
+						class="flex-1 h-8 px-3 rounded-card text-xs font-semibold transition-colors border {leaderboardMode === 'seasonal' ? 'bg-accent text-accent-ink border-accent' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
+					>
+						Seasonal
+					</button>
+				</div>
+
+				{#if leaderboardMode === 'seasonal' && campaignOptions.length > 0}
+					<div class="space-y-1">
+						<label for="leaderboard-season-select" class="block text-xs font-semibold text-ink-2">
+							Campaign season
+						</label>
+						<select
+							id="leaderboard-season-select"
+							bind:value={selectedCampaign}
+							onchange={handleCampaignChange}
+							class="w-full h-9 bg-paper-2 border border-rule rounded-card px-2.5 text-xs text-ink"
+						>
+							{#each campaignOptions as opt}
+								<option value={opt.value}>{opt.label}</option>
+							{/each}
+						</select>
+					</div>
+				{/if}
 			</div>
 
-			{#if leaderboard.length === 0}
-				<p class="py-6 text-xs text-muted">No supporter predictions scored yet.</p>
+			{#if isLoadingLeaderboard}
+				<p aria-live="polite" class="py-6 text-xs text-muted">Updating leaderboard standings…</p>
+			{:else if leaderboard.length === 0}
+				<p class="py-6 text-xs text-muted">
+					{leaderboardMode === 'all'
+						? 'No supporter predictions scored yet.'
+						: 'No supporter predictions scored for this campaign yet.'}
+				</p>
 			{:else}
 				<div class="divide-y divide-rule text-xs">
 					{#each leaderboard as entry}
