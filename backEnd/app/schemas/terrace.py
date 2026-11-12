@@ -13,13 +13,22 @@ class PostCreateRequest(BaseModel):
     author_name: str = Field("Supporter", max_length=100)
     author_club_id: str = Field("arsenal", max_length=50)
 
+class PostUpdateRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=2000)
+    image_url: Optional[str] = None
+
+
 class CommentCreateRequest(BaseModel):
     content: str = Field(..., min_length=1, max_length=1000)
     author_name: str = Field("Supporter", max_length=100)
     author_club_id: str = Field("arsenal", max_length=50)
 
+
+class CommentUpdateRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=1000)
+
 class ReactionToggleRequest(BaseModel):
-    user_id: str = Field(..., max_length=100)
+    user_id: Optional[str] = Field(None, max_length=100)
     reaction_type: str = Field("cheer", max_length=20)
 
 class CommentResponse(BaseModel):
@@ -46,6 +55,7 @@ class PostResponse(BaseModel):
     tactical_board_id: Optional[str] = None
     tactical_board: Optional[TacticalBoardResponse] = None
     created_at: datetime.datetime
+    updated_at: Optional[datetime.datetime] = None
     reactions_count: int = 0
     comments_count: int = 0
     user_reacted: bool = False

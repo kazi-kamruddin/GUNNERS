@@ -1,6 +1,6 @@
 import datetime
-from typing import Optional
-from sqlalchemy import String, Integer, DateTime, Boolean, Index
+from typing import Any, Optional
+from sqlalchemy import String, Integer, DateTime, Boolean, Index, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
@@ -57,10 +57,13 @@ class Match(Base):
     status: Mapped[str] = mapped_column(String(20), default="SCHEDULED")  # FINISHED, SCHEDULED, IN_PLAY, POSTPONED
     venue: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     
-    # Final Result
+    # Final Result & Match Details
     home_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     away_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     winner: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)  # HOME_TEAM, AWAY_TEAM, DRAW
+    goalscorers: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True, default=list)
+    lineups: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True, default=dict)
+    highlights: Mapped[Optional[Any]] = mapped_column(JSON, nullable=True, default=list)
 
     source: Mapped[str] = mapped_column(String(50), default="football-data.org")
     last_updated_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.utcnow)

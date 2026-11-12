@@ -3,10 +3,11 @@ from typing import Optional, List
 import datetime
 
 class MessageCreateRequest(BaseModel):
-    sender_id: str = Field(..., max_length=100)
+    sender_id: Optional[str] = Field(None, max_length=100)
     sender_name: str = Field("Supporter", max_length=100)
     sender_club_id: str = Field("arsenal", max_length=50)
     content: str = Field(..., min_length=1, max_length=2000)
+
 
 class MessageResponse(BaseModel):
     id: str
@@ -19,12 +20,20 @@ class MessageResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+
 class ConversationCreateRequest(BaseModel):
-    initiator_id: str = Field(..., max_length=100)
+    initiator_id: Optional[str] = Field(None, max_length=100)
     recipient_id: str = Field(..., max_length=100)
     initiator_name: str = Field("Supporter", max_length=100)
     initiator_club_id: str = Field("arsenal", max_length=50)
     initial_message: Optional[str] = None
+
+class ConversationParticipant(BaseModel):
+    user_id: str
+    username: str
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
 
 class ConversationResponse(BaseModel):
     id: str
@@ -32,5 +41,7 @@ class ConversationResponse(BaseModel):
     updated_at: datetime.datetime
     members: List[str]
     last_message: Optional[MessageResponse] = None
+    unread_count: int = 0
+    other_member_profile: Optional[ConversationParticipant] = None
 
     model_config = {"from_attributes": True}

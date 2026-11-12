@@ -1,5 +1,6 @@
+from typing import Optional
 from pydantic import BaseModel
-from typing import List, Optional
+
 
 class ClubBase(BaseModel):
     id: str
@@ -11,9 +12,14 @@ class ClubBase(BaseModel):
     accent_color: str
     league: str
     country: str
+    crest_url: Optional[str] = None
+    is_foundation: bool = False
+    is_active: bool = True
+
 
 class ClubResponse(ClubBase):
-    pass
+    model_config = {"from_attributes": True}
+
 
 class HealthResponse(BaseModel):
     status: str

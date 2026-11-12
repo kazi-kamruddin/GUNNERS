@@ -5,6 +5,8 @@ import type {
 	MatchSummary,
 	SyncStatus,
 	AnalyticsResponse,
+	MultiSeasonTrendsResponse,
+	OpponentH2HResponse,
 	Insight,
 	InsightCreatePayload,
 	Post,
@@ -29,7 +31,66 @@ import type {
 	NewsItem
 } from '$lib/types/football';
 
-const API_BASE = (import.meta.env.PUBLIC_API_URL as string) || 'http://localhost:8000/api/v1';
+export const API_BASE = (import.meta.env.PUBLIC_API_URL as string) || 'http://localhost:8000/api/v1';
+
+export class ApiError extends Error {
+	status: number;
+	detail: string;
+
+	constructor(status: number, detail: string) {
+		super(detail);
+		this.name = 'ApiError';
+		this.status = status;
+		this.detail = detail;
+	}
+}
+
+let currentAccessToken: string | null = null;
+
+export function setApiAccessToken(token: string | null): void {
+	currentAccessToken = token;
+}
+
+export function getApiAccessToken(): string | null {
+	return currentAccessToken;
+}
+
+export function buildHeaders(
+	accessToken?: string | null,
+	extra?: Record<string, string>
+): Record<string, string> {
+	const headers: Record<string, string> = { ...(extra || {}) };
+	const token = accessToken ?? currentAccessToken;
+	if (token) {
+		headers['Authorization'] = `Bearer ${token}`;
+	}
+	return headers;
+}
+
+export async function throwApiError(res: Response, fallbackMessage: string): Promise<never> {
+	let detail = fallbackMessage;
+	try {
+		const data = await res.json();
+		if (typeof data?.detail === 'string' && data.detail.trim()) {
+			detail = data.detail;
+		} else if (Array.isArray(data?.detail) && data.detail.length > 0) {
+			const messages = data.detail
+				.map((item: { msg?: string }) => (typeof item?.msg === 'string' ? item.msg : ''))
+				.filter(Boolean);
+			if (messages.length > 0) detail = messages.join('; ');
+		} else if (typeof data?.message === 'string' && data.message.trim()) {
+			detail = data.message;
+		}
+	} catch {
+		// Ignore non-JSON error bodies
+	}
+	throw new ApiError(res.status, detail);
+}
+
+export function toNetworkApiError(err: unknown, fallbackMessage: string): ApiError {
+	if (err instanceof ApiError) return err;
+	return new ApiError(0, err instanceof Error && err.message ? err.message : fallbackMessage);
+}
 
 export async function fetchSeasons(): Promise<Season[]> {
 	try {
@@ -129,7 +190,7 @@ export async function fetchClubs(): Promise<Club[]> {
 		if (!res.ok) throw new Error('Failed to fetch clubs');
 		return await res.json();
 	} catch (err) {
-		console.warn('API unavailable, falling back to local foundation clubs');
+		console.warn('API unavailable, falling back to Arsenal club metadata');
 		return [
 			{
 				id: 'arsenal',
@@ -142,46 +203,8 @@ export async function fetchClubs(): Promise<Club[]> {
 				secondary_color: '#FFFFFF',
 				accent_color: '#9C824A',
 				crest_url: 'https://crests.football-data.org/57.png',
-				is_foundation: true
-			},
-			{
-				id: 'real-madrid',
-				slug: 'real-madrid',
-				name: 'Real Madrid CF',
-				short_name: 'Real Madrid',
-				league: 'La Liga',
-				country: 'Spain',
-				primary_color: '#00529F',
-				secondary_color: '#FFFFFF',
-				accent_color: '#EEB028',
-				crest_url: 'https://crests.football-data.org/86.png',
-				is_foundation: true
-			},
-			{
-				id: 'barcelona',
-				slug: 'barcelona',
-				name: 'FC Barcelona',
-				short_name: 'Barcelona',
-				league: 'La Liga',
-				country: 'Spain',
-				primary_color: '#A50044',
-				secondary_color: '#004D98',
-				accent_color: '#EDBB00',
-				crest_url: 'https://crests.football-data.org/81.png',
-				is_foundation: true
-			},
-			{
-				id: 'milan',
-				slug: 'milan',
-				name: 'AC Milan',
-				short_name: 'AC Milan',
-				league: 'Serie A',
-				country: 'Italy',
-				primary_color: '#FB090B',
-				secondary_color: '#000000',
-				accent_color: '#C0C0C0',
-				crest_url: 'https://crests.football-data.org/98.png',
-				is_foundation: true
+				is_foundation: true,
+				is_active: true
 			}
 		];
 	}
@@ -211,6 +234,18 @@ export async function fetchMatches(params?: {
 	} catch (err) {
 		console.warn('API error fetching matches, falling back to local dataset');
 		return getLocalFallbackMatches(params?.club_id);
+	}
+}
+
+export async function fetchMatchDetail(matchId: string): Promise<Match | null> {
+	try {
+		const res = await fetch(`${API_BASE}/matches/${encodeURIComponent(matchId)}`);
+		if (res.status === 404) return null;
+		if (!res.ok) throw new Error(`Failed to fetch match detail: ${res.status}`);
+		return await res.json();
+	} catch (err) {
+		console.warn('API error fetching match detail, checking local fallback');
+		return getLocalFallbackMatches().find((m) => m.id === matchId) ?? null;
 	}
 }
 
@@ -255,12 +290,7 @@ export async function fetchSyncStatus(): Promise<SyncStatus | null> {
 		if (!res.ok) throw new Error('Failed to fetch sync status');
 		return await res.json();
 	} catch (err) {
-		return {
-			latest_sync: new Date().toISOString(),
-			status: 'ACTIVE',
-			source: 'football-data.org (cached baseline)',
-			matches_synced: 50
-		};
+		return null;
 	}
 }
 
@@ -289,135 +319,68 @@ export async function queryAnalytics(params: {
 	}
 }
 
-export async function createInsight(payload: InsightCreatePayload): Promise<Insight | null> {
+export async function fetchMultiSeasonTrends(
+	clubId: string = 'arsenal',
+	venue: string = 'all'
+): Promise<MultiSeasonTrendsResponse | null> {
+	try {
+		const query = new URLSearchParams();
+		if (clubId) query.set('club_id', clubId);
+		if (venue) query.set('venue', venue);
+		const res = await fetch(`${API_BASE}/matches/trends?${query.toString()}`);
+		if (!res.ok) throw new Error(`Failed to fetch multi-season trends: ${res.status}`);
+		return await res.json();
+	} catch (err) {
+		console.warn('Error fetching multi-season trends:', err);
+		return null;
+	}
+}
+
+export async function fetchOpponentH2H(
+	opponentId: string,
+	clubId: string = 'arsenal',
+	venue: string = 'all'
+): Promise<OpponentH2HResponse | null> {
+	try {
+		const query = new URLSearchParams();
+		query.set('opponent_id', opponentId);
+		if (clubId) query.set('club_id', clubId);
+		if (venue) query.set('venue', venue);
+		const res = await fetch(`${API_BASE}/matches/h2h?${query.toString()}`);
+		if (!res.ok) throw new Error(`Failed to fetch opponent H2H: ${res.status}`);
+		return await res.json();
+	} catch (err) {
+		console.warn('Error fetching opponent H2H:', err);
+		return null;
+	}
+}
+
+export async function createInsight(
+	payload: InsightCreatePayload,
+	accessToken?: string | null
+): Promise<Insight> {
 	try {
 		const res = await fetch(`${API_BASE}/insights`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: buildHeaders(accessToken, { 'Content-Type': 'application/json' }),
 			body: JSON.stringify(payload)
 		});
-		if (!res.ok) throw new Error('Failed to create insight');
+		if (!res.ok) await throwApiError(res, 'Failed to publish insight');
 		return await res.json();
 	} catch (err) {
-		console.warn('API error saving insight, generating local snapshot');
-		return {
-			id: `ins_${Math.random().toString(36).substring(2, 10)}`,
-			author_name: payload.author_name || 'Supporter',
-			author_club_id: payload.author_club_id || 'arsenal',
-			title: payload.title,
-			description: payload.description,
-			metric: payload.metric,
-			team_ids: payload.team_ids,
-			venue: payload.venue,
-			chart_type: payload.chart_type || 'bar',
-			snapshot: payload.snapshot || {
-				metric: payload.metric,
-				formula: '',
-				venue_filter: payload.venue,
-				series: [],
-				computed_at: new Date().toISOString(),
-				disclaimer: 'Calculated across eligible completed matches.'
-			},
-			is_public: true,
-			created_at: new Date().toISOString()
-		};
+		throw toNetworkApiError(err, 'Unable to reach server while publishing insight');
 	}
 }
 
 export async function fetchInsights(clubId?: string): Promise<Insight[]> {
 	try {
-		const url = clubId ? `${API_BASE}/insights?club_id=${clubId}` : `${API_BASE}/insights`;
+		const url = clubId ? `${API_BASE}/insights?club_id=${encodeURIComponent(clubId)}` : `${API_BASE}/insights`;
 		const res = await fetch(url);
 		if (!res.ok) throw new Error('Failed to fetch insights');
 		return await res.json();
 	} catch (err) {
-		console.warn('API error fetching insights, returning local default insights');
-		return [
-			{
-				id: 'ins_demo_1',
-				author_name: 'TacticsGooner',
-				author_club_id: 'arsenal',
-				title: "Arsenal Home Win Rate 2024/25",
-				description: 'Emirates Stadium home record across all competitions.',
-				metric: 'win_rate',
-				team_ids: ['arsenal'],
-				venue: 'home',
-				chart_type: 'bar',
-				snapshot: {
-					metric: 'win_rate',
-					formula: '(wins / matches_played) * 100',
-					venue_filter: 'home',
-					series: [{
-						team_id: 'arsenal',
-						team_name: 'Arsenal FC',
-						matches_played: 6,
-						wins: 5,
-						draws: 1,
-						losses: 0,
-						clean_sheets: 3,
-						goals_for: 14,
-						goals_against: 4,
-						goal_difference: 10,
-						metric_value: 83.3,
-						unit: '%'
-					}],
-					computed_at: new Date().toISOString(),
-					disclaimer: 'Calculated strictly across eligible completed matches.'
-				},
-				is_public: true,
-				created_at: new Date(Date.now() - 3600000).toISOString()
-			},
-			{
-				id: 'ins_demo_2',
-				author_name: 'MadridistaAnalytics',
-				author_club_id: 'real-madrid',
-				title: 'Real Madrid vs Barcelona PPG Comparison',
-				description: 'Points per game comparison across current campaign matches.',
-				metric: 'points_per_game',
-				team_ids: ['real-madrid', 'barcelona'],
-				venue: 'all',
-				chart_type: 'comparison',
-				snapshot: {
-					metric: 'points_per_game',
-					formula: '((wins * 3) + draws) / matches_played',
-					venue_filter: 'all',
-					series: [
-						{
-							team_id: 'real-madrid',
-							team_name: 'Real Madrid CF',
-							matches_played: 10,
-							wins: 7,
-							draws: 2,
-							losses: 1,
-							clean_sheets: 4,
-							goals_for: 21,
-							goals_against: 11,
-							goal_difference: 10,
-							metric_value: 2.3,
-							unit: 'ppg'
-						},
-						{
-							team_id: 'barcelona',
-							team_name: 'FC Barcelona',
-							matches_played: 10,
-							wins: 8,
-							draws: 0,
-							losses: 2,
-							clean_sheets: 3,
-							goals_for: 31,
-							goals_against: 11,
-							goal_difference: 20,
-							metric_value: 2.4,
-							unit: 'ppg'
-						}
-					],
-					computed_at: new Date().toISOString(),
-					disclaimer: 'Calculated strictly across eligible completed matches.'
-				},
-				is_public: true,
-				created_at: new Date(Date.now() - 7200000).toISOString()
-			}
-		];
+		console.warn('API error fetching insights, returning empty list');
+		return [];
 	}
 }
 
@@ -425,7 +388,8 @@ export async function fetchPosts(
 	clubId?: string,
 	currentUserId?: string,
 	search?: string,
-	tag?: string
+	tag?: string,
+	accessToken?: string | null
 ): Promise<Post[]> {
 	try {
 		const query = new URLSearchParams();
@@ -435,63 +399,58 @@ export async function fetchPosts(
 		if (tag) query.set('tag', tag);
 
 		const url = `${API_BASE}/terrace/posts?${query.toString()}`;
-		const res = await fetch(url);
+		const res = await fetch(url, {
+			headers: buildHeaders(accessToken)
+		});
 		if (!res.ok) throw new Error(`Failed to fetch posts: ${res.status}`);
 		return await res.json();
 	} catch (err) {
-		console.warn('API error fetching posts, returning local fallback terrace feed');
-		return getLocalFallbackPosts(clubId);
+		console.warn('API error fetching posts, returning empty list');
+		return [];
 	}
 }
 
-export async function createPost(payload: PostCreatePayload): Promise<Post | null> {
+export async function createPost(
+	payload: PostCreatePayload,
+	accessToken?: string | null
+): Promise<Post> {
 	try {
 		const res = await fetch(`${API_BASE}/terrace/posts`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: buildHeaders(accessToken, { 'Content-Type': 'application/json' }),
 			body: JSON.stringify(payload)
 		});
-		if (!res.ok) throw new Error('Failed to create post');
+		if (!res.ok) await throwApiError(res, 'Failed to publish post');
 		return await res.json();
 	} catch (err) {
-		console.warn('API error creating post, returning mock post');
-		return {
-			id: `post_${Math.random().toString(36).substring(2, 10)}`,
-			author_name: payload.author_name || 'Supporter',
-			author_club_id: payload.author_club_id || 'arsenal',
-			club_id: payload.club_id || null,
-			content: payload.content,
-			image_url: payload.image_url || null,
-			insight_id: payload.insight_id || null,
-			created_at: new Date().toISOString(),
-			reactions_count: 0,
-			comments_count: 0,
-			user_reacted: false
-		};
+		throw toNetworkApiError(err, 'Unable to reach server while publishing post');
 	}
 }
 
 export async function toggleReaction(
 	postId: string,
-	userId: string,
-	reactionType: string = 'cheer'
+	userId?: string | null,
+	reactionType: string = 'cheer',
+	accessToken?: string | null
 ): Promise<{ action: string; total_reactions: number }> {
 	try {
-		const res = await fetch(`${API_BASE}/terrace/posts/${postId}/react`, {
+		const body: Record<string, string> = { reaction_type: reactionType };
+		if (userId) body.user_id = userId;
+		const res = await fetch(`${API_BASE}/terrace/posts/${encodeURIComponent(postId)}/react`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ user_id: userId, reaction_type: reactionType })
+			headers: buildHeaders(accessToken, { 'Content-Type': 'application/json' }),
+			body: JSON.stringify(body)
 		});
-		if (!res.ok) throw new Error('Failed to toggle reaction');
+		if (!res.ok) await throwApiError(res, 'Failed to update reaction');
 		return await res.json();
 	} catch (err) {
-		return { action: 'added', total_reactions: 1 };
+		throw toNetworkApiError(err, 'Unable to reach server while updating reaction');
 	}
 }
 
 export async function fetchComments(postId: string): Promise<PostComment[]> {
 	try {
-		const res = await fetch(`${API_BASE}/terrace/posts/${postId}/comments`);
+		const res = await fetch(`${API_BASE}/terrace/posts/${encodeURIComponent(postId)}/comments`);
 		if (!res.ok) throw new Error('Failed to fetch comments');
 		return await res.json();
 	} catch (err) {
@@ -503,32 +462,32 @@ export async function createComment(
 	postId: string,
 	content: string,
 	authorName: string = 'Supporter',
-	authorClubId: string = 'arsenal'
-): Promise<PostComment | null> {
+	authorClubId: string = 'arsenal',
+	accessToken?: string | null
+): Promise<PostComment> {
 	try {
-		const res = await fetch(`${API_BASE}/terrace/posts/${postId}/comments`, {
+		const res = await fetch(`${API_BASE}/terrace/posts/${encodeURIComponent(postId)}/comments`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: buildHeaders(accessToken, { 'Content-Type': 'application/json' }),
 			body: JSON.stringify({ content, author_name: authorName, author_club_id: authorClubId })
 		});
-		if (!res.ok) throw new Error('Failed to create comment');
+		if (!res.ok) await throwApiError(res, 'Failed to post reply');
 		return await res.json();
 	} catch (err) {
-		return {
-			id: `cmt_${Math.random().toString(36).substring(2, 10)}`,
-			post_id: postId,
-			author_name: authorName,
-			author_club_id: authorClubId,
-			content,
-			created_at: new Date().toISOString()
-		};
+		throw toNetworkApiError(err, 'Unable to reach server while posting reply');
 	}
 }
 
-export async function fetchConversations(userId: string): Promise<Conversation[]> {
+export async function fetchConversations(
+	userId?: string,
+	accessToken?: string | null
+): Promise<Conversation[]> {
 	try {
-		const res = await fetch(`${API_BASE}/messages/conversations?user_id=${encodeURIComponent(userId)}`);
-		if (!res.ok) throw new Error('Failed to fetch conversations');
+		const query = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
+		const res = await fetch(`${API_BASE}/messages/conversations${query}`, {
+			headers: buildHeaders(accessToken)
+		});
+		if (!res.ok) await throwApiError(res, 'Failed to fetch conversations');
 		return await res.json();
 	} catch (err) {
 		console.warn('API error fetching conversations, returning empty list');
@@ -536,82 +495,70 @@ export async function fetchConversations(userId: string): Promise<Conversation[]
 	}
 }
 
-export async function createConversation(payload: {
-	initiator_id: string;
-	recipient_id: string;
-	initiator_name?: string;
-	initiator_club_id?: string;
-	initial_message?: string;
-}): Promise<Conversation | null> {
+export async function createConversation(
+	payload: {
+		initiator_id?: string;
+		recipient_id: string;
+		initiator_name?: string;
+		initiator_club_id?: string;
+		initial_message?: string;
+	},
+	accessToken?: string | null
+): Promise<Conversation> {
 	try {
 		const res = await fetch(`${API_BASE}/messages/conversations`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: buildHeaders(accessToken, { 'Content-Type': 'application/json' }),
 			body: JSON.stringify(payload)
 		});
-		if (!res.ok) throw new Error('Failed to create conversation');
+		if (!res.ok) await throwApiError(res, 'Failed to start conversation');
 		return await res.json();
 	} catch (err) {
-		console.warn('API error creating conversation, returning mock conversation');
-		return {
-			id: `conv_${Math.random().toString(36).substring(2, 10)}`,
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-			members: [payload.initiator_id, payload.recipient_id],
-			last_message: payload.initial_message
-				? {
-						id: `msg_${Math.random().toString(36).substring(2, 10)}`,
-						conversation_id: 'conv_local',
-						sender_id: payload.initiator_id,
-						sender_name: payload.initiator_name || 'Supporter',
-						sender_club_id: payload.initiator_club_id || 'arsenal',
-						content: payload.initial_message,
-						created_at: new Date().toISOString()
-				  }
-				: null
-		};
+		throw toNetworkApiError(err, 'Unable to reach server while starting conversation');
 	}
 }
 
-export async function fetchMessages(conversationId: string): Promise<DirectMessage[]> {
+export async function fetchMessages(
+	conversationId: string,
+	accessToken?: string | null
+): Promise<DirectMessage[]> {
 	try {
-		const res = await fetch(`${API_BASE}/messages/conversations/${conversationId}/messages`);
-		if (!res.ok) throw new Error('Failed to fetch messages');
+		const res = await fetch(
+			`${API_BASE}/messages/conversations/${encodeURIComponent(conversationId)}/messages`,
+			{
+				headers: buildHeaders(accessToken)
+			}
+		);
+		if (!res.ok) await throwApiError(res, 'Failed to load messages');
 		return await res.json();
 	} catch (err) {
-		console.warn('API error fetching messages, returning empty list');
-		return [];
+		throw toNetworkApiError(err, 'Unable to load conversation messages');
 	}
 }
 
 export async function sendMessage(
 	conversationId: string,
 	payload: {
-		sender_id: string;
+		sender_id?: string;
 		sender_name?: string;
 		sender_club_id?: string;
 		content: string;
-	}
-): Promise<DirectMessage | null> {
+	},
+	accessToken?: string | null
+): Promise<DirectMessage> {
 	try {
-		const res = await fetch(`${API_BASE}/messages/conversations/${conversationId}/messages`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(payload)
-		});
-		if (!res.ok) throw new Error('Failed to send message');
+		const res = await fetch(
+			`${API_BASE}/messages/conversations/${encodeURIComponent(conversationId)}/messages`,
+			{
+				method: 'POST',
+				headers: buildHeaders(accessToken, { 'Content-Type': 'application/json' }),
+				body: JSON.stringify(payload)
+			}
+		);
+		if (!res.ok) await throwApiError(res, 'Failed to send message');
 		return await res.json();
 	} catch (err) {
-		console.warn('API error sending message, returning optimistic mock message');
-		return {
-			id: `msg_${Math.random().toString(36).substring(2, 10)}`,
-			conversation_id: conversationId,
-			sender_id: payload.sender_id,
-			sender_name: payload.sender_name || 'Supporter',
-			sender_club_id: payload.sender_club_id || 'arsenal',
-			content: payload.content,
-			created_at: new Date().toISOString()
-		};
+		throw toNetworkApiError(err, 'Unable to reach server while sending message');
 	}
 }
 
@@ -649,10 +596,17 @@ export async function comparePlayers(player1Id: string, player2Id: string): Prom
 	}
 }
 
-export async function fetchUpcomingPredictions(userId?: string): Promise<UpcomingMatchPrediction[]> {
+export async function fetchUpcomingPredictions(
+	userId?: string,
+	accessToken?: string | null
+): Promise<UpcomingMatchPrediction[]> {
 	try {
-		const url = userId ? `${API_BASE}/predictions/upcoming?user_id=${userId}` : `${API_BASE}/predictions/upcoming`;
-		const res = await fetch(url);
+		const url = userId
+			? `${API_BASE}/predictions/upcoming?user_id=${encodeURIComponent(userId)}`
+			: `${API_BASE}/predictions/upcoming`;
+		const res = await fetch(url, {
+			headers: buildHeaders(accessToken)
+		});
 		if (!res.ok) throw new Error('Failed to fetch predictions');
 		return await res.json();
 	} catch (err) {
@@ -660,30 +614,37 @@ export async function fetchUpcomingPredictions(userId?: string): Promise<Upcomin
 	}
 }
 
-export async function submitPrediction(payload: {
-	user_id: string;
-	user_name?: string;
-	user_club_id?: string;
-	match_id: string;
-	predicted_home_score: number;
-	predicted_away_score: number;
-}): Promise<Prediction | null> {
+export async function submitPrediction(
+	payload: {
+		user_id?: string;
+		user_name?: string;
+		user_club_id?: string;
+		match_id: string;
+		predicted_home_score: number;
+		predicted_away_score: number;
+	},
+	accessToken?: string | null
+): Promise<Prediction> {
 	try {
 		const res = await fetch(`${API_BASE}/predictions`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: buildHeaders(accessToken, { 'Content-Type': 'application/json' }),
 			body: JSON.stringify(payload)
 		});
-		if (!res.ok) throw new Error('Failed to submit prediction');
+		if (!res.ok) await throwApiError(res, 'Failed to submit prediction');
 		return await res.json();
 	} catch (err) {
-		return null;
+		throw toNetworkApiError(err, 'Unable to reach server while submitting prediction');
 	}
 }
 
-export async function fetchLeaderboard(clubId?: string): Promise<LeaderboardEntry[]> {
+export async function fetchLeaderboard(clubId?: string, seasonId?: string): Promise<LeaderboardEntry[]> {
 	try {
-		const url = clubId ? `${API_BASE}/predictions/leaderboard?club_id=${clubId}` : `${API_BASE}/predictions/leaderboard`;
+		const query = new URLSearchParams();
+		if (clubId) query.set('club_id', clubId);
+		if (seasonId && seasonId !== 'all') query.set('season_id', seasonId);
+		const qs = query.toString();
+		const url = qs ? `${API_BASE}/predictions/leaderboard?${qs}` : `${API_BASE}/predictions/leaderboard`;
 		const res = await fetch(url);
 		if (!res.ok) throw new Error('Failed to fetch leaderboard');
 		return await res.json();
@@ -692,9 +653,15 @@ export async function fetchLeaderboard(clubId?: string): Promise<LeaderboardEntr
 	}
 }
 
-export async function fetchNotifications(userId: string): Promise<Notification[]> {
+export async function fetchNotifications(
+	userId?: string,
+	accessToken?: string | null
+): Promise<Notification[]> {
 	try {
-		const res = await fetch(`${API_BASE}/notifications?user_id=${encodeURIComponent(userId)}`);
+		const query = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
+		const res = await fetch(`${API_BASE}/notifications${query}`, {
+			headers: buildHeaders(accessToken)
+		});
 		if (!res.ok) throw new Error('Failed to fetch notifications');
 		return await res.json();
 	} catch (err) {
@@ -702,9 +669,15 @@ export async function fetchNotifications(userId: string): Promise<Notification[]
 	}
 }
 
-export async function fetchUnreadNotificationsCount(userId: string): Promise<number> {
+export async function fetchUnreadNotificationsCount(
+	userId?: string,
+	accessToken?: string | null
+): Promise<number> {
 	try {
-		const res = await fetch(`${API_BASE}/notifications/unread-count?user_id=${encodeURIComponent(userId)}`);
+		const query = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
+		const res = await fetch(`${API_BASE}/notifications/unread-count${query}`, {
+			headers: buildHeaders(accessToken)
+		});
 		if (!res.ok) return 0;
 		const data = await res.json();
 		return data.unread_count || 0;
@@ -713,16 +686,35 @@ export async function fetchUnreadNotificationsCount(userId: string): Promise<num
 	}
 }
 
-export async function markNotificationRead(notificationId: string): Promise<void> {
+export async function markNotificationRead(
+	notificationId: string,
+	accessToken?: string | null
+): Promise<void> {
 	try {
-		await fetch(`${API_BASE}/notifications/${notificationId}/read`, { method: 'POST' });
-	} catch (err) {}
+		const res = await fetch(`${API_BASE}/notifications/${encodeURIComponent(notificationId)}/read`, {
+			method: 'POST',
+			headers: buildHeaders(accessToken)
+		});
+		if (!res.ok) await throwApiError(res, 'Failed to mark notification as read');
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach server while updating notification');
+	}
 }
 
-export async function markAllNotificationsRead(userId: string): Promise<void> {
+export async function markAllNotificationsRead(
+	userId?: string,
+	accessToken?: string | null
+): Promise<void> {
 	try {
-		await fetch(`${API_BASE}/notifications/read-all?user_id=${encodeURIComponent(userId)}`, { method: 'POST' });
-	} catch (err) {}
+		const query = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
+		const res = await fetch(`${API_BASE}/notifications/read-all${query}`, {
+			method: 'POST',
+			headers: buildHeaders(accessToken)
+		});
+		if (!res.ok) await throwApiError(res, 'Failed to mark notifications as read');
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach server while updating notifications');
+	}
 }
 
 export async function fetchSupporterProfile(username: string): Promise<SupporterProfile | null> {
@@ -765,136 +757,6 @@ export async function fetchTrendingTags(): Promise<TopicTag[]> {
 	}
 }
 
-
-function getLocalFallbackPosts(clubId?: string): Post[] {
-	const allPosts: Post[] = [
-		{
-			id: 'post_demo_1',
-			author_name: 'TacticsGooner',
-			author_club_id: 'arsenal',
-			club_id: 'arsenal',
-			content: 'Our defensive structure at home has been rock solid this season. 83.3% win rate at the Emirates speaks volumes!',
-			insight_id: 'ins_demo_1',
-			insight: {
-				id: 'ins_demo_1',
-				author_name: 'TacticsGooner',
-				author_club_id: 'arsenal',
-				title: "Arsenal Home Win Rate 2024/25",
-				description: 'Emirates Stadium home record across all competitions.',
-				metric: 'win_rate',
-				team_ids: ['arsenal'],
-				venue: 'home',
-				chart_type: 'bar',
-				snapshot: {
-					metric: 'win_rate',
-					formula: '(wins / matches_played) * 100',
-					venue_filter: 'home',
-					series: [{
-						team_id: 'arsenal',
-						team_name: 'Arsenal FC',
-						matches_played: 6,
-						wins: 5,
-						draws: 1,
-						losses: 0,
-						clean_sheets: 3,
-						goals_for: 14,
-						goals_against: 4,
-						goal_difference: 10,
-						metric_value: 83.3,
-						unit: '%'
-					}],
-					computed_at: new Date().toISOString(),
-					disclaimer: 'Calculated strictly across eligible completed matches.'
-				},
-				is_public: true,
-				created_at: new Date(Date.now() - 3600000).toISOString()
-			},
-			created_at: new Date(Date.now() - 3600000).toISOString(),
-			reactions_count: 14,
-			comments_count: 3,
-			user_reacted: false
-		},
-		{
-			id: 'post_demo_2',
-			author_name: 'MadridistaAnalytics',
-			author_club_id: 'real-madrid',
-			club_id: 'real-madrid',
-			content: 'Interesting head-to-head points per game metrics between Real Madrid and Barcelona. Only 0.1 PPG separating the two giants!',
-			insight_id: 'ins_demo_2',
-			insight: {
-				id: 'ins_demo_2',
-				author_name: 'MadridistaAnalytics',
-				author_club_id: 'real-madrid',
-				title: 'Real Madrid vs Barcelona PPG Comparison',
-				description: 'Points per game comparison across current campaign matches.',
-				metric: 'points_per_game',
-				team_ids: ['real-madrid', 'barcelona'],
-				venue: 'all',
-				chart_type: 'comparison',
-				snapshot: {
-					metric: 'points_per_game',
-					formula: '((wins * 3) + draws) / matches_played',
-					venue_filter: 'all',
-					series: [
-						{
-							team_id: 'real-madrid',
-							team_name: 'Real Madrid CF',
-							matches_played: 10,
-							wins: 7,
-							draws: 2,
-							losses: 1,
-							clean_sheets: 4,
-							goals_for: 21,
-							goals_against: 11,
-							goal_difference: 10,
-							metric_value: 2.3,
-							unit: 'ppg'
-						},
-						{
-							team_id: 'barcelona',
-							team_name: 'FC Barcelona',
-							matches_played: 10,
-							wins: 8,
-							draws: 0,
-							losses: 2,
-							clean_sheets: 3,
-							goals_for: 31,
-							goals_against: 11,
-							goal_difference: 20,
-							metric_value: 2.4,
-							unit: 'ppg'
-						}
-					],
-					computed_at: new Date().toISOString(),
-					disclaimer: 'Calculated strictly across eligible completed matches.'
-				},
-				is_public: true,
-				created_at: new Date(Date.now() - 7200000).toISOString()
-			},
-			created_at: new Date(Date.now() - 7200000).toISOString(),
-			reactions_count: 22,
-			comments_count: 7,
-			user_reacted: false
-		},
-		{
-			id: 'post_demo_3',
-			author_name: 'MilanFanatic',
-			author_club_id: 'milan',
-			club_id: 'milan',
-			content: 'Derby della Madonnina victory was the turning point for our momentum. Still need to be more clinical against lower-table opposition.',
-			insight_id: null,
-			created_at: new Date(Date.now() - 14400000).toISOString(),
-			reactions_count: 9,
-			comments_count: 2,
-			user_reacted: false
-		}
-	];
-
-	if (clubId && clubId !== 'global') {
-		return allPosts.filter((p) => p.club_id === clubId);
-	}
-	return allPosts;
-}
 
 function getLocalFallbackMatches(clubId?: string): Match[] {
 	const all: Match[] = [
@@ -974,86 +836,6 @@ function getLocalFallbackMatches(clubId?: string): Match[] {
 			status: 'SCHEDULED',
 			venue: 'Emirates Stadium',
 			source: 'football-data.org'
-		},
-		{
-			id: 'fb-rma-1',
-			competition_id: 'PD',
-			competition_name: 'La Liga',
-			season_id: '2024-2025-PD',
-			home_team_id: 'real-madrid',
-			home_team_name: 'Real Madrid CF',
-			home_team_crest: 'https://crests.football-data.org/86.png',
-			away_team_id: 'valladolid',
-			away_team_name: 'Real Valladolid CF',
-			away_team_crest: 'https://crests.football-data.org/250.png',
-			matchday: 2,
-			utc_date: '2024-08-25T15:00:00Z',
-			status: 'FINISHED',
-			venue: 'Santiago Bernabéu',
-			home_score: 3,
-			away_score: 0,
-			winner: 'HOME_TEAM',
-			source: 'football-data.org'
-		},
-		{
-			id: 'fb-rma-2',
-			competition_id: 'PD',
-			competition_name: 'La Liga',
-			season_id: '2024-2025-PD',
-			home_team_id: 'real-madrid',
-			home_team_name: 'Real Madrid CF',
-			home_team_crest: 'https://crests.football-data.org/86.png',
-			away_team_id: 'barcelona',
-			away_team_name: 'FC Barcelona',
-			away_team_crest: 'https://crests.football-data.org/81.png',
-			matchday: 11,
-			utc_date: '2024-10-26T19:00:00Z',
-			status: 'FINISHED',
-			venue: 'Santiago Bernabéu',
-			home_score: 0,
-			away_score: 4,
-			winner: 'AWAY_TEAM',
-			source: 'football-data.org'
-		},
-		{
-			id: 'fb-bar-1',
-			competition_id: 'PD',
-			competition_name: 'La Liga',
-			season_id: '2024-2025-PD',
-			home_team_id: 'barcelona',
-			home_team_name: 'FC Barcelona',
-			home_team_crest: 'https://crests.football-data.org/81.png',
-			away_team_id: 'valladolid',
-			away_team_name: 'Real Valladolid CF',
-			away_team_crest: 'https://crests.football-data.org/250.png',
-			matchday: 4,
-			utc_date: '2024-08-31T15:00:00Z',
-			status: 'FINISHED',
-			venue: 'Montjuïc',
-			home_score: 7,
-			away_score: 0,
-			winner: 'HOME_TEAM',
-			source: 'football-data.org'
-		},
-		{
-			id: 'fb-mil-1',
-			competition_id: 'SA',
-			competition_name: 'Serie A',
-			season_id: '2024-2025-SA',
-			home_team_id: 'inter',
-			home_team_name: 'FC Internazionale Milano',
-			home_team_crest: 'https://crests.football-data.org/108.png',
-			away_team_id: 'milan',
-			away_team_name: 'AC Milan',
-			away_team_crest: 'https://crests.football-data.org/98.png',
-			matchday: 5,
-			utc_date: '2024-09-22T18:45:00Z',
-			status: 'FINISHED',
-			venue: 'San Siro',
-			home_score: 1,
-			away_score: 2,
-			winner: 'AWAY_TEAM',
-			source: 'football-data.org'
 		}
 	];
 
@@ -1111,31 +893,20 @@ export async function fetchFormationPresets(): Promise<FormationPreset[]> {
 	}
 }
 
-export async function saveTacticalBoard(payload: TacticalBoardCreatePayload): Promise<TacticalBoard | null> {
+export async function saveTacticalBoard(
+	payload: TacticalBoardCreatePayload,
+	accessToken?: string | null
+): Promise<TacticalBoard> {
 	try {
 		const res = await fetch(`${API_BASE}/tactics`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
+			headers: buildHeaders(accessToken, { 'Content-Type': 'application/json' }),
 			body: JSON.stringify(payload)
 		});
-		if (!res.ok) throw new Error('Failed to save tactical board');
+		if (!res.ok) await throwApiError(res, 'Failed to publish tactical board');
 		return await res.json();
 	} catch (err) {
-		console.warn('API error saving tactical board, creating local fallback');
-		return {
-			id: `tb_${Math.random().toString(36).substring(2, 10)}`,
-			user_id: payload.user_id || null,
-			author_name: payload.author_name || 'Supporter',
-			author_club_id: payload.author_club_id || 'arsenal',
-			title: payload.title,
-			formation: payload.formation,
-			lineup: payload.lineup,
-			annotations: payload.annotations || [],
-			tactical_notes: payload.tactical_notes || null,
-			is_public: payload.is_public ?? true,
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString()
-		};
+		throw toNetworkApiError(err, 'Unable to reach server while publishing tactical board');
 	}
 }
 
@@ -1160,19 +931,45 @@ export async function fetchTacticalBoard(boardId: string): Promise<TacticalBoard
 	}
 }
 
-export async function fetchArsenalNews(category?: string, refresh: boolean = false): Promise<NewsFeed> {
+export interface FetchNewsOptions {
+	limit?: number;
+	offset?: number;
+	category?: string;
+	tag?: string;
+	search?: string;
+	refresh?: boolean;
+}
+
+export async function fetchArsenalNews(
+	optsOrCategory?: FetchNewsOptions | string,
+	legacyRefresh: boolean = false
+): Promise<NewsFeed> {
+	const opts: FetchNewsOptions =
+		typeof optsOrCategory === 'string'
+			? { category: optsOrCategory, refresh: legacyRefresh }
+			: (optsOrCategory ?? {});
 	try {
 		const params = new URLSearchParams();
-		if (category && category !== 'all') params.set('category', category);
-		if (refresh) params.set('refresh', 'true');
-		const url = `${API_BASE}/news?${params.toString()}`;
+		if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+		if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+		if (opts.category && opts.category !== 'all') params.set('category', opts.category);
+		if (opts.tag && opts.tag !== 'all') params.set('tag', opts.tag);
+		if (opts.search && opts.search.trim()) params.set('search', opts.search.trim());
+		if (opts.refresh) params.set('refresh', 'true');
+		const qs = params.toString();
+		const url = qs ? `${API_BASE}/news?${qs}` : `${API_BASE}/news`;
 		const res = await fetch(url);
 		if (!res.ok) throw new Error('Failed to fetch Arsenal news');
-		return await res.json();
+		const data = (await res.json()) as NewsFeed;
+		return {
+			...data,
+			has_more: Boolean(data.has_more)
+		};
 	} catch (err) {
 		console.warn('API error fetching Arsenal news, returning baseline feed');
 		return {
 			total: 3,
+			has_more: false,
 			sources_active: ['Pain in the Arsenal', 'Arseblog News', 'BBC Sport Arsenal'],
 			cached_at: new Date().toISOString(),
 			articles: [

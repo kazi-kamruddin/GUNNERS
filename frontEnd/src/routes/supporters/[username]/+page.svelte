@@ -5,7 +5,24 @@
 	let { data }: PageProps = $props();
 
 	const profile = $derived(data.profile);
+	const name = $derived(profile.display_name);
 	const club = $derived(CLUBS[profile.favorite_club_id] || CLUBS.arsenal);
+	const initials = $derived(
+		(profile.display_name || profile.username || 'G')
+			.split(/\s+/)
+			.map((p: string) => p[0] || '')
+			.join('')
+			.slice(0, 2)
+			.toUpperCase()
+	);
+
+	let avatarFailed = $state(false);
+
+	$effect(() => {
+		if (profile.avatar_url !== undefined) {
+			avatarFailed = false;
+		}
+	});
 
 	function formatDate(isoStr: string): string {
 		try {
@@ -22,153 +39,163 @@
 </script>
 
 <svelte:head>
-	<title>@{profile.username} | Supporter Portfolio | GUNNERS Reborn</title>
+	<title>@{profile.username} | Supporter Portfolio | GUNNERS</title>
 </svelte:head>
 
-<div class="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-8">
-	<!-- Supporter Profile Header Card -->
-	<div class="relative rounded-2xl overflow-hidden border border-[#1e2430] bg-[#12161f] p-6 sm:p-8">
-		<div
-			class="absolute top-0 left-0 right-0 h-2"
-			style="background-color: {club.primary_color}"
-		></div>
-
-		<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pt-2">
-			<!-- Identity Meta -->
-			<div class="flex items-center gap-4">
-				<div
-					class="w-16 h-16 rounded-full flex items-center justify-center font-black text-2xl text-white shadow-lg shrink-0"
-					style="background-color: {club.primary_color}"
-				>
-					{profile.display_name.charAt(0).toUpperCase()}
+<div class="container py-12 space-y-12 max-w-5xl">
+	<!-- Supporter Profile Header -->
+	<section class="border-t-2 border-rule-2 pt-8 space-y-8">
+		<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+			<div class="flex items-start gap-5 min-w-0">
+				<div class="w-20 h-20 rounded-card border border-rule bg-paper-2 overflow-hidden shrink-0 flex items-center justify-center">
+					{#if profile.avatar_url && !avatarFailed}
+						<img
+							src={profile.avatar_url}
+							alt="{name} avatar"
+							width="80"
+							height="80"
+							class="w-full h-full object-cover"
+							onerror={() => (avatarFailed = true)}
+						/>
+					{:else}
+						<span class="font-display font-bold text-2xl text-accent">{initials}</span>
+					{/if}
 				</div>
-				<div>
-					<div class="flex items-center gap-2">
-						<h1 class="text-xl sm:text-2xl font-black text-white">{profile.display_name}</h1>
-						<span class="text-xs font-mono px-2 py-0.5 rounded bg-black/40 text-gray-400 border border-[#1e2430]">
+
+				<div class="space-y-3 min-w-0">
+					<div class="flex items-baseline gap-3 flex-wrap">
+						<h1 class="break-words min-w-0">{name}</h1>
+						<span class="text-sm text-muted">
 							@{profile.username}
 						</span>
 					</div>
-					<div class="flex items-center gap-2 text-xs text-gray-400 mt-1 font-mono">
-						<span>Affiliation: <strong class="text-white">{club.name}</strong></span>
-						<span>•</span>
-						<span>Joined {formatDate(profile.joined_at)}</span>
+					<div class="flex items-center gap-4 flex-wrap text-xs text-muted">
+						<span>Affiliation: <strong class="text-ink">{club.name}</strong></span>
+						<span>Joined <span class="num font-outlier">{formatDate(profile.joined_at)}</span></span>
 					</div>
 					{#if profile.bio}
-						<p class="text-xs text-gray-300 mt-2 max-w-xl leading-relaxed">
+						<p class="text-sm text-ink-2 max-w-xl leading-relaxed">
 							{profile.bio}
 						</p>
 					{/if}
 				</div>
 			</div>
 
-			<!-- DM Challenge Action -->
-			<div class="flex items-center gap-3 self-start sm:self-center">
+			<div class="self-start sm:self-end shrink-0">
 				<a
 					href="/messages?recipient={encodeURIComponent(profile.user_id)}&name={encodeURIComponent(profile.display_name)}&club={encodeURIComponent(profile.favorite_club_id)}"
-					class="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs transition shadow-sm flex items-center gap-1.5"
+					class="h-10 px-4 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity inline-flex items-center"
 				>
-					<span>💬</span>
-					<span>Challenge to Debate (DM)</span>
+					Challenge to debate
 				</a>
 			</div>
 		</div>
 
 		<!-- Performance Stats Row -->
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 pt-6 border-t border-[#1e2430]">
-			<div class="bg-[#0d1017] p-3 rounded-xl border border-[#1e2430] text-center">
-				<p class="text-[10px] text-gray-500 uppercase font-mono">Predictor Points</p>
-				<p class="text-lg font-black text-emerald-400 font-mono mt-0.5">{profile.stats.prediction_points} pts</p>
+		<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6 pt-6 border-t border-rule text-xs">
+			<div>
+				<p class="text-muted">Predictor points</p>
+				<p class="text-2xl font-bold text-success num font-outlier mt-1">{profile.stats.prediction_points} pts</p>
 			</div>
-			<div class="bg-[#0d1017] p-3 rounded-xl border border-[#1e2430] text-center">
-				<p class="text-[10px] text-gray-500 uppercase font-mono">Predictor Rank</p>
-				<p class="text-lg font-black text-amber-400 font-mono mt-0.5">#{profile.stats.prediction_rank}</p>
+			<div>
+				<p class="text-muted">Predictor rank</p>
+				<p class="text-2xl font-bold text-accent-2 num font-outlier mt-1">
+					{profile.stats.prediction_rank === 0 ? 'Unranked' : `#${profile.stats.prediction_rank}`}
+				</p>
 			</div>
-			<div class="bg-[#0d1017] p-3 rounded-xl border border-[#1e2430] text-center">
-				<p class="text-[10px] text-gray-500 uppercase font-mono">Exact Scores</p>
-				<p class="text-lg font-black text-purple-400 font-mono mt-0.5">{profile.stats.exact_scores}</p>
+			<div>
+				<p class="text-muted">Predictions</p>
+				<p class="text-2xl font-bold text-ink num font-outlier mt-1">{profile.stats.total_predictions}</p>
 			</div>
-			<div class="bg-[#0d1017] p-3 rounded-xl border border-[#1e2430] text-center">
-				<p class="text-[10px] text-gray-500 uppercase font-mono">Cheers Received</p>
-				<p class="text-lg font-black text-rose-400 font-mono mt-0.5">{profile.stats.cheers_received} 🔥</p>
+			<div>
+				<p class="text-muted">Exact scores</p>
+				<p class="text-2xl font-bold text-ink num font-outlier mt-1">{profile.stats.exact_scores}</p>
+			</div>
+			<div>
+				<p class="text-muted">Debates & insights</p>
+				<p class="text-2xl font-bold text-ink num font-outlier mt-1">{profile.stats.posts_count + profile.stats.insights_published}</p>
+			</div>
+			<div>
+				<p class="text-muted">Cheers received</p>
+				<p class="text-2xl font-bold text-accent num font-outlier mt-1">{profile.stats.cheers_received}</p>
 			</div>
 		</div>
-	</div>
+	</section>
 
 	<!-- Published Data Lab Insights Shelf -->
-	<section class="space-y-4">
-		<div class="flex items-center justify-between border-b border-[#1e2430] pb-3">
-			<div>
-				<h2 class="text-base font-bold text-white uppercase tracking-wider">Published Tactical Insights</h2>
-				<p class="text-[11px] text-gray-400">Reproducible analysis created by @{profile.username}</p>
+	<section class="border-t-2 border-rule-2 pt-8 space-y-6">
+		<div class="flex items-end justify-between border-b border-rule pb-4">
+			<div class="space-y-1">
+				<h2 class="text-xl font-bold text-ink">Published tactical insights</h2>
+				<p class="text-xs text-muted">Reproducible analysis created by @{profile.username}</p>
 			</div>
-			<span class="text-xs font-mono text-gray-500">{profile.featured_insights.length} insights</span>
+			<span class="text-xs num font-outlier text-muted">{profile.featured_insights.length} insights</span>
 		</div>
 
 		{#if profile.featured_insights.length === 0}
-			<div class="py-12 text-center border border-dashed border-[#1e2430] rounded-xl text-gray-500 text-xs">
+			<div class="py-10 text-muted text-sm">
 				No public insights published yet by this supporter.
 			</div>
 		{:else}
-			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+			<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 				{#each profile.featured_insights as ins}
-					<div class="p-4 rounded-xl border border-[#1e2430] bg-[#12161f] flex flex-col justify-between space-y-3">
-						<div>
-							<div class="flex items-center justify-between mb-1.5">
-								<span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase font-bold">
+					<article class="border-t border-rule pt-4 flex flex-col justify-between space-y-4">
+						<div class="space-y-2">
+							<div class="flex items-center justify-between text-xs">
+								<span class="text-accent-2 font-semibold">
 									{ins.metric.replace('_', ' ')}
 								</span>
-								<span class="text-[10px] font-mono text-gray-500">{formatDate(ins.created_at)}</span>
+								<span class="num font-outlier text-muted">{formatDate(ins.created_at)}</span>
 							</div>
-							<h4 class="text-xs font-bold text-white mb-1">{ins.title}</h4>
+							<h3 class="text-base font-bold text-ink">{ins.title}</h3>
 							{#if ins.description}
-								<p class="text-xs text-gray-400 line-clamp-2">{ins.description}</p>
+								<p class="text-sm text-ink-2 line-clamp-2">{ins.description}</p>
 							{/if}
 						</div>
 
-						<div class="pt-2 border-t border-[#1e2430] flex items-center justify-between text-xs">
-							<span class="text-[11px] text-gray-500 font-mono">
-								{ins.team_ids.join(', ')} • {ins.venue}
+						<div class="pt-3 border-t border-rule flex items-center justify-between text-xs">
+							<span class="text-muted">
+								{ins.team_ids.join(', ')} ({ins.venue})
 							</span>
 							<a
 								href="/lab?metric={ins.metric}&teams={ins.team_ids.join(',')}&venue={ins.venue}"
-								class="text-[11px] text-amber-400 hover:text-amber-300 font-bold transition"
+								class="text-accent hover:text-ink font-semibold transition-colors"
 							>
-								Open in Data Lab →
+								Open in Data Lab
 							</a>
 						</div>
-					</div>
+					</article>
 				{/each}
 			</div>
 		{/if}
 	</section>
 
 	<!-- Recent Terrace Debates -->
-	<section class="space-y-4">
-		<div class="flex items-center justify-between border-b border-[#1e2430] pb-3">
-			<div>
-				<h2 class="text-base font-bold text-white uppercase tracking-wider">Terrace Community Debates</h2>
-				<p class="text-[11px] text-gray-400">Recent posts and opinions</p>
+	<section class="border-t-2 border-rule-2 pt-8 space-y-6">
+		<div class="flex items-end justify-between border-b border-rule pb-4">
+			<div class="space-y-1">
+				<h2 class="text-xl font-bold text-ink">Terrace community debates</h2>
+				<p class="text-xs text-muted">Recent posts and tactical observations</p>
 			</div>
-			<a href="/terrace" class="text-xs text-gray-400 hover:text-white transition">Browse All Debates →</a>
+			<a href="/terrace" class="text-xs text-accent hover:text-ink font-semibold transition-colors">Browse all debates</a>
 		</div>
 
 		{#if profile.recent_posts.length === 0}
-			<div class="py-12 text-center border border-dashed border-[#1e2430] rounded-xl text-gray-500 text-xs">
+			<div class="py-10 text-muted text-sm">
 				No Terrace debates published yet.
 			</div>
 		{:else}
-			<div class="space-y-3">
+			<div class="divide-y divide-rule">
 				{#each profile.recent_posts as post}
-					<div class="p-4 rounded-xl border border-[#1e2430] bg-[#12161f] space-y-2">
-						<p class="text-xs text-gray-200 leading-relaxed whitespace-pre-line">
+					<article class="py-5 space-y-3">
+						<p class="text-sm text-ink leading-relaxed whitespace-pre-line">
 							{post.content}
 						</p>
-						<div class="pt-2 border-t border-[#1e2430] flex items-center justify-between text-[10px] text-gray-500 font-mono">
-							<span>🔥 {post.reactions_count} cheers • 💬 {post.comments_count} replies</span>
+						<div class="flex items-center justify-between text-xs text-muted num font-outlier">
+							<span>{post.reactions_count} cheers, {post.comments_count} replies</span>
 							<span>{formatDate(post.created_at)}</span>
 						</div>
-					</div>
+					</article>
 				{/each}
 			</div>
 		{/if}

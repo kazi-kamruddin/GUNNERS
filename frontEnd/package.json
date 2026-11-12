@@ -28,10 +28,8 @@
 		"#lib/*": "./src/lib/*"
 	},
 	"dependencies": {
-		"@fortawesome/fontawesome-free": "^7.3.1",
 		"@supabase/ssr": "^0.12.7",
 		"@supabase/supabase-js": "^2.118.0",
-		"echarts": "^6.1.0",
-		"gsap": "^3.15.0"
+		"echarts": "^6.1.0"
 	}
 }

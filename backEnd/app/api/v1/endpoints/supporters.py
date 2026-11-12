@@ -1,19 +1,24 @@
 import datetime
-from fastapi import APIRouter, Depends, HTTPException
+import json
+from typing import Dict, List, Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func
+from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
-from typing import List, Optional
 from app.core.database import get_db
+from app.models.profile import Profile
 from app.models.insight import Insight
-from app.models.terrace import Post, PostReaction
+from app.models.terrace import Post
 from app.models.predictions import Prediction
-from app.schemas.supporters import SupporterProfileResponse, SupporterStats
+from app.models.football import Match
+from app.schemas.supporters import SupporterProfileResponse, SupporterStats, SupporterSummary
 from app.schemas.insight import InsightResponse
 from app.schemas.terrace import PostResponse
-import json
+from app.api.v1.endpoints.predictions import _grade_prediction
+from app.api.v1.endpoints.terrace import serialize_tactical_board_response
 
 router = APIRouter()
+
 
 def serialize_insight(ins: Insight) -> InsightResponse:
     try:
@@ -34,43 +39,115 @@ def serialize_insight(ins: Insight) -> InsightResponse:
         chart_type=ins.chart_type,
         snapshot=snap,
         is_public=ins.is_public,
-        created_at=ins.created_at
+        created_at=ins.created_at,
     )
+
+
+async def _compute_prediction_rank(db: AsyncSession, target_user_ids: set[str]) -> int:
+    """Compute real 1-based prediction rank among all predictors in DB, or 0 if none."""
+    if not target_user_ids:
+        return 0
+    rows = (
+        await db.execute(
+            select(Prediction, Match).outerjoin(Match, Prediction.match_id == Match.id)
+        )
+    ).all()
+    if not rows:
+        return 0
+
+    scores: Dict[str, tuple[int, int]] = {}
+    for pred, match in rows:
+        pts, is_exact, _, _ = _grade_prediction(pred, match)
+        prev_pts, prev_exact = scores.get(pred.user_id, (0, 0))
+        scores[pred.user_id] = (prev_pts + pts, prev_exact + (1 if is_exact else 0))
+
+    if not any(uid in scores for uid in target_user_ids):
+        return 0
+
+    ranked = sorted(scores.items(), key=lambda item: (-item[1][0], -item[1][1], item[0]))
+    for idx, (uid, _) in enumerate(ranked, 1):
+        if uid in target_user_ids:
+            return idx
+    return 0
+
+
+@router.get("", response_model=List[SupporterSummary])
+async def search_supporters(
+    q: Optional[str] = Query(None, description="Search supporters by username or display name"),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search registered Arsenal FC supporters for the directory and Direct Debates picker."""
+    stmt = select(Profile).where(Profile.username.is_not(None))
+    if q and q.strip():
+        pattern = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(
+                Profile.username.ilike(pattern),
+                Profile.display_name.ilike(pattern),
+            )
+        )
+    stmt = stmt.order_by(func.lower(Profile.username).asc()).limit(limit)
+    profiles = (await db.execute(stmt)).scalars().all()
+    return [
+        SupporterSummary(
+            user_id=p.id,
+            username=p.username or p.id,
+            display_name=p.display_name,
+            avatar_url=p.avatar_url,
+            favorite_club_id=p.favorite_club_id,
+            bio=p.bio,
+        )
+        for p in profiles
+    ]
+
 
 @router.get("/{username}", response_model=SupporterProfileResponse)
 async def get_supporter_profile(
     username: str,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ):
-    """Retrieve full public supporter profile, stats, published insights, and debates."""
-    # Find insights by author_name
-    ins_stmt = (
-        select(Insight)
-        .where(func.lower(Insight.author_name) == username.lower())
-        .order_by(Insight.created_at.desc())
-        .limit(6)
-    )
-    ins_res = await db.execute(ins_stmt)
-    insights = [serialize_insight(i) for i in ins_res.scalars().all()]
+    """Retrieve public supporter profile, real DB stats, published insights, and debates."""
+    uname_lower = username.lower()
 
-    # Find posts by author_name
-    post_stmt = (
+    profile = (
+        await db.execute(select(Profile).where(func.lower(Profile.username) == uname_lower))
+    ).scalar_one_or_none()
+
+    # Insights authored by this supporter
+    ins_filter = (
+        or_(Insight.user_id == profile.id, func.lower(Insight.author_name) == uname_lower)
+        if profile
+        else (func.lower(Insight.author_name) == uname_lower)
+    )
+    ins_res = await db.execute(
+        select(Insight).where(ins_filter).order_by(Insight.created_at.desc())
+    )
+    insights_all = ins_res.scalars().all()
+    featured_insights = [serialize_insight(i) for i in insights_all[:6]]
+
+    # Posts authored by this supporter
+    post_filter = (
+        or_(Post.author_id == profile.id, func.lower(Post.author_name) == uname_lower)
+        if profile
+        else (func.lower(Post.author_name) == uname_lower)
+    )
+    post_res = await db.execute(
         select(Post)
-        .options(selectinload(Post.insight), selectinload(Post.reactions), selectinload(Post.comments))
-        .where(func.lower(Post.author_name) == username.lower())
+        .options(
+            selectinload(Post.insight),
+            selectinload(Post.tactical_board),
+            selectinload(Post.reactions),
+            selectinload(Post.comments),
+        )
+        .where(post_filter)
         .order_by(Post.created_at.desc())
-        .limit(6)
     )
-    post_res = await db.execute(post_stmt)
-    posts = post_res.scalars().all()
+    posts_all = post_res.scalars().all()
 
-    serialized_posts = []
-    total_cheers = 0
-    fav_club = "arsenal"
-    for p in posts:
-        total_cheers += len(p.reactions)
-        if p.author_club_id:
-            fav_club = p.author_club_id
+    total_cheers = sum(len(p.reactions) for p in posts_all)
+    serialized_posts: List[PostResponse] = []
+    for p in posts_all[:6]:
         serialized_posts.append(
             PostResponse(
                 id=p.id,
@@ -79,48 +156,112 @@ async def get_supporter_profile(
                 author_club_id=p.author_club_id,
                 club_id=p.club_id,
                 content=p.content,
+                image_url=p.image_url,
                 insight_id=p.insight_id,
                 insight=serialize_insight(p.insight) if p.insight else None,
+                tactical_board_id=p.tactical_board_id,
+                tactical_board=serialize_tactical_board_response(p.tactical_board),
                 created_at=p.created_at,
                 reactions_count=len(p.reactions),
                 comments_count=len(p.comments),
-                user_reacted=False
+                user_reacted=False,
             )
         )
 
-    # Prediction stats
-    pred_stmt = select(Prediction).where(func.lower(Prediction.user_name) == username.lower())
-    p_res = await db.execute(pred_stmt)
-    preds = p_res.scalars().all()
-    points = sum(p.points_awarded or 0 for p in preds)
+    # Predictions for this supporter
+    pred_filter = (
+        or_(Prediction.user_id == profile.id, func.lower(Prediction.user_name) == uname_lower)
+        if profile
+        else (func.lower(Prediction.user_name) == uname_lower)
+    )
+    pred_rows = (
+        await db.execute(
+            select(Prediction, Match)
+            .outerjoin(Match, Prediction.match_id == Match.id)
+            .where(pred_filter)
+        )
+    ).all()
 
-    # Infer club affiliation if demo username
-    uname_lower = username.lower()
-    if "madrid" in uname_lower or "carlos" in uname_lower:
-        fav_club = "real-madrid"
-    elif "barca" in uname_lower or "cule" in uname_lower:
-        fav_club = "barcelona"
-    elif "milan" in uname_lower or "rossoneri" in uname_lower:
-        fav_club = "milan"
+    if not profile and not insights_all and not posts_all and not pred_rows:
+        raise HTTPException(status_code=404, detail="Supporter not found")
+
+    points = 0
+    exact_scores = 0
+    pred_user_ids: set[str] = set()
+    for pred, match in pred_rows:
+        pts, is_exact, _, _ = _grade_prediction(pred, match)
+        points += pts
+        if is_exact:
+            exact_scores += 1
+        pred_user_ids.add(pred.user_id)
+
+    if profile:
+        pred_user_ids.add(profile.id)
+
+    prediction_rank = await _compute_prediction_rank(db, pred_user_ids) if pred_rows else 0
+
+    resolved_user_id: Optional[str] = profile.id if profile else None
+    if not resolved_user_id and insights_all and insights_all[0].user_id:
+        resolved_user_id = insights_all[0].user_id
+    if not resolved_user_id and posts_all and posts_all[0].author_id:
+        resolved_user_id = posts_all[0].author_id
+    if not resolved_user_id and pred_rows:
+        resolved_user_id = pred_rows[0][0].user_id
+    if not resolved_user_id:
+        resolved_user_id = f"usr_{uname_lower}"
+
+    resolved_club = (
+        profile.favorite_club_id
+        if profile and profile.favorite_club_id
+        else (
+            posts_all[0].author_club_id
+            if posts_all
+            else (insights_all[0].author_club_id if insights_all else "arsenal")
+        )
+    )
+    resolved_username = (profile.username if profile and profile.username else username)
+    resolved_display_name = (
+        profile.display_name
+        if profile and profile.display_name
+        else (
+            posts_all[0].author_name
+            if posts_all
+            else (insights_all[0].author_name if insights_all else resolved_username)
+        )
+    )
+    resolved_joined = (
+        profile.created_at
+        if profile and profile.created_at
+        else (
+            posts_all[-1].created_at
+            if posts_all
+            else (
+                insights_all[-1].created_at
+                if insights_all
+                else datetime.datetime.now(datetime.timezone.utc)
+            )
+        )
+    )
 
     stats = SupporterStats(
-        prediction_points=points if preds else 28,
-        prediction_rank=1 if points > 20 else 3,
-        total_predictions=len(preds) if preds else 14,
-        exact_scores=len([p for p in preds if p.points_awarded == 3]) if preds else 6,
-        insights_published=len(insights),
-        posts_count=len(posts),
-        cheers_received=total_cheers
+        prediction_points=points,
+        prediction_rank=prediction_rank,
+        total_predictions=len(pred_rows),
+        exact_scores=exact_scores,
+        insights_published=len(insights_all),
+        posts_count=len(posts_all),
+        cheers_received=total_cheers,
     )
 
     return SupporterProfileResponse(
-        user_id=f"usr_{username.lower()}",
-        username=username,
-        display_name=username,
-        favorite_club_id=fav_club,
-        bio=f"Dedicated {fav_club.capitalize()} supporter analyzing tactics and debating match evidence.",
-        joined_at=datetime.datetime.utcnow() - datetime.timedelta(days=90),
+        user_id=resolved_user_id,
+        username=resolved_username,
+        display_name=resolved_display_name,
+        avatar_url=profile.avatar_url if profile else None,
+        favorite_club_id=resolved_club,
+        bio=profile.bio if profile else None,
+        joined_at=resolved_joined,
         stats=stats,
-        featured_insights=insights,
-        recent_posts=serialized_posts
+        featured_insights=featured_insights,
+        recent_posts=serialized_posts,
     )

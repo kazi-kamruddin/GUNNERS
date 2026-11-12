@@ -38,7 +38,7 @@ export const actions: Actions = {
 			});
 		}
 
-		const { error } = await locals.supabase.auth.signUp({
+		const { data, error } = await locals.supabase.auth.signUp({
 			email,
 			password,
 			options: {
@@ -58,6 +58,13 @@ export const actions: Actions = {
 				displayName,
 				favoriteClub
 			});
+		}
+
+		if (data.user && !data.session) {
+			return {
+				needsEmailVerification: true,
+				email
+			};
 		}
 
 		throw redirect(303, '/profile');

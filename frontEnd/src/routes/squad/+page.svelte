@@ -9,11 +9,21 @@
 	let players = $state<Player[]>([]);
 	let isLoading = $state(false);
 
-	// Player comparison state
 	let comparePlayer1Id = $state<string | null>(null);
 	let comparePlayer2Id = $state<string | null>(null);
 	let comparisonResult = $state<PlayerComparison | null>(null);
 	let isComparing = $state(false);
+	let failedPortraits = $state<Record<string, boolean>>({});
+	let failedActions = $state<Record<string, boolean>>({});
+
+	function getInitials(name: string): string {
+		return name
+			.split(/\s+/)
+			.map((p) => p[0] || '')
+			.join('')
+			.slice(0, 2)
+			.toUpperCase();
+	}
 
 	let isInitialized = false;
 
@@ -68,7 +78,6 @@
 			comparePlayer2Id = playerId;
 			runComparison(comparePlayer1Id, playerId);
 		} else {
-			// Replace player 2
 			comparePlayer2Id = playerId;
 			runComparison(comparePlayer1Id, playerId);
 		}
@@ -79,32 +88,26 @@
 	<title>Arsenal 2024/25 Squad & Player Comparisons | GUNNERS</title>
 </svelte:head>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+<div class="container py-12 space-y-10">
 	<!-- Page Header -->
-	<div class="border-b border-red-900/30 pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
-		<div>
-			<div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider mb-2 bg-red-950/70 text-red-400 border border-red-800/40 font-mono">
-				Mikel Arteta's 2024/25 First Team
-			</div>
-			<h1 class="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-2.5">
-				<span>Arsenal Squad Directory</span>
-			</h1>
-			<p class="text-sm text-gray-400 mt-1 max-w-2xl">
-				Official roster statistics, goal contributions, appearances, discipline ratings, and head-to-head tactical comparisons.
+	<div class="border-b-2 border-rule-2 pb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
+		<div class="space-y-3">
+			<h1>Arsenal squad directory</h1>
+			<p class="lead text-ink-2">
+				Mikel Arteta’s first-team roster statistics, appearances, goal contributions, and head-to-head player comparisons.
 			</p>
 		</div>
 
-		<div class="flex items-center gap-2">
+		<div class="flex items-center gap-3 flex-wrap">
 			<a
 				href="/board"
-				class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs transition shadow-sm flex items-center gap-1.5"
+				class="inline-flex items-center h-10 px-4 rounded-card bg-accent text-accent-ink hover:opacity-90 font-semibold text-sm transition-opacity whitespace-nowrap"
 			>
-				<span>📋</span>
-				<span>Build Lineup in Dugout</span>
+				Build lineup in Dugout
 			</a>
 			{#if comparePlayer1Id || comparePlayer2Id}
-				<div class="flex items-center gap-2 bg-[#0d1017] p-2 rounded-lg border border-[#1e2430] text-xs">
-					<span class="text-gray-400 font-mono text-[11px]">Compare ({comparePlayer1Id ? 1 : 0} + {comparePlayer2Id ? 1 : 0}/2):</span>
+				<div class="flex items-center gap-3 bg-paper-2 px-3 h-10 rounded-card border border-rule text-xs">
+					<span class="num text-muted">Selected ({comparePlayer1Id ? 1 : 0} + {comparePlayer2Id ? 1 : 0}/2)</span>
 					<button
 						type="button"
 						onclick={() => {
@@ -112,9 +115,9 @@
 							comparePlayer2Id = null;
 							comparisonResult = null;
 						}}
-						class="text-amber-400 hover:text-white font-semibold transition"
+						class="text-accent-2 hover:text-ink font-semibold transition-colors whitespace-nowrap"
 					>
-						Clear ✕
+						Clear selection
 					</button>
 				</div>
 			{/if}
@@ -125,185 +128,215 @@
 	{#if comparisonResult}
 		{@const p1 = comparisonResult.player1.player}
 		{@const p2 = comparisonResult.player2.player}
-		<section class="p-6 rounded-2xl border border-amber-500/40 bg-gradient-to-br from-[#161c28] via-[#12161f] to-[#0d1017] shadow-xl space-y-6">
-			<div class="flex items-center justify-between border-b border-[#1e2430] pb-4">
-				<div class="flex items-center gap-2">
-					<span class="text-amber-400 font-bold text-sm uppercase tracking-wider font-mono">⚡ Gunner Head-to-Head Comparison</span>
-				</div>
+		<section class="bg-paper-2 border-t-2 border-rule-2 p-6 space-y-6">
+			<div class="flex items-center justify-between border-b border-rule pb-4">
+				<h2>Head-to-head player comparison</h2>
 				<button
 					type="button"
 					onclick={() => (comparisonResult = null)}
-					class="text-gray-400 hover:text-white text-xs font-mono"
+					class="text-muted hover:text-ink text-sm font-semibold transition-colors whitespace-nowrap"
 				>
-					Close ✕
+					Close comparison
 				</button>
 			</div>
 
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-				<!-- Player 1 Profile Card -->
-				<div class="p-4 rounded-xl border border-red-900/40 bg-[#0d1017]/80 flex items-center gap-4">
-					<span class="w-12 h-12 rounded-full flex items-center justify-center font-black text-xl text-white shadow bg-red-600">
+				<div class="border-t border-rule pt-4 flex items-center gap-4">
+					<span class="num font-display font-bold text-2xl text-accent">
 						#{p1.jersey_number}
 					</span>
 					<div>
-						<div class="flex items-center gap-2">
-							<h3 class="text-base font-bold text-white">{p1.name}</h3>
-							<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-red-950/60 text-red-300 border border-red-900/40">
-								Arsenal
-							</span>
-						</div>
-						<p class="text-xs text-gray-400">{p1.position} • {p1.nationality}</p>
+						<h3 class="text-base font-bold text-ink">{p1.name}</h3>
+						<p class="text-xs text-muted">{p1.position}, {p1.nationality}</p>
 					</div>
 				</div>
 
-				<!-- Player 2 Profile Card -->
-				<div class="p-4 rounded-xl border border-red-900/40 bg-[#0d1017]/80 flex items-center gap-4">
-					<span class="w-12 h-12 rounded-full flex items-center justify-center font-black text-xl text-white shadow bg-red-600">
+				<div class="border-t border-rule pt-4 flex items-center gap-4">
+					<span class="num font-display font-bold text-2xl text-accent">
 						#{p2.jersey_number}
 					</span>
 					<div>
-						<div class="flex items-center gap-2">
-							<h3 class="text-base font-bold text-white">{p2.name}</h3>
-							<span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-red-950/60 text-red-300 border border-red-900/40">
-								Arsenal
-							</span>
-						</div>
-						<p class="text-xs text-gray-400">{p2.position} • {p2.nationality}</p>
+						<h3 class="text-base font-bold text-ink">{p2.name}</h3>
+						<p class="text-xs text-muted">{p2.position}, {p2.nationality}</p>
 					</div>
 				</div>
 			</div>
 
-			<!-- Comparison Metrics Comparison Matrix -->
-			<div class="space-y-3 pt-2">
-				<div class="grid grid-cols-3 gap-2 text-center text-xs font-mono border-b border-[#1e2430] pb-2 text-gray-400">
-					<span class="font-bold text-white">{p1.short_name}</span>
-					<span class="uppercase font-semibold text-amber-400">Metric</span>
-					<span class="font-bold text-white">{p2.short_name}</span>
+			<!-- Comparison Metrics Table -->
+			<div class="divide-y divide-rule border-y border-rule text-sm">
+				<div class="grid grid-cols-3 gap-4 py-2.5 text-xs text-muted font-semibold">
+					<span>{p1.short_name}</span>
+					<span class="text-center">Metric</span>
+					<span class="text-right">{p2.short_name}</span>
 				</div>
 
-				<!-- Goals -->
-				<div class="grid grid-cols-3 gap-2 text-center text-xs py-1.5 border-b border-[#1e2430]/60 items-center">
-					<span class="font-bold text-white text-sm">{p1.goals}</span>
-					<span class="text-gray-400">Total Goals</span>
-					<span class="font-bold text-white text-sm">{p2.goals}</span>
+				<div class="grid grid-cols-3 gap-4 py-2.5 items-center">
+					<span class="num font-semibold text-ink">{p1.goals}</span>
+					<span class="text-center text-xs text-muted">Total goals</span>
+					<span class="num font-semibold text-ink text-right">{p2.goals}</span>
 				</div>
 
-				<!-- Assists -->
-				<div class="grid grid-cols-3 gap-2 text-center text-xs py-1.5 border-b border-[#1e2430]/60 items-center">
-					<span class="font-bold text-white text-sm">{p1.assists}</span>
-					<span class="text-gray-400">Total Assists</span>
-					<span class="font-bold text-white text-sm">{p2.assists}</span>
+				<div class="grid grid-cols-3 gap-4 py-2.5 items-center">
+					<span class="num font-semibold text-ink">{p1.assists}</span>
+					<span class="text-center text-xs text-muted">Total assists</span>
+					<span class="num font-semibold text-ink text-right">{p2.assists}</span>
 				</div>
 
-				<!-- Goals per 90 -->
-				<div class="grid grid-cols-3 gap-2 text-center text-xs py-1.5 border-b border-[#1e2430]/60 items-center">
-					<span class="font-bold text-emerald-400 font-mono">{comparisonResult.player1.goals_per_90}</span>
-					<span class="text-gray-400">Goals / 90 min</span>
-					<span class="font-bold text-emerald-400 font-mono">{comparisonResult.player2.goals_per_90}</span>
+				<div class="grid grid-cols-3 gap-4 py-2.5 items-center">
+					<span class="num font-outlier font-semibold text-success">{comparisonResult.player1.goals_per_90}</span>
+					<span class="text-center text-xs text-muted">Goals per 90 min</span>
+					<span class="num font-outlier font-semibold text-success text-right">{comparisonResult.player2.goals_per_90}</span>
 				</div>
 
-				<!-- Mins per Goal Contribution -->
-				<div class="grid grid-cols-3 gap-2 text-center text-xs py-1.5 border-b border-[#1e2430]/60 items-center">
-					<span class="font-bold text-amber-400 font-mono">{comparisonResult.player1.minutes_per_contribution}m</span>
-					<span class="text-gray-400">Mins / G+A Contribution</span>
-					<span class="font-bold text-amber-400 font-mono">{comparisonResult.player2.minutes_per_contribution}m</span>
+				<div class="grid grid-cols-3 gap-4 py-2.5 items-center">
+					<span class="num font-outlier font-semibold text-accent-2">{comparisonResult.player1.minutes_per_contribution}m</span>
+					<span class="text-center text-xs text-muted">Minutes per G+A</span>
+					<span class="num font-outlier font-semibold text-accent-2 text-right">{comparisonResult.player2.minutes_per_contribution}m</span>
 				</div>
 
-				<!-- Discipline -->
-				<div class="grid grid-cols-3 gap-2 text-center text-xs py-1.5 items-center">
-					<span class="font-bold text-purple-400 font-mono">{comparisonResult.player1.discipline_score} / 10</span>
-					<span class="text-gray-400">Fairplay Rating</span>
-					<span class="font-bold text-purple-400 font-mono">{comparisonResult.player2.discipline_score} / 10</span>
+				<div class="grid grid-cols-3 gap-4 py-2.5 items-center">
+					<span class="num font-outlier font-semibold text-ink">{comparisonResult.player1.discipline_score} / 10</span>
+					<span class="text-center text-xs text-muted">Fairplay rating</span>
+					<span class="num font-outlier font-semibold text-ink text-right">{comparisonResult.player2.discipline_score} / 10</span>
 				</div>
 			</div>
 
-			<!-- Analysis Summary Banner -->
-			<div class="p-3.5 rounded-lg bg-[#0d1017] border border-[#1e2430] text-xs text-amber-200/90 font-mono">
-				💡 <strong>Tactical Verdict:</strong> {comparisonResult.comparison_summary}
-			</div>
+			<p class="text-sm text-ink-2">
+				<strong class="text-ink font-semibold">Tactical verdict:</strong> {comparisonResult.comparison_summary}
+			</p>
 		</section>
 	{/if}
 
 	<!-- Position Filter Tabs -->
-	<div class="flex items-center gap-2 border-b border-[#1e2430] pb-4 flex-wrap">
+	<div class="flex items-center gap-2 border-b border-rule pb-4 flex-wrap">
 		{#each ['all', 'Goalkeeper', 'Defender', 'Midfielder', 'Attacker'] as pos}
 			{@const isSelected = selectedPosition === pos}
+			{@const posLabel = pos === 'all' ? 'All Gunners' : pos + 's'}
 			<button
 				type="button"
 				onclick={() => handlePositionChange(pos)}
-				class="px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-2 border {isSelected ? 'bg-red-600 text-white border-red-500 shadow-sm' : 'bg-[#12161f] text-gray-400 border-[#1e2430] hover:text-white'}"
+				class="h-9 px-4 rounded-card text-sm font-semibold transition-colors border whitespace-nowrap {isSelected ? 'bg-accent text-accent-ink border-accent' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 			>
-				<span>{pos === 'all' ? 'All Gunners' : pos + 's'}</span>
+				{posLabel}
 			</button>
 		{/each}
 	</div>
 
 	<!-- Players Grid -->
 	{#if isLoading}
-		<div class="py-16 text-center text-gray-500 text-sm">
-			Loading Arsenal squad profiles...
+		<div class="py-12 text-muted text-sm">
+			Loading Arsenal squad profiles…
 		</div>
 	{:else if players.length === 0}
-		<div class="py-16 text-center border border-dashed border-[#1e2430] rounded-xl text-gray-500 text-sm">
+		<div class="border-t border-rule pt-8 text-muted text-sm">
 			No players found for the selected position.
 		</div>
 	{:else}
-		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
 			{#each players as player}
 				{@const isSelectedP1 = comparePlayer1Id === player.id}
 				{@const isSelectedP2 = comparePlayer2Id === player.id}
-				<div class="p-5 rounded-xl border border-[#1e2430] bg-[#12161f] flex flex-col justify-between space-y-4 hover:border-red-900/60 transition group">
-					<!-- Top Row: Jersey + Name + Position -->
-					<div>
-						<div class="flex items-center justify-between mb-3">
-							<span class="text-xs font-black font-mono px-2 py-0.5 rounded bg-red-950/80 text-red-300 border border-red-800/40">
-								#{player.jersey_number}
-							</span>
-							<span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-white/5 text-gray-300 border border-[#1e2430]">
-								{player.position}
-							</span>
+				{@const compareBtnLabel = isSelectedP1 || isSelectedP2 ? 'Selected' : 'Compare'}
+				{@const portraitSrc = player.portrait_url || player.photo_url}
+				{@const actionSrc = player.action_url}
+				{@const showPortrait = Boolean(portraitSrc && !failedPortraits[player.id])}
+				{@const showAction = Boolean(actionSrc && !failedActions[player.id])}
+				<article class="border-t border-rule pt-5 flex flex-col justify-between space-y-5">
+					<a href="/squad/{encodeURIComponent(player.id)}" class="group block space-y-4">
+						<div class="relative aspect-[4/5] w-full rounded-card overflow-hidden bg-paper-2 border border-rule">
+							{#if showPortrait}
+								<img
+									src={portraitSrc}
+									alt="{player.name} portrait"
+									width="400"
+									height="500"
+									loading="lazy"
+									class="w-full h-full object-cover object-top transition-opacity duration-300 {showAction ? 'group-hover:opacity-0 group-focus-within:opacity-0' : ''}"
+									onerror={() => {
+										failedPortraits = { ...failedPortraits, [player.id]: true };
+									}}
+								/>
+								{#if showAction}
+									<img
+										src={actionSrc}
+										alt=""
+										aria-hidden="true"
+										width="400"
+										height="500"
+										loading="lazy"
+										class="absolute inset-0 w-full h-full object-cover object-top opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-300"
+										onerror={() => {
+											failedActions = { ...failedActions, [player.id]: true };
+										}}
+									/>
+								{/if}
+							{:else if showAction}
+								<img
+									src={actionSrc}
+									alt={player.name}
+									width="400"
+									height="500"
+									loading="lazy"
+									class="w-full h-full object-cover object-top"
+									onerror={() => {
+										failedActions = { ...failedActions, [player.id]: true };
+									}}
+								/>
+							{:else}
+								<div class="w-full h-full flex flex-col items-center justify-center gap-2 bg-paper-2 p-4 text-center">
+									<span class="num font-display font-bold text-4xl text-accent">#{player.jersey_number}</span>
+									<span class="font-display font-bold text-lg text-ink">{getInitials(player.name)}</span>
+									<span class="text-xs text-muted">{player.position}</span>
+								</div>
+							{/if}
 						</div>
 
-						<h3 class="text-base font-bold text-white group-hover:text-red-400 transition">{player.name}</h3>
-						<p class="text-xs text-gray-400 font-mono mt-0.5">
-							Arsenal FC • {player.nationality}
-						</p>
-					</div>
+						<div class="space-y-1.5">
+							<div class="flex items-center justify-between text-xs text-muted">
+								<span class="num font-outlier font-semibold text-accent">#{player.jersey_number}</span>
+								<span>{player.position}</span>
+							</div>
 
-					<!-- Stats Grid -->
-					<div class="grid grid-cols-3 gap-2 bg-[#0a0c10] p-2.5 rounded-lg border border-[#1e2430] text-center text-xs">
+							<h3 class="text-base font-bold text-ink group-hover:text-accent transition-colors">{player.name}</h3>
+							<p class="text-xs text-muted">
+								Arsenal FC, {player.nationality}
+							</p>
+						</div>
+					</a>
+
+					<!-- Stats Row -->
+					<div class="grid grid-cols-3 gap-3 border-y border-rule py-3 text-xs">
 						<div>
-							<p class="text-[10px] text-gray-500 uppercase">Apps</p>
-							<p class="font-bold text-white font-mono">{player.appearances}</p>
+							<div class="text-muted">Apps</div>
+							<div class="num font-outlier font-semibold text-sm text-ink">{player.appearances}</div>
 						</div>
 						<div>
-							<p class="text-[10px] text-gray-500 uppercase">{player.position === 'Goalkeeper' ? 'Cleans' : 'Goals'}</p>
-							<p class="font-bold text-emerald-400 font-mono">{player.position === 'Goalkeeper' ? player.clean_sheets : player.goals}</p>
+							<div class="text-muted">{player.position === 'Goalkeeper' ? 'Clean sheets' : 'Goals'}</div>
+							<div class="num font-outlier font-semibold text-sm text-success">{player.position === 'Goalkeeper' ? player.clean_sheets : player.goals}</div>
 						</div>
 						<div>
-							<p class="text-[10px] text-gray-500 uppercase">{player.position === 'Goalkeeper' ? 'Mins' : 'Assists'}</p>
-							<p class="font-bold text-amber-400 font-mono">{player.position === 'Goalkeeper' ? player.minutes_played : player.assists}</p>
+							<div class="text-muted">{player.position === 'Goalkeeper' ? 'Minutes' : 'Assists'}</div>
+							<div class="num font-outlier font-semibold text-sm text-accent-2">{player.position === 'Goalkeeper' ? player.minutes_played : player.assists}</div>
 						</div>
 					</div>
 
 					<!-- Footer & Actions -->
-					<div class="pt-2 border-t border-[#1e2430] flex items-center justify-between text-xs gap-2">
+					<div class="flex items-center justify-between text-xs gap-2">
 						<a
-							href="/board"
-							class="text-[11px] text-red-400 hover:text-red-300 font-semibold flex items-center gap-1 transition"
+							href="/squad/{encodeURIComponent(player.id)}"
+							class="text-ink-2 hover:text-accent font-semibold transition-colors whitespace-nowrap"
 						>
-							<span>📋</span>
-							<span>Lineup</span>
+							Player dossier
 						</a>
 						<button
 							type="button"
 							onclick={() => toggleCompare(player.id)}
-							class="px-2.5 py-1 rounded text-xs font-semibold transition border {isSelectedP1 || isSelectedP2 ? 'bg-amber-400 text-black border-amber-400 font-bold' : 'bg-white/5 text-gray-300 border-[#1e2430] hover:text-white hover:bg-white/10'}"
+							class="h-8 px-3 rounded-card text-xs font-semibold transition-colors border whitespace-nowrap {isSelectedP1 || isSelectedP2 ? 'bg-paper-3 text-accent-2 border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 						>
-							{isSelectedP1 || isSelectedP2 ? 'Selected ✓' : '+ Compare'}
+							{compareBtnLabel}
 						</button>
 					</div>
-				</div>
+				</article>
 			{/each}
 		</div>
 	{/if}

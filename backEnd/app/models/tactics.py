@@ -23,4 +23,5 @@ class TacticalBoard(Base):
     __table_args__ = (
         Index("idx_tactical_boards_club", "author_club_id"),
         Index("idx_tactical_boards_created", "created_at"),
+        Index("idx_tactical_boards_user_id", "user_id"),
     )

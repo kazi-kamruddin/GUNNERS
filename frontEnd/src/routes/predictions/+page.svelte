@@ -1,65 +1,198 @@
 <script lang="ts">
-	import { CLUBS } from '$lib/stores/theme.svelte';
-	import { submitPrediction, fetchLeaderboard } from '$lib/api/football';
-	import type { UpcomingMatchPrediction, LeaderboardEntry } from '$lib/types/football';
+	import { ApiError, submitPrediction, fetchLeaderboard } from '$lib/api/football';
+	import { fetchPredictionHistory } from '$lib/api/community';
+	import type {
+		UpcomingMatchPrediction,
+		LeaderboardEntry,
+		PredictionHistoryItem
+	} from '$lib/types/football';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
 	let upcoming = $state<UpcomingMatchPrediction[]>([]);
 	let leaderboard = $state<LeaderboardEntry[]>([]);
+	let history = $state<PredictionHistoryItem[]>([]);
 	let isSubmitting = $state<Record<string, boolean>>({});
 	let predictionInputs = $state<Record<string, { home: number; away: number }>>({});
 	let notificationMessage = $state<string | null>(null);
+	let errorBanner = $state<{ message: string; isAuth?: boolean } | null>(null);
+	let nowMs = $state(Date.now());
+	let leaderboardMode = $state<'all' | 'seasonal'>('all');
+	let selectedCampaign = $state<string>('');
+	let isLoadingLeaderboard = $state(false);
 
-	let isInitialized = false;
+	let isSignedIn = $derived(Boolean(data.user && data.session?.access_token));
+
+	let campaignOptions = $derived.by(() => {
+		const seen = new Map<string, { value: string; label: string; startYear: number; isCurrent: boolean }>();
+		for (const s of data.seasons || []) {
+			if (!s.start_year || !s.end_year) continue;
+			const value = `${s.start_year}-${s.end_year}`;
+			const existing = seen.get(value);
+			const isCurrent = Boolean(s.is_current || existing?.isCurrent);
+			seen.set(value, {
+				value,
+				label: isCurrent ? `${value} (Current)` : value,
+				startYear: s.start_year,
+				isCurrent
+			});
+		}
+		return Array.from(seen.values()).sort((a, b) => b.startYear - a.startYear);
+	});
+
+	let selectedLeaderboardSeason = $derived(
+		leaderboardMode === 'seasonal' ? selectedCampaign || campaignOptions[0]?.value : undefined
+	);
 
 	$effect(() => {
-		if (!isInitialized && data.upcoming) {
-			upcoming = data.upcoming;
-			leaderboard = data.leaderboard;
-
-			// Pre-fill inputs with existing predictions if any
-			for (const item of data.upcoming) {
-				if (item.user_prediction) {
-					predictionInputs[item.match.id] = {
-						home: item.user_prediction.predicted_home_score,
-						away: item.user_prediction.predicted_away_score
-					};
-				} else {
-					predictionInputs[item.match.id] = { home: 1, away: 0 };
-				}
-			}
-			isInitialized = true;
+		if (campaignOptions.length > 0 && !campaignOptions.some((c) => c.value === selectedCampaign)) {
+			const currentOpt = campaignOptions.find((c) => c.isCurrent) || campaignOptions[0];
+			selectedCampaign = currentOpt.value;
 		}
 	});
 
+	$effect(() => {
+		const intervalId = setInterval(() => {
+			nowMs = Date.now();
+		}, 60000);
+		return () => {
+			clearInterval(intervalId);
+		};
+	});
+
+	$effect(() => {
+		upcoming = data.upcoming || [];
+		leaderboard = data.leaderboard || [];
+		history = data.history || [];
+
+		const nextInputs: Record<string, { home: number; away: number }> = {};
+		for (const item of upcoming) {
+			if (item.user_prediction) {
+				nextInputs[item.match.id] = {
+					home: item.user_prediction.predicted_home_score,
+					away: item.user_prediction.predicted_away_score
+				};
+			} else {
+				nextInputs[item.match.id] = { home: 1, away: 0 };
+			}
+		}
+		predictionInputs = nextInputs;
+	});
+
+	function isKickoffPassed(utcDate: string, currentMs: number): boolean {
+		const targetMs = new Date(utcDate).getTime();
+		if (Number.isNaN(targetMs)) return false;
+		return targetMs <= currentMs;
+	}
+
+	function formatCountdown(utcDate: string, canPredict: boolean, currentMs: number): string {
+		if (!canPredict || isKickoffPassed(utcDate, currentMs)) {
+			return 'Locked';
+		}
+		const targetMs = new Date(utcDate).getTime();
+		const diffMs = targetMs - currentMs;
+		const totalMinutes = Math.floor(diffMs / 60000);
+		if (totalMinutes < 1) {
+			return 'Kickoff < 1m';
+		}
+		const days = Math.floor(totalMinutes / (60 * 24));
+		const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+		const minutes = totalMinutes % 60;
+		if (days > 0) {
+			return `Kickoff in ${days}d ${hours}h`;
+		}
+		if (hours > 0) {
+			return `Kickoff in ${hours}h ${minutes}m`;
+		}
+		return `Kickoff in ${minutes}m`;
+	}
+
 	async function handlePredict(matchId: string) {
-		const scores = predictionInputs[matchId] || { home: 0, away: 0 };
-		isSubmitting[matchId] = true;
+		errorBanner = null;
 		notificationMessage = null;
 
+		if (!data.user || !data.session?.access_token) {
+			errorBanner = {
+				message: 'Please sign in to submit score predictions.',
+				isAuth: true
+			};
+			return;
+		}
+
+		const target = upcoming.find((u) => u.match.id === matchId);
+		if (target && (!target.can_predict || isKickoffPassed(target.match.utc_date, nowMs))) {
+			errorBanner = {
+				message: 'Predictions are locked once kickoff has passed.',
+				isAuth: false
+			};
+			return;
+		}
+
+		const scores = predictionInputs[matchId] || { home: 0, away: 0 };
+		isSubmitting[matchId] = true;
+
 		try {
-			const res = await submitPrediction({
-				user_id: data.currentUserId,
-				user_name: data.userName,
-				user_club_id: data.userClubId,
-				match_id: matchId,
-				predicted_home_score: scores.home,
-				predicted_away_score: scores.away
-			});
+			const res = await submitPrediction(
+				{
+					...(data.currentUserId ? { user_id: data.currentUserId } : {}),
+					user_name: data.userName,
+					user_club_id: data.userClubId,
+					match_id: matchId,
+					predicted_home_score: scores.home,
+					predicted_away_score: scores.away
+				},
+				data.session?.access_token
+			);
 
 			if (res) {
-				const target = upcoming.find((u) => u.match.id === matchId);
 				if (target) {
 					target.user_prediction = res;
 				}
-				notificationMessage = `Score prediction (${scores.home} - ${scores.away}) locked in successfully!`;
-				leaderboard = await fetchLeaderboard();
+				notificationMessage = `Score prediction (${scores.home}:${scores.away}) locked in.`;
+				const [nextLeaderboard, nextHistory] = await Promise.all([
+					fetchLeaderboard(undefined, selectedLeaderboardSeason),
+					fetchPredictionHistory(data.session?.access_token)
+				]);
+				leaderboard = nextLeaderboard;
+				history = nextHistory;
 			}
+		} catch (err) {
+			const isAuth = err instanceof ApiError && err.status === 401;
+			errorBanner = {
+				message: isAuth
+					? 'Please sign in to submit score predictions.'
+					: err instanceof ApiError
+						? err.detail
+						: 'Could not submit prediction. Please try again.',
+				isAuth
+			};
 		} finally {
 			isSubmitting[matchId] = false;
 		}
+	}
+
+	async function refreshLeaderboard(seasonParam?: string) {
+		isLoadingLeaderboard = true;
+		try {
+			leaderboard = await fetchLeaderboard(undefined, seasonParam);
+		} finally {
+			isLoadingLeaderboard = false;
+		}
+	}
+
+	async function setLeaderboardMode(mode: 'all' | 'seasonal') {
+		leaderboardMode = mode;
+		const seasonParam =
+			mode === 'seasonal' ? selectedCampaign || campaignOptions[0]?.value : undefined;
+		await refreshLeaderboard(seasonParam);
+	}
+
+	async function handleCampaignChange() {
+		if (leaderboardMode !== 'seasonal') {
+			leaderboardMode = 'seasonal';
+		}
+		await refreshLeaderboard(selectedCampaign);
 	}
 
 	function formatDate(utcDate: string): string {
@@ -76,173 +209,341 @@
 			return utcDate;
 		}
 	}
+
+	function formatMatchStatus(status: string): string {
+		switch (status) {
+			case 'FINISHED':
+				return 'Finished';
+			case 'IN_PLAY':
+			case 'LIVE':
+				return 'In play';
+			case 'SCHEDULED':
+				return 'Scheduled';
+			default:
+				return status;
+		}
+	}
 </script>
 
 <svelte:head>
-	<title>Matchday Predictor & Supporter Leaderboard | GUNNERS Reborn</title>
+	<title>Matchday Predictor & Supporter Leaderboard | GUNNERS</title>
 </svelte:head>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-10">
+<div class="container py-12 space-y-12">
 	<!-- Page Header -->
-	<div class="border-b border-[#1e2430] pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-		<div>
-			<div class="inline-flex items-center gap-2 px-2.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider mb-2 bg-purple-500/10 text-purple-400 border border-purple-500/20 font-mono">
-				Zero-Money Fan Prediction Game
-			</div>
-			<h1 class="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight">Matchday Predictor</h1>
-			<p class="text-xs sm:text-sm text-gray-400 mt-1">
-				Test your football foresight on upcoming matches. Earn points and climb your club and global supporter leaderboards.
+	<div class="border-b-2 border-rule-2 pb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
+		<div class="space-y-3">
+			<h1>Matchday predictor</h1>
+			<p class="lead text-ink-2">
+				Test your football foresight on upcoming Arsenal fixtures, earn points, and climb the supporter leaderboard.
 			</p>
 		</div>
 
-		<!-- Points System Reminder Pill -->
-		<div class="p-3 rounded-lg border border-[#1e2430] bg-[#0d1017] text-xs font-mono space-y-1">
-			<span class="text-amber-400 font-bold block uppercase text-[10px]">Points Scoring:</span>
-			<p class="text-gray-300">🎯 Exact Scoreline: <strong class="text-emerald-400">3 pts</strong></p>
-			<p class="text-gray-400">⚽ Correct Outcome (W/D/L): <strong class="text-amber-400">1 pt</strong></p>
+		<!-- Points System Reminder -->
+		<div class="border-t border-rule pt-3 text-xs space-y-1">
+			<span class="text-accent-2 font-bold block">Points scoring</span>
+			<p class="text-ink-2">Exact scoreline: <strong class="text-success num font-outlier">3 pts</strong></p>
+			<p class="text-muted">Correct outcome (W/D/L): <strong class="text-accent-2 num font-outlier">1 pt</strong></p>
 		</div>
 	</div>
 
+	{#if !isSignedIn}
+		<section class="border border-rule bg-paper-2 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+			<div class="space-y-1">
+				<h2 class="text-base font-bold text-ink">Guest preview mode</h2>
+				<p class="text-xs text-ink-2">
+					Browse upcoming Arsenal fixtures and the supporter standings freely. Sign in to lock in your scoreline predictions and track your points history.
+				</p>
+			</div>
+			<div class="flex items-center gap-3 shrink-0">
+				<a
+					href="/login"
+					class="inline-flex items-center h-9 px-4 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity"
+				>
+					Sign in
+				</a>
+				<a
+					href="/signup"
+					class="inline-flex items-center h-9 px-4 rounded-card border border-rule bg-paper hover:bg-paper-3 text-ink font-semibold text-xs transition-colors"
+				>
+					Create account
+				</a>
+			</div>
+		</section>
+	{/if}
+
 	{#if notificationMessage}
-		<div class="p-3.5 rounded-xl bg-emerald-950/60 border border-emerald-800/60 text-emerald-300 text-xs font-mono flex items-center justify-between">
-			<span>✓ {notificationMessage}</span>
-			<button type="button" onclick={() => (notificationMessage = null)} class="text-emerald-400 hover:text-white">✕</button>
+		<div aria-live="polite" class="p-3.5 rounded-card bg-paper-2 border border-rule text-success text-xs flex items-center justify-between">
+			<span>{notificationMessage}</span>
+			<button type="button" onclick={() => (notificationMessage = null)} class="text-muted hover:text-ink font-semibold">Close</button>
 		</div>
 	{/if}
 
-	<div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-		<!-- Left 2 Cols: Upcoming Match Predictions Stream -->
-		<div class="lg:col-span-2 space-y-4">
-			<div class="flex items-center justify-between mb-2">
-				<h2 class="text-base font-bold text-white uppercase tracking-wider">Upcoming Matchday Fixtures</h2>
-				<span class="text-xs font-mono text-gray-400">{upcoming.length} open for predictions</span>
+	{#if errorBanner}
+		<div role="alert" class="p-3.5 rounded-card bg-paper-2 border border-rule text-error text-xs flex items-center justify-between gap-4">
+			<div class="flex items-center gap-3 flex-wrap">
+				<span>{errorBanner.message}</span>
+				{#if errorBanner.isAuth}
+					<a href="/login" class="underline text-ink font-semibold hover:text-accent">Sign in</a>
+				{/if}
+			</div>
+			<button type="button" onclick={() => (errorBanner = null)} class="text-muted hover:text-ink font-semibold shrink-0">Dismiss</button>
+		</div>
+	{/if}
+
+	<div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+		<!-- Left 8 Cols: Upcoming Match Predictions Stream -->
+		<div class="lg:col-span-8 space-y-10">
+			<section class="space-y-6">
+				<div class="flex items-center justify-between border-b border-rule pb-3">
+					<h2 class="text-xl font-bold text-ink">Upcoming matchday fixtures</h2>
+					<span class="text-xs num font-outlier text-muted">{upcoming.length} open for predictions</span>
+				</div>
+
+				{#if upcoming.length === 0}
+					<div class="py-12 border-t border-rule text-muted text-sm">
+						No upcoming matches scheduled for prediction right now.
+					</div>
+				{:else}
+					<div class="divide-y divide-rule">
+						{#each upcoming as item}
+							{@const match = item.match}
+							{@const hasPred = !!item.user_prediction}
+							{@const isLocked = !item.can_predict || isKickoffPassed(match.utc_date, nowMs)}
+							{@const countdownLabel = formatCountdown(match.utc_date, item.can_predict, nowMs)}
+							{@const btnLabel = isLocked ? 'Locked (kickoff passed)' : isSubmitting[match.id] ? 'Saving…' : hasPred ? 'Update prediction' : 'Lock in (3 pts)'}
+							<article class="py-6 space-y-5">
+								<!-- Fixture Info Header -->
+								<div class="flex items-center justify-between gap-3 flex-wrap text-xs">
+									<span class="text-accent-2 font-semibold">
+										{match.competition_name || 'Matchday'}
+									</span>
+									<div class="flex items-center gap-3 num font-outlier">
+										<span class="text-muted">
+											{formatDate(match.utc_date)}
+										</span>
+										<span
+											class="px-2 py-0.5 rounded-card border border-rule {isLocked ? 'bg-paper-3 text-muted' : 'bg-paper-2 text-ink-2'}"
+										>
+											{countdownLabel}
+										</span>
+									</div>
+								</div>
+
+								<!-- Teams Matchup & Score Inputs -->
+								<div class="grid grid-cols-7 gap-3 items-center py-4 border-y border-rule">
+									<div class="col-span-3 text-right">
+										<h3 class="text-base font-bold text-ink truncate">{match.home_team_name}</h3>
+										<p class="text-xs text-muted">Home</p>
+									</div>
+
+									<div class="col-span-1 flex items-center justify-center gap-2 num font-outlier">
+										<input
+											type="number"
+											min="0"
+											max="20"
+											disabled={isLocked}
+											aria-label="Home team predicted goals"
+											bind:value={predictionInputs[match.id].home}
+											class="w-10 h-10 rounded-card bg-paper-2 border border-rule text-center text-sm font-bold text-ink disabled:opacity-50"
+										/>
+										<span class="text-muted font-bold">:</span>
+										<input
+											type="number"
+											min="0"
+											max="20"
+											disabled={isLocked}
+											aria-label="Away team predicted goals"
+											bind:value={predictionInputs[match.id].away}
+											class="w-10 h-10 rounded-card bg-paper-2 border border-rule text-center text-sm font-bold text-ink disabled:opacity-50"
+										/>
+									</div>
+
+									<div class="col-span-3 text-left">
+										<h3 class="text-base font-bold text-ink truncate">{match.away_team_name}</h3>
+										<p class="text-xs text-muted">Away</p>
+									</div>
+								</div>
+
+								<!-- Submission & Lock-in Button -->
+								<div class="flex items-center justify-between text-xs gap-3 flex-wrap">
+									<div class="text-muted">
+										{#if hasPred}
+											<span class="text-success font-semibold num font-outlier">
+												Predicted: {item.user_prediction?.predicted_home_score}:{item.user_prediction?.predicted_away_score}
+											</span>
+										{:else if isLocked}
+											<span>Prediction window closed</span>
+										{:else}
+											<span>Not predicted yet</span>
+										{/if}
+									</div>
+
+									<button
+										type="button"
+										onclick={() => handlePredict(match.id)}
+										disabled={isLocked || isSubmitting[match.id]}
+										class="h-9 px-4 rounded-card text-xs font-semibold transition-colors border disabled:opacity-50 {hasPred || isLocked ? 'bg-paper-2 text-ink border-rule hover:bg-paper-3' : 'bg-accent hover:opacity-95 text-accent-ink border-accent'}"
+									>
+										{btnLabel}
+									</button>
+								</div>
+							</article>
+						{/each}
+					</div>
+				{/if}
+			</section>
+
+			{#if isSignedIn}
+				<section aria-labelledby="prediction-history-heading" class="space-y-5 border-t-2 border-rule-2 pt-8">
+					<div class="flex items-center justify-between border-b border-rule pb-3">
+						<h2 id="prediction-history-heading" class="text-xl font-bold text-ink">
+							My Settled &amp; Active Predictions
+						</h2>
+						<span class="text-xs num font-outlier text-muted">{history.length} total</span>
+					</div>
+
+					{#if history.length === 0}
+						<p class="py-6 text-xs text-muted">
+							You have not submitted any matchday predictions yet. Lock in a scoreline above to begin tracking your record.
+						</p>
+					{:else}
+						<div class="divide-y divide-rule border-b border-rule">
+							{#each history as item}
+								{@const hasActual = item.match_status === 'FINISHED' && item.home_score !== null && item.home_score !== undefined && item.away_score !== null && item.away_score !== undefined}
+								{@const isGraded = item.points_awarded !== null && item.points_awarded !== undefined}
+								<div class="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+									<div class="space-y-1 min-w-0">
+										<div class="flex items-center gap-2.5 flex-wrap">
+											<span class="text-accent-2 font-semibold">{item.competition}</span>
+											<span class="text-muted num font-outlier">{formatDate(item.utc_date)}</span>
+											<span class="px-2 py-0.5 rounded-card border border-rule bg-paper-2 text-ink-2">
+												{formatMatchStatus(item.match_status)}
+											</span>
+										</div>
+										<p class="text-sm font-bold text-ink truncate">
+											{item.home_team} vs {item.away_team}
+										</p>
+									</div>
+
+									<div class="flex items-center gap-5 shrink-0 num font-outlier">
+										<div>
+											<span class="text-muted block">Predicted</span>
+											<span class="text-sm font-bold text-ink">
+												{item.predicted_home_score}:{item.predicted_away_score}
+											</span>
+										</div>
+										<div>
+											<span class="text-muted block">Actual</span>
+											<span class="text-sm font-bold text-ink-2">
+												{hasActual ? `${item.home_score}:${item.away_score}` : '—'}
+											</span>
+										</div>
+										<div class="text-right min-w-[68px]">
+											<span class="text-muted block">Points</span>
+											{#if isGraded}
+												<span
+													class="text-sm font-bold {item.points_awarded === 3 ? 'text-success' : item.points_awarded === 1 ? 'text-accent-2' : 'text-muted'}"
+												>
+													{item.points_awarded} pts
+												</span>
+											{:else}
+												<span class="text-sm font-semibold text-muted">Pending</span>
+											{/if}
+										</div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</section>
+			{/if}
+		</div>
+
+		<!-- Right 4 Cols: Supporter Leaderboard Widget -->
+		<aside class="lg:col-span-4 border-t-2 border-rule-2 pt-5 space-y-5">
+			<div class="border-b border-rule pb-3 space-y-3">
+				<div>
+					<h2 class="text-lg font-bold text-ink">Supporter leaderboard</h2>
+					<p class="text-xs text-muted">
+						{leaderboardMode === 'all'
+							? 'All-time rankings across all matchday predictors'
+							: `Campaign standings for ${selectedCampaign || 'selected season'}`}
+					</p>
+				</div>
+
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						aria-pressed={leaderboardMode === 'all'}
+						onclick={() => setLeaderboardMode('all')}
+						class="flex-1 h-8 px-3 rounded-card text-xs font-semibold transition-colors border {leaderboardMode === 'all' ? 'bg-accent text-accent-ink border-accent' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
+					>
+						All-time
+					</button>
+					<button
+						type="button"
+						aria-pressed={leaderboardMode === 'seasonal'}
+						onclick={() => setLeaderboardMode('seasonal')}
+						class="flex-1 h-8 px-3 rounded-card text-xs font-semibold transition-colors border {leaderboardMode === 'seasonal' ? 'bg-accent text-accent-ink border-accent' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
+					>
+						Seasonal
+					</button>
+				</div>
+
+				{#if leaderboardMode === 'seasonal' && campaignOptions.length > 0}
+					<div class="space-y-1">
+						<label for="leaderboard-season-select" class="block text-xs font-semibold text-ink-2">
+							Campaign season
+						</label>
+						<select
+							id="leaderboard-season-select"
+							bind:value={selectedCampaign}
+							onchange={handleCampaignChange}
+							class="w-full h-9 bg-paper-2 border border-rule rounded-card px-2.5 text-xs text-ink"
+						>
+							{#each campaignOptions as opt}
+								<option value={opt.value}>{opt.label}</option>
+							{/each}
+						</select>
+					</div>
+				{/if}
 			</div>
 
-			{#if upcoming.length === 0}
-				<div class="py-16 text-center border border-dashed border-[#1e2430] rounded-xl text-gray-500 text-xs">
-					No upcoming matches scheduled for prediction right now.
-				</div>
+			{#if isLoadingLeaderboard}
+				<p aria-live="polite" class="py-6 text-xs text-muted">Updating leaderboard standings…</p>
+			{:else if leaderboard.length === 0}
+				<p class="py-6 text-xs text-muted">
+					{leaderboardMode === 'all'
+						? 'No supporter predictions scored yet.'
+						: 'No supporter predictions scored for this campaign yet.'}
+				</p>
 			{:else}
-				<div class="space-y-4">
-					{#each upcoming as item}
-						{@const match = item.match}
-						{@const hasPred = !!item.user_prediction}
-						{@const homeScore = predictionInputs[match.id]?.home ?? 0}
-						{@const awayScore = predictionInputs[match.id]?.away ?? 0}
-						<div class="p-5 rounded-xl border border-[#1e2430] bg-[#12161f] space-y-4">
-							<!-- Fixture Info Header -->
-							<div class="flex items-center justify-between text-xs">
-								<span class="font-mono text-amber-400 font-bold uppercase tracking-wider text-[11px]">
-									{match.competition_name || 'Matchday'}
+				<div class="divide-y divide-rule text-xs">
+					{#each leaderboard as entry}
+						<div class="py-3 flex items-center justify-between gap-3">
+							<div class="flex items-center gap-3 min-w-0">
+								<span class="w-6 font-bold num font-outlier {entry.rank === 1 ? 'text-accent-2' : 'text-muted'}">
+									#{entry.rank}
 								</span>
-								<span class="font-mono text-gray-400 text-[11px]">
-									{formatDate(match.utc_date)}
-								</span>
-							</div>
-
-							<!-- Teams Matchup & Score Inputs -->
-							<div class="grid grid-cols-7 gap-2 items-center bg-[#0d1017] p-4 rounded-xl border border-[#1e2430]">
-								<!-- Home Team -->
-								<div class="col-span-3 text-right">
-									<h4 class="text-sm font-bold text-white truncate">{match.home_team_name}</h4>
-									<p class="text-[10px] text-gray-500 uppercase">Home</p>
-								</div>
-
-								<!-- Score Predictor Box -->
-								<div class="col-span-1 flex items-center justify-center gap-1.5 font-mono">
-									<input
-										type="number"
-										min="0"
-										max="20"
-										bind:value={predictionInputs[match.id].home}
-										class="w-8 h-8 rounded bg-[#12161f] border border-[#1e2430] text-center text-sm font-bold text-white focus:outline-none focus:border-amber-400"
-									/>
-									<span class="text-gray-500 font-bold">:</span>
-									<input
-										type="number"
-										min="0"
-										max="20"
-										bind:value={predictionInputs[match.id].away}
-										class="w-8 h-8 rounded bg-[#12161f] border border-[#1e2430] text-center text-sm font-bold text-white focus:outline-none focus:border-amber-400"
-									/>
-								</div>
-
-								<!-- Away Team -->
-								<div class="col-span-3 text-left">
-									<h4 class="text-sm font-bold text-white truncate">{match.away_team_name}</h4>
-									<p class="text-[10px] text-gray-500 uppercase">Away</p>
+								<div class="min-w-0">
+									<a href="/supporters/{entry.user_name}" class="font-bold text-ink hover:text-accent transition-colors truncate block">
+										{entry.user_name}
+									</a>
+									<p class="text-xs text-muted num font-outlier">
+										{entry.exact_scores} exact hits ({entry.accuracy_rate}% acc)
+									</p>
 								</div>
 							</div>
 
-							<!-- Submission & Lock-in Button -->
-							<div class="flex items-center justify-between text-xs pt-1">
-								<div class="text-[11px] text-gray-500 font-mono">
-									{#if hasPred}
-										<span class="text-emerald-400 font-bold">
-											✓ Predicted: {item.user_prediction?.predicted_home_score} - {item.user_prediction?.predicted_away_score}
-										</span>
-									{:else}
-										<span>Not predicted yet</span>
-									{/if}
-								</div>
-
-								<button
-									type="button"
-									onclick={() => handlePredict(match.id)}
-									disabled={isSubmitting[match.id]}
-									class="px-4 py-1.5 rounded-lg text-xs font-bold transition shadow-sm border {hasPred ? 'bg-white/10 text-gray-200 border-[#1e2430] hover:text-white' : 'bg-amber-500 hover:bg-amber-400 text-black border-amber-400'}"
-								>
-									{isSubmitting[match.id] ? 'Saving...' : hasPred ? 'Update Prediction' : 'Lock In (3 pts)'}
-								</button>
+							<div class="text-right shrink-0">
+								<span class="text-sm font-bold num font-outlier text-success">{entry.total_points}</span>
+								<span class="text-xs text-muted"> pts</span>
 							</div>
 						</div>
 					{/each}
 				</div>
 			{/if}
-		</div>
-
-		<!-- Right Col: Supporter Leaderboard Widget -->
-		<div class="p-5 rounded-xl border border-[#1e2430] bg-[#12161f] space-y-4">
-			<div class="border-b border-[#1e2430] pb-3">
-				<h3 class="text-sm font-bold text-white uppercase tracking-wider">Supporter Leaderboard</h3>
-				<p class="text-[11px] text-gray-400">Rankings across all predictors</p>
-			</div>
-
-			<!-- Leaderboard Title -->
-			<div class="flex items-center justify-between text-[11px] font-mono text-gray-400">
-				<span>Gooners Worldwide</span>
-				<span class="text-amber-400 font-bold">Top Predictors</span>
-			</div>
-
-			<!-- Leaderboard Table -->
-			<div class="divide-y divide-[#1e2430] text-xs">
-				{#each leaderboard as entry}
-					{@const club = CLUBS[entry.user_club_id] || CLUBS.arsenal}
-					<div class="py-2.5 flex items-center justify-between">
-						<div class="flex items-center gap-2.5">
-							<span class="w-5 text-center font-bold font-mono text-xs {entry.rank === 1 ? 'text-amber-400' : entry.rank === 2 ? 'text-gray-300' : entry.rank === 3 ? 'text-amber-600' : 'text-gray-500'}">
-								{entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : `#${entry.rank}`}
-							</span>
-							<div>
-								<div class="flex items-center gap-1.5">
-									<a href="/supporters/{entry.user_name}" class="font-bold text-white hover:text-amber-400 transition truncate max-w-[120px]">
-										{entry.user_name}
-									</a>
-									<span class="w-2 h-2 rounded-full" style="background-color: {club.primary_color}"></span>
-								</div>
-								<p class="text-[10px] text-gray-500 font-mono">
-									{entry.exact_scores} exact hits • {entry.accuracy_rate}% acc
-								</p>
-							</div>
-						</div>
-
-						<div class="text-right">
-							<span class="text-sm font-black font-mono text-emerald-400">{entry.total_points}</span>
-							<p class="text-[10px] text-gray-500 font-mono">pts</p>
-						</div>
-					</div>
-				{/each}
-			</div>
-		</div>
+		</aside>
 	</div>
 </div>

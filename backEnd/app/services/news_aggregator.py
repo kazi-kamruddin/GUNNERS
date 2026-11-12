@@ -62,13 +62,20 @@ class NewsAggregatorService:
         (r"\b(martinelli|gabriel martinelli)\b", "Martinelli"),
         (r"\b(trossard|leandro trossard)\b", "Trossard"),
         (r"\b(calafiori|riccardo)\b", "Calafiori"),
-        (r"\b(timber|jurrien timber)\b", "Timber"),
+        (r"\b(timber|jurri[eë]n timber)\b", "Timber"),
         (r"\b(ben white)\b", "Ben White"),
         (r"\b(merino|mikel merino)\b", "Merino"),
-        (r"\b(partey|thomas partey)\b", "Partey"),
+        (r"\b(zubimendi|mart[ií]n zubimendi)\b", "Zubimendi"),
+        (r"\b(gy[oö]keres|viktor gy[oö]keres)\b", "Gyökeres"),
+        (r"\b(eze|eberechi eze)\b", "Eze"),
+        (r"\b(madueke|noni madueke)\b", "Madueke"),
+        (r"\b(lewis-skelly|myles lewis-skelly)\b", "Lewis-Skelly"),
+        (r"\b(mosquera|cristhian mosquera)\b", "Mosquera"),
+        (r"\b(hincapi[eé]|piero hincapi[eé])\b", "Hincapié"),
+        (r"\b(n[oø]rgaard|christian n[oø]rgaard)\b", "Nørgaard"),
+        (r"\b(kepa|arrizabalaga)\b", "Kepa"),
         (r"\b(nwaneri|ethan nwaneri)\b", "Nwaneri"),
         (r"\b(raya|david raya)\b", "Raya"),
-        (r"\b(sterling|raheem sterling)\b", "Sterling"),
         (r"\b(arteta|mikel arteta)\b", "Arteta"),
 
         # Competitions
@@ -201,7 +208,7 @@ class NewsAggregatorService:
                             "author": source_cfg["name"],
                             "tags": cls.extract_tags(title, summary)
                         })
-        except Exception as e:
+        except Exception:
             # Individual source failures insulated gracefully
             pass
         return articles
@@ -233,7 +240,13 @@ class NewsAggregatorService:
         # Fallback curated Arsenal items if internet is cold
         if not all_articles:
             all_articles = cls._get_baseline_articles()
-            active_sources = ["Pain in the Arsenal", "Arseblog News", "BBC Sport Arsenal"]
+            active_sources = [
+                "Arseblog News",
+                "Pain in the Arsenal",
+                "BBC Sport Arsenal",
+                "Daily Cannon",
+                "Reddit r/Gunners",
+            ]
 
         # Interweave / shuffle across sources to prevent a single publisher monopolizing top spots
         random.seed(42)  # Deterministic shuffle per batch
@@ -252,45 +265,193 @@ class NewsAggregatorService:
 
     @classmethod
     def _get_baseline_articles(cls) -> List[Dict[str, Any]]:
-        now = datetime.datetime.utcnow().isoformat()
+        now = datetime.datetime.now(datetime.timezone.utc)
+        def ts(hours_ago: int) -> str:
+            return (now - datetime.timedelta(hours=hours_ago)).isoformat()
+
         return [
             {
                 "id": "art_base_1",
                 "title": "Arsenal tactical evolution: How Mikel Arteta created European-elite defensive compactness",
-                "summary": "Deep dive into Arsenal's defensive structure, double pivot spacing, and pressing triggers at Emirates Stadium.",
+                "summary": "Deep dive into Arsenal's out-of-possession 4-4-2 mid-block, pivot spacing with Declan Rice and Martín Zubimendi, and pressing triggers at Emirates Stadium.",
                 "source_name": "Arseblog News",
                 "source_category": "fan_blog",
                 "source_color": "#D4AF37",
                 "article_url": "https://arseblog.news",
                 "image_url": "https://crests.football-data.org/57.png",
-                "published_at": now,
+                "published_at": ts(1),
                 "author": "Tactical Analyst",
-                "tags": ["Arteta", "Tactics", "Supporters"]
+                "tags": ["Arteta", "Tactics", "Rice", "Zubimendi"]
             },
             {
                 "id": "art_base_2",
                 "title": "Why Bukayo Saka's half-space combinations unlock stubborn 5-man low blocks",
-                "summary": "Analyzing the right-sided triangles between Ben White, Martin Ødegaard, and Bukayo Saka.",
+                "summary": "Analyzing the right-sided triangles between Ben White, Martin Ødegaard, and Bukayo Saka that consistently create cut-back lanes.",
                 "source_name": "Pain in the Arsenal",
                 "source_category": "fan_blog",
                 "source_color": "#EF0107",
                 "article_url": "https://paininthearsenal.com",
                 "image_url": "https://crests.football-data.org/57.png",
-                "published_at": now,
+                "published_at": ts(3),
                 "author": "Arsenal Staff",
                 "tags": ["Saka", "Ødegaard", "Ben White", "Tactics"]
             },
             {
                 "id": "art_base_3",
                 "title": "Match Preview: Crucial Premier League clash at Emirates Stadium this weekend",
-                "summary": "Team news, predicted starting lineups, head-to-head records, and press conference quotes.",
+                "summary": "Team news, predicted starting lineups, head-to-head records, and Mikel Arteta's pre-match press conference quotes from London Colney.",
                 "source_name": "BBC Sport Arsenal",
                 "source_category": "broadcast",
                 "source_color": "#FFD700",
                 "article_url": "https://www.bbc.com/sport/football/teams/arsenal",
                 "image_url": "https://crests.football-data.org/57.png",
-                "published_at": now,
+                "published_at": ts(5),
                 "author": "BBC Sport",
                 "tags": ["Premier League", "Lineup", "Supporters"]
-            }
+            },
+            {
+                "id": "art_base_4",
+                "title": "Viktor Gyökeres movement analysis: Stretching high defensive lines for Arsenal's creators",
+                "summary": "How Gyökeres' channel runs open central corridors for Eberechi Eze and Martin Ødegaard between opposition lines.",
+                "source_name": "Daily Cannon",
+                "source_category": "fan_blog",
+                "source_color": "#C8102E",
+                "article_url": "https://dailycannon.com",
+                "image_url": "https://crests.football-data.org/57.png",
+                "published_at": ts(8),
+                "author": "Daily Cannon Editorial",
+                "tags": ["Gyökeres", "Eze", "Tactics", "Premier League"]
+            },
+            {
+                "id": "art_base_5",
+                "title": "[Post-Match Thread] Arsenal dominate possession under the Emirates Champions League floodlights",
+                "summary": "Supporter ratings, Man of the Match voting, and tactical takeaways after another clean sheet from David Raya, William Saliba, and Gabriel Magalhães.",
+                "source_name": "Reddit r/Gunners",
+                "source_category": "reddit",
+                "source_color": "#FF4500",
+                "article_url": "https://www.reddit.com/r/Gunners",
+                "image_url": "https://crests.football-data.org/57.png",
+                "published_at": ts(11),
+                "author": "r/Gunners Community",
+                "upvotes": 2480,
+                "tags": ["UCL", "Saliba", "Raya", "Supporters"]
+            },
+            {
+                "id": "art_base_6",
+                "title": "Hale End ascent: Myles Lewis-Skelly and Ethan Nwaneri cement first-team rotation roles",
+                "summary": "Tracking the composure, ball-carrying, and tactical maturity of Arsenal's academy graduates across Premier League and European nights.",
+                "source_name": "Arseblog News",
+                "source_category": "fan_blog",
+                "source_color": "#D4AF37",
+                "article_url": "https://arseblog.news",
+                "image_url": "https://crests.football-data.org/57.png",
+                "published_at": ts(15),
+                "author": "Andrew Mangan",
+                "tags": ["Lewis-Skelly", "Nwaneri", "Premier League"]
+            },
+            {
+                "id": "art_base_7",
+                "title": "Arsenal squad fitness update ahead of fixture congestion",
+                "summary": "Latest recovery timelines from Sobha Realty Training Centre as Arteta manages minutes for Jurriën Timber, Riccardo Calafiori, and Kai Havertz.",
+                "source_name": "BBC Sport Arsenal",
+                "source_category": "broadcast",
+                "source_color": "#FFD700",
+                "article_url": "https://www.bbc.com/sport/football/teams/arsenal",
+                "image_url": "https://crests.football-data.org/57.png",
+                "published_at": ts(20),
+                "author": "BBC Sport",
+                "tags": ["Injuries", "Timber", "Calafiori", "Havertz"]
+            },
+            {
+                "id": "art_base_8",
+                "title": "North London Derby tactical dossier: Set-piece edges and transition control",
+                "summary": "Why Gabriel Magalhães' near-post runs and Declan Rice's deliveries remain Arsenal's sharpest weapon in derby fixtures.",
+                "source_name": "Pain in the Arsenal",
+                "source_category": "fan_blog",
+                "source_color": "#EF0107",
+                "article_url": "https://paininthearsenal.com",
+                "image_url": "https://crests.football-data.org/57.png",
+                "published_at": ts(24),
+                "author": "Arsenal Staff",
+                "tags": ["North London Derby", "Gabriel", "Rice", "Tactics"]
+            },
+            {
+                "id": "art_base_9",
+                "title": "Inside Arsenal's defensive depth: Mosquera, Hincapié, and Ben White rotation",
+                "summary": "How Cristhian Mosquera and Piero Hincapié allow Arteta to rotate across four competitions without sacrificing rest-defense security.",
+                "source_name": "Daily Cannon",
+                "source_category": "fan_blog",
+                "source_color": "#C8102E",
+                "article_url": "https://dailycannon.com",
+                "image_url": "https://crests.football-data.org/57.png",
+                "published_at": ts(30),
+                "author": "Daily Cannon",
+                "tags": ["Mosquera", "Hincapié", "Ben White", "Lineup"]
+            },
+            {
+                "id": "art_base_10",
+                "title": "Official Club Bulletin: Emirates Stadium fan zone & matchday travel guidance",
+                "summary": "Turnstile opening times, Clock End & North Bank matchday programme notes, and Arsenal Supporter Club gathering details.",
+                "source_name": "Arsenal Official",
+                "source_category": "official",
+                "source_color": "#EF0107",
+                "article_url": "https://www.arsenal.com/news",
+                "image_url": "https://crests.football-data.org/57.png",
+                "published_at": ts(36),
+                "author": "Arsenal Media",
+                "tags": ["Supporters", "Premier League", "Lineup"]
+            },
+            {
+                "id": "art_base_11",
+                "title": "Wing depth decoded: Gabriel Martinelli, Noni Madueke, and Leandro Trossard impact metrics",
+                "summary": "Comparing direct 1v1 take-ons, progressive carries, and late-game super-sub goals across Arsenal's wide forwards.",
+                "source_name": "Arseblog News",
+                "source_category": "fan_blog",
+                "source_color": "#D4AF37",
+                "article_url": "https://arseblog.news",
+                "image_url": "https://crests.football-data.org/57.png",
+                "published_at": ts(42),
+                "author": "Scott Willis",
+                "tags": ["Martinelli", "Madueke", "Trossard", "Tactics"]
+            },
+            {
+                "id": "art_base_12",
+                "title": "Scout Report: How Martín Zubimendi dictates tempo under high-press opposition traps",
+                "summary": "Breaking down first-time line-breaking passes and third-man combinations in Arsenal's build-up phase.",
+                "source_name": "Reddit r/Gunners",
+                "source_category": "reddit",
+                "source_color": "#FF4500",
+                "article_url": "https://www.reddit.com/r/Gunners",
+                "image_url": "https://crests.football-data.org/57.png",
+                "published_at": ts(48),
+                "author": "r/Gunners Community",
+                "upvotes": 1640,
+                "tags": ["Zubimendi", "Tactics", "Transfers", "UCL"]
+            },
+            {
+                "id": "art_base_13",
+                "title": "Goalkeeping union: David Raya and Kepa Arrizabalaga distribution numbers compared",
+                "summary": "Examining claim rates on high crosses, sweeping actions outside the box, and long-ball accuracy into Arsenal's front line.",
+                "source_name": "Pain in the Arsenal",
+                "source_category": "fan_blog",
+                "source_color": "#EF0107",
+                "article_url": "https://paininthearsenal.com",
+                "image_url": "https://crests.football-data.org/57.png",
+                "published_at": ts(54),
+                "author": "Arsenal Staff",
+                "tags": ["Raya", "Kepa", "Premier League"]
+            },
+            {
+                "id": "art_base_14",
+                "title": "Champions League knockout seeding outlook for Arsenal after matchday surge",
+                "summary": "Projecting Arsenal's path through the European bracket and potential tactical matchups against continental heavyweights.",
+                "source_name": "BBC Sport Arsenal",
+                "source_category": "broadcast",
+                "source_color": "#FFD700",
+                "article_url": "https://www.bbc.com/sport/football/teams/arsenal",
+                "image_url": "https://crests.football-data.org/57.png",
+                "published_at": ts(60),
+                "author": "BBC Sport",
+                "tags": ["UCL", "Arteta", "Lineup"]
+            },
         ]

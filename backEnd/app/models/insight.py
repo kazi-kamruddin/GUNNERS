@@ -1,6 +1,6 @@
 import datetime
 from typing import Optional
-from sqlalchemy import String, DateTime, Boolean, Text
+from sqlalchemy import String, DateTime, Boolean, Text, Index
 from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
@@ -8,7 +8,7 @@ class Insight(Base):
     __tablename__ = "insights"
 
     id: Mapped[str] = mapped_column(String(50), primary_key=True)
-    user_id: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    user_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     author_name: Mapped[str] = mapped_column(String(100), default="Supporter")
     author_club_id: Mapped[str] = mapped_column(String(50), default="arsenal")
     title: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -21,3 +21,7 @@ class Insight(Base):
     snapshot: Mapped[str] = mapped_column(Text, nullable=False)  # Serialized JSON snapshot
     is_public: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), default=datetime.datetime.utcnow)
+
+    __table_args__ = (
+        Index("idx_insights_user_id", "user_id"),
+    )

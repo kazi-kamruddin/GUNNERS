@@ -29,19 +29,25 @@ export const actions: Actions = {
 		const displayName = formData.get('display_name')?.toString().trim();
 		const bio = formData.get('bio')?.toString().trim() ?? '';
 		const favoriteClub = formData.get('favorite_club_id')?.toString().trim() ?? 'arsenal';
+		const avatarUrlRaw = formData.get('avatar_url')?.toString().trim();
 
 		if (!displayName) {
 			return fail(400, { error: 'Display name cannot be empty.' });
 		}
 
+		const updatePayload: Record<string, string> = {
+			display_name: displayName,
+			bio,
+			favorite_club_id: favoriteClub,
+			updated_at: new Date().toISOString()
+		};
+		if (avatarUrlRaw !== undefined && avatarUrlRaw !== '') {
+			updatePayload.avatar_url = avatarUrlRaw;
+		}
+
 		const { error } = await locals.supabase
 			.from('profiles')
-			.update({
-				display_name: displayName,
-				bio,
-				favorite_club_id: favoriteClub,
-				updated_at: new Date().toISOString()
-			})
+			.update(updatePayload)
 			.eq('id', locals.user.id);
 
 		if (error) {
