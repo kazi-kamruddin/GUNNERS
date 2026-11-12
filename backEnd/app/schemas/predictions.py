@@ -40,3 +40,25 @@ class LeaderboardEntry(BaseModel):
     exact_scores: int
     correct_outcomes: int
     accuracy_rate: float
+
+
+class PredictionGradeResponse(BaseModel):
+    match_id: str
+    graded_count: int
+
+
+class PredictionHistoryItem(BaseModel):
+    id: str
+    match_id: str
+    predicted_home_score: int
+    predicted_away_score: int
+    points_awarded: Optional[int] = None
+    status: str
+    created_at: datetime.datetime
+    home_team: str
+    away_team: str
+    home_score: Optional[int] = None
+    away_score: Optional[int] = None
+    utc_date: datetime.datetime
+    match_status: str
+    competition: str

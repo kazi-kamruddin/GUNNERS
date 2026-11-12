@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional
+from pydantic import BaseModel, Field, field_validator
+from typing import Any, Dict, List, Optional
 import datetime
 
 class MatchFilterParams(BaseModel):
@@ -40,8 +40,21 @@ class MatchResponse(BaseModel):
     home_score: Optional[int] = None
     away_score: Optional[int] = None
     winner: Optional[str] = None
+    goalscorers: List[Any] = Field(default_factory=list)
+    lineups: Dict[str, Any] = Field(default_factory=dict)
+    highlights: List[Any] = Field(default_factory=list)
     source: Optional[str] = "football-data.org"
     last_updated_at: Optional[datetime.datetime] = None
+
+    @field_validator("goalscorers", "highlights", mode="before")
+    @classmethod
+    def _coerce_list(cls, value: Any) -> List[Any]:
+        return value if isinstance(value, list) else []
+
+    @field_validator("lineups", mode="before")
+    @classmethod
+    def _coerce_dict(cls, value: Any) -> Dict[str, Any]:
+        return value if isinstance(value, dict) else {}
 
     model_config = {"from_attributes": True}
 

@@ -15,6 +15,15 @@ class SupporterStats(BaseModel):
     cheers_received: int = 0
 
 
+class SupporterSummary(BaseModel):
+    user_id: str
+    username: str
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    favorite_club_id: Optional[str] = None
+    bio: Optional[str] = None
+
+
 class SupporterProfileResponse(BaseModel):
     user_id: str
     username: str

@@ -4,7 +4,11 @@
 	import { onMount } from 'svelte';
 	import { invalidate } from '$app/navigation';
 	import { themeState } from '$lib/stores/theme.svelte';
-	import { fetchUnreadNotificationsCount, setApiAccessToken } from '$lib/api/football';
+	import {
+		fetchNotifications,
+		fetchUnreadNotificationsCount,
+		setApiAccessToken
+	} from '$lib/api/football';
 	import type { LayoutProps } from './$types';
 
 	let { data, children }: LayoutProps = $props();
@@ -19,15 +23,67 @@
 		}
 	});
 
-	onMount(() => {
-		themeState.applyCssTokens();
+	$effect(() => {
+		const userId = data.user?.id;
+		const supabase = data.supabase;
+		const token = data.session?.access_token ?? null;
+		if (!userId || !supabase) return;
 
-		const initialToken = data.session?.access_token;
-		if (data.user?.id && initialToken) {
-			fetchUnreadNotificationsCount(data.user.id, initialToken).then((count) => {
-				unreadCount = count;
+		let cancelled = false;
+
+		const refreshFromApi = async () => {
+			if (!token) return;
+			const items = await fetchNotifications(userId, token);
+			if (!cancelled) {
+				unreadCount = items.filter((item) => !item.is_read).length;
+			}
+		};
+
+		if (token) {
+			fetchUnreadNotificationsCount(userId, token).then((count) => {
+				if (!cancelled) {
+					unreadCount = count;
+				}
 			});
 		}
+
+		const channel = supabase
+			.channel(`notifications:${userId}`)
+			.on(
+				'postgres_changes',
+				{
+					event: '*',
+					schema: 'public',
+					table: 'notifications',
+					filter: `user_id=eq.${userId}`
+				},
+				() => {
+					void refreshFromApi();
+				}
+			)
+			.subscribe();
+
+		const handleNotificationsUpdated = (event: Event) => {
+			const customEvent = event as CustomEvent<{ unreadCount?: unknown }>;
+			const nextCount = customEvent.detail?.unreadCount;
+			if (typeof nextCount === 'number' && Number.isFinite(nextCount)) {
+				unreadCount = Math.max(0, nextCount);
+			} else {
+				void refreshFromApi();
+			}
+		};
+
+		window.addEventListener('gunners:notifications-updated', handleNotificationsUpdated);
+
+		return () => {
+			cancelled = true;
+			supabase.removeChannel(channel);
+			window.removeEventListener('gunners:notifications-updated', handleNotificationsUpdated);
+		};
+	});
+
+	onMount(() => {
+		themeState.applyCssTokens();
 
 		const { data: authListener } = data.supabase.auth.onAuthStateChange((_event, newSession) => {
 			setApiAccessToken(newSession?.access_token ?? null);

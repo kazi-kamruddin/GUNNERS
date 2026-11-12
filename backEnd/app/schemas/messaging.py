@@ -28,11 +28,20 @@ class ConversationCreateRequest(BaseModel):
     initiator_club_id: str = Field("arsenal", max_length=50)
     initial_message: Optional[str] = None
 
+class ConversationParticipant(BaseModel):
+    user_id: str
+    username: str
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
 class ConversationResponse(BaseModel):
     id: str
     created_at: datetime.datetime
     updated_at: datetime.datetime
     members: List[str]
     last_message: Optional[MessageResponse] = None
+    unread_count: int = 0
+    other_member_profile: Optional[ConversationParticipant] = None
 
     model_config = {"from_attributes": True}

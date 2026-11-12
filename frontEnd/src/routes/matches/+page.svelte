@@ -114,21 +114,21 @@
 				<h2 class="text-base font-semibold text-ink">Next scheduled fixture</h2>
 				{#if summary.next_fixture}
 					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-						<div class="flex items-center gap-4">
+						<a href="/matches/{encodeURIComponent(summary.next_fixture.id)}" class="flex items-center gap-4 group">
 							<div class="flex items-center gap-2">
 								{#if summary.next_fixture.home_team_crest}
 									<img src={summary.next_fixture.home_team_crest} alt="" width="24" height="24" class="w-6 h-6 object-contain" />
 								{/if}
-								<span class="text-base font-bold text-ink">{summary.next_fixture.home_team_name}</span>
+								<span class="text-base font-bold text-ink group-hover:text-accent transition-colors">{summary.next_fixture.home_team_name}</span>
 							</div>
 							<span class="text-xs text-muted px-2 py-0.5 bg-paper-3 rounded-card">vs</span>
 							<div class="flex items-center gap-2">
 								{#if summary.next_fixture.away_team_crest}
 									<img src={summary.next_fixture.away_team_crest} alt="" width="24" height="24" class="w-6 h-6 object-contain" />
 								{/if}
-								<span class="text-base font-bold text-ink">{summary.next_fixture.away_team_name}</span>
+								<span class="text-base font-bold text-ink group-hover:text-accent transition-colors">{summary.next_fixture.away_team_name}</span>
 							</div>
-						</div>
+						</a>
 						<div class="sm:text-right">
 							<div class="num text-sm font-semibold text-accent-2">{formatDate(summary.next_fixture.utc_date)}</div>
 							<div class="text-xs text-muted">{summary.next_fixture.venue || summary.next_fixture.competition_name}</div>
@@ -248,10 +248,13 @@
 					</div>
 
 					<!-- Teams & Score / Time -->
-					<div class="flex-1 flex items-center justify-center gap-6">
+					<a
+						href="/matches/{encodeURIComponent(match.id)}"
+						class="group flex-1 flex items-center justify-center gap-6"
+					>
 						<!-- Home Team -->
 						<div class="flex-1 flex items-center justify-end gap-2.5 text-right">
-							<span class="text-sm font-semibold {match.home_team_id === 'arsenal' ? 'text-ink' : 'text-ink-2'}">
+							<span class="text-sm font-semibold group-hover:text-accent transition-colors {match.home_team_id === 'arsenal' ? 'text-ink' : 'text-ink-2'}">
 								{match.home_team_name}
 							</span>
 							{#if match.home_team_crest}
@@ -262,7 +265,7 @@
 						<!-- Score / Status Box -->
 						<div class="min-w-[96px] text-center">
 							{#if match.status === 'FINISHED' && match.home_score !== null && match.home_score !== undefined}
-								<div class="num font-outlier font-semibold text-base text-ink px-3 py-1 rounded-card bg-paper-3">
+								<div class="num font-outlier font-semibold text-base text-ink px-3 py-1 rounded-card bg-paper-3 group-hover:border-rule-2 border border-transparent transition-colors">
 									{match.home_score} : {match.away_score}
 								</div>
 								<div class="text-xs text-muted mt-0.5">Full time</div>
@@ -278,19 +281,25 @@
 							{#if match.away_team_crest}
 								<img src={match.away_team_crest} alt="" width="24" height="24" class="w-6 h-6 object-contain" />
 							{/if}
-							<span class="text-sm font-semibold {match.away_team_id === 'arsenal' ? 'text-ink' : 'text-ink-2'}">
+							<span class="text-sm font-semibold group-hover:text-accent transition-colors {match.away_team_id === 'arsenal' ? 'text-ink' : 'text-ink-2'}">
 								{match.away_team_name}
 							</span>
 						</div>
-					</div>
+					</a>
 
 					<!-- Venue & Actions -->
-					<div class="min-w-[180px] flex items-center justify-end gap-4 text-right">
+					<div class="min-w-[220px] flex items-center justify-end gap-3 text-right">
 						{#if match.venue}
-							<span class="text-xs text-muted truncate max-w-[130px] hidden lg:inline" title={match.venue}>
+							<span class="text-xs text-muted truncate max-w-[120px] hidden lg:inline" title={match.venue}>
 								{match.venue}
 							</span>
 						{/if}
+						<a
+							href="/matches/{encodeURIComponent(match.id)}"
+							class="inline-flex items-center h-8 px-3 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs font-semibold text-ink-2 hover:text-ink transition-colors whitespace-nowrap"
+						>
+							Match center
+						</a>
 						{#if match.status === 'FINISHED'}
 							<a
 								href="/terrace"

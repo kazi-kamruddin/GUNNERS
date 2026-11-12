@@ -1,7 +1,7 @@
 import datetime
 import json
 from typing import Dict, List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
@@ -11,7 +11,7 @@ from app.models.insight import Insight
 from app.models.terrace import Post
 from app.models.predictions import Prediction
 from app.models.football import Match
-from app.schemas.supporters import SupporterProfileResponse, SupporterStats
+from app.schemas.supporters import SupporterProfileResponse, SupporterStats, SupporterSummary
 from app.schemas.insight import InsightResponse
 from app.schemas.terrace import PostResponse
 from app.api.v1.endpoints.predictions import _grade_prediction
@@ -69,6 +69,37 @@ async def _compute_prediction_rank(db: AsyncSession, target_user_ids: set[str]) 
         if uid in target_user_ids:
             return idx
     return 0
+
+
+@router.get("", response_model=List[SupporterSummary])
+async def search_supporters(
+    q: Optional[str] = Query(None, description="Search supporters by username or display name"),
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+):
+    """Search registered Arsenal FC supporters for the directory and Direct Debates picker."""
+    stmt = select(Profile).where(Profile.username.is_not(None))
+    if q and q.strip():
+        pattern = f"%{q.strip()}%"
+        stmt = stmt.where(
+            or_(
+                Profile.username.ilike(pattern),
+                Profile.display_name.ilike(pattern),
+            )
+        )
+    stmt = stmt.order_by(func.lower(Profile.username).asc()).limit(limit)
+    profiles = (await db.execute(stmt)).scalars().all()
+    return [
+        SupporterSummary(
+            user_id=p.id,
+            username=p.username or p.id,
+            display_name=p.display_name,
+            avatar_url=p.avatar_url,
+            favorite_club_id=p.favorite_club_id,
+            bio=p.bio,
+        )
+        for p in profiles
+    ]
 
 
 @router.get("/{username}", response_model=SupporterProfileResponse)

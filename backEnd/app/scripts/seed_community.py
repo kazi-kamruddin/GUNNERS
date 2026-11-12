@@ -2,7 +2,7 @@ import asyncio
 import datetime
 import json
 import sys
-from sqlalchemy import select, text, func
+from sqlalchemy import select, text, func, delete
 from app.core.database import AsyncSessionLocal, engine, Base
 from app.services.ingestion import FootballIngestionService
 from app.services.arteta_timeline import ArtetaTimelineService
@@ -15,7 +15,7 @@ from app.models.predictions import Prediction
 from app.models.notifications import Notification
 from app.models.messaging import Conversation, ConversationMember, DirectMessage
 from app.models.football import Match
-from app.api.v1.endpoints.squad import DEFAULT_PLAYERS
+from app.api.v1.endpoints.squad import DEFAULT_PLAYERS, DEPARTED_PLAYER_IDS
 from app.api.v1.endpoints.tactics import DEMO_BOARDS, PRESETS
 from app.api.v1.endpoints.insights import DEFAULT_INSIGHTS
 
@@ -91,11 +91,33 @@ async def seed_all():
                 )
         await session.commit()
 
-        # 3. Squad Players for Foundation Clubs
-        print("[3/9] Seeding squad players...")
+        # 3. Squad Players for Arsenal FC (upsert refreshed first-team dossier + prune departed)
+        print("[3/9] Seeding and refreshing Arsenal FC first-team squad...")
+        await session.execute(delete(Player).where(Player.id.in_(DEPARTED_PLAYER_IDS)))
         for p_data in DEFAULT_PLAYERS:
             existing = await session.get(Player, p_data["id"])
-            if not existing:
+            if existing:
+                existing.club_id = p_data["club_id"]
+                existing.name = p_data["name"]
+                existing.short_name = p_data["short_name"]
+                existing.position = p_data["position"]
+                existing.jersey_number = p_data["jersey_number"]
+                existing.nationality = p_data["nationality"]
+                existing.appearances = p_data.get("appearances", existing.appearances)
+                existing.goals = p_data.get("goals", existing.goals)
+                existing.assists = p_data.get("assists", existing.assists)
+                existing.clean_sheets = p_data.get("clean_sheets", existing.clean_sheets)
+                existing.minutes_played = p_data.get("minutes_played", existing.minutes_played)
+                existing.yellow_cards = p_data.get("yellow_cards", existing.yellow_cards)
+                existing.red_cards = p_data.get("red_cards", existing.red_cards)
+                existing.photo_url = p_data.get("photo_url")
+                existing.portrait_url = p_data.get("portrait_url")
+                existing.action_url = p_data.get("action_url")
+                existing.bio = p_data.get("bio")
+                existing.date_of_birth = p_data.get("date_of_birth")
+                existing.height = p_data.get("height")
+                existing.joined_date = p_data.get("joined_date")
+            else:
                 player = Player(
                     id=p_data["id"],
                     club_id=p_data["club_id"],

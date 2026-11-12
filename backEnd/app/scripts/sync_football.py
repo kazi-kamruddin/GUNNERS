@@ -5,13 +5,13 @@ from app.core.database import AsyncSessionLocal, engine, Base
 from app.services.ingestion import FootballIngestionService
 
 async def main():
-    parser = argparse.ArgumentParser(description="GUNNERS Football Data Sync Pipeline")
-    parser.add_argument("--mock", action="store_true", help="Force curated mock/baseline match data")
+    parser = argparse.ArgumentParser(description="GUNNERS Arsenal FC Football Data Sync Pipeline")
+    parser.add_argument("--mock", action="store_true", help="Force curated Arsenal FC baseline match data")
     parser.add_argument("--key", type=str, default=None, help="Override football-data.org API key")
     args = parser.parse_args()
 
     print("==================================================")
-    print("   GUNNERS Football Data Synchronization Job      ")
+    print("   GUNNERS Arsenal FC Data Synchronization Job    ")
     print("==================================================")
 
     # Ensure tables exist in target DB
@@ -26,6 +26,7 @@ async def main():
                 force_mock=args.mock
             )
             print("--------------------------------------------------")
+            print(f"Scope:          Arsenal FC (57)")
             print(f"Status:         {result['status']}")
             print(f"Source:         {result['source']}")
             print(f"Matches Synced: {result['matches_synced']}")
@@ -34,7 +35,7 @@ async def main():
             print("==================================================")
             print("Sync job finished successfully.")
         except Exception as exc:
-            print(f"[FATAL] Football sync job failed: {exc}", file=sys.stderr)
+            print(f"[FATAL] Arsenal FC football sync job failed: {exc}", file=sys.stderr)
             import traceback
             traceback.print_exc()
             sys.exit(1)

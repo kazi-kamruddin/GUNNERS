@@ -13,6 +13,17 @@
 	let comparePlayer2Id = $state<string | null>(null);
 	let comparisonResult = $state<PlayerComparison | null>(null);
 	let isComparing = $state(false);
+	let failedPortraits = $state<Record<string, boolean>>({});
+	let failedActions = $state<Record<string, boolean>>({});
+
+	function getInitials(name: string): string {
+		return name
+			.split(/\s+/)
+			.map((p) => p[0] || '')
+			.join('')
+			.slice(0, 2)
+			.toUpperCase();
+	}
 
 	let isInitialized = false;
 
@@ -221,23 +232,77 @@
 			No players found for the selected position.
 		</div>
 	{:else}
-		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+		<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
 			{#each players as player}
 				{@const isSelectedP1 = comparePlayer1Id === player.id}
 				{@const isSelectedP2 = comparePlayer2Id === player.id}
 				{@const compareBtnLabel = isSelectedP1 || isSelectedP2 ? 'Selected' : 'Compare'}
+				{@const portraitSrc = player.portrait_url || player.photo_url}
+				{@const actionSrc = player.action_url}
+				{@const showPortrait = Boolean(portraitSrc && !failedPortraits[player.id])}
+				{@const showAction = Boolean(actionSrc && !failedActions[player.id])}
 				<article class="border-t border-rule pt-5 flex flex-col justify-between space-y-5">
-					<div class="space-y-1.5">
-						<div class="flex items-center justify-between text-xs text-muted">
-							<span class="num font-outlier font-semibold text-accent">#{player.jersey_number}</span>
-							<span>{player.position}</span>
+					<a href="/squad/{encodeURIComponent(player.id)}" class="group block space-y-4">
+						<div class="relative aspect-[4/5] w-full rounded-card overflow-hidden bg-paper-2 border border-rule">
+							{#if showPortrait}
+								<img
+									src={portraitSrc}
+									alt="{player.name} portrait"
+									width="400"
+									height="500"
+									loading="lazy"
+									class="w-full h-full object-cover object-top transition-opacity duration-300 {showAction ? 'group-hover:opacity-0 group-focus-within:opacity-0' : ''}"
+									onerror={() => {
+										failedPortraits = { ...failedPortraits, [player.id]: true };
+									}}
+								/>
+								{#if showAction}
+									<img
+										src={actionSrc}
+										alt=""
+										aria-hidden="true"
+										width="400"
+										height="500"
+										loading="lazy"
+										class="absolute inset-0 w-full h-full object-cover object-top opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-300"
+										onerror={() => {
+											failedActions = { ...failedActions, [player.id]: true };
+										}}
+									/>
+								{/if}
+							{:else if showAction}
+								<img
+									src={actionSrc}
+									alt={player.name}
+									width="400"
+									height="500"
+									loading="lazy"
+									class="w-full h-full object-cover object-top"
+									onerror={() => {
+										failedActions = { ...failedActions, [player.id]: true };
+									}}
+								/>
+							{:else}
+								<div class="w-full h-full flex flex-col items-center justify-center gap-2 bg-paper-2 p-4 text-center">
+									<span class="num font-display font-bold text-4xl text-accent">#{player.jersey_number}</span>
+									<span class="font-display font-bold text-lg text-ink">{getInitials(player.name)}</span>
+									<span class="text-xs text-muted">{player.position}</span>
+								</div>
+							{/if}
 						</div>
 
-						<h3 class="text-base font-bold text-ink">{player.name}</h3>
-						<p class="text-xs text-muted">
-							Arsenal FC, {player.nationality}
-						</p>
-					</div>
+						<div class="space-y-1.5">
+							<div class="flex items-center justify-between text-xs text-muted">
+								<span class="num font-outlier font-semibold text-accent">#{player.jersey_number}</span>
+								<span>{player.position}</span>
+							</div>
+
+							<h3 class="text-base font-bold text-ink group-hover:text-accent transition-colors">{player.name}</h3>
+							<p class="text-xs text-muted">
+								Arsenal FC, {player.nationality}
+							</p>
+						</div>
+					</a>
 
 					<!-- Stats Row -->
 					<div class="grid grid-cols-3 gap-3 border-y border-rule py-3 text-xs">
@@ -258,10 +323,10 @@
 					<!-- Footer & Actions -->
 					<div class="flex items-center justify-between text-xs gap-2">
 						<a
-							href="/board"
+							href="/squad/{encodeURIComponent(player.id)}"
 							class="text-ink-2 hover:text-accent font-semibold transition-colors whitespace-nowrap"
 						>
-							Lineup studio
+							Player dossier
 						</a>
 						<button
 							type="button"

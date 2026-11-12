@@ -18,6 +18,7 @@ class NewsItemResponse(BaseModel):
 
 class NewsFeedResponse(BaseModel):
     total: int
+    has_more: bool = False
     sources_active: List[str]
     cached_at: datetime.datetime
     articles: List[NewsItemResponse]

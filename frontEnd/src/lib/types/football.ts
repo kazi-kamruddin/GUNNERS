@@ -24,6 +24,38 @@ export interface Season {
 	arteta_milestone: string;
 }
 
+export interface MatchGoalscorer {
+	minute: number | string;
+	player: string;
+	team: string;
+	assist?: string | null;
+	type?: string | null;
+}
+
+export interface MatchLineupPlayer {
+	name: string;
+	number?: number | null;
+	position?: string | null;
+}
+
+export interface MatchLineupSide {
+	formation?: string | null;
+	xi?: Array<string | MatchLineupPlayer>;
+	substitutes?: Array<string | MatchLineupPlayer>;
+	coach?: string | null;
+}
+
+export interface MatchLineups {
+	home?: MatchLineupSide | null;
+	away?: MatchLineupSide | null;
+}
+
+export interface MatchHighlight {
+	label: string;
+	url: string;
+	source?: string | null;
+}
+
 export interface Match {
 	id: string;
 	competition_id?: string;
@@ -39,9 +71,13 @@ export interface Match {
 	utc_date: string;
 	status: string;
 	venue?: string;
+	referee?: string | null;
 	home_score?: number;
 	away_score?: number;
 	winner?: string;
+	goalscorers?: MatchGoalscorer[];
+	lineups?: MatchLineups | null;
+	highlights?: MatchHighlight[];
 	source?: string;
 }
 
@@ -165,12 +201,21 @@ export interface DirectMessage {
 	created_at: string;
 }
 
+export interface ConversationParticipant {
+	user_id: string;
+	username: string;
+	display_name?: string | null;
+	avatar_url?: string | null;
+}
+
 export interface Conversation {
 	id: string;
 	created_at: string;
 	updated_at: string;
 	members: string[];
 	last_message?: DirectMessage | null;
+	unread_count: number;
+	other_member_profile?: ConversationParticipant | null;
 }
 
 export interface Player {
@@ -266,10 +311,20 @@ export interface SupporterStats {
 	cheers_received: number;
 }
 
+export interface SupporterSummary {
+	user_id: string;
+	username: string;
+	display_name?: string | null;
+	avatar_url?: string | null;
+	favorite_club_id?: string | null;
+	bio?: string | null;
+}
+
 export interface SupporterProfile {
 	user_id: string;
 	username: string;
 	display_name: string;
+	avatar_url?: string | null;
 	favorite_club_id: string;
 	bio?: string | null;
 	joined_at: string;
@@ -409,8 +464,26 @@ export interface NewsItem {
 	tags?: string[];
 }
 
+export interface PredictionHistoryItem {
+	id: string;
+	match_id: string;
+	predicted_home_score: number;
+	predicted_away_score: number;
+	points_awarded?: number | null;
+	status: string;
+	created_at: string;
+	home_team: string;
+	away_team: string;
+	home_score?: number | null;
+	away_score?: number | null;
+	utc_date: string;
+	match_status: string;
+	competition: string;
+}
+
 export interface NewsFeed {
 	total: number;
+	has_more: boolean;
 	sources_active: string[];
 	cached_at: string;
 	articles: NewsItem[];

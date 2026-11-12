@@ -1,37 +1,81 @@
 <script lang="ts">
 	import { ApiError, submitPrediction, fetchLeaderboard } from '$lib/api/football';
-	import type { UpcomingMatchPrediction, LeaderboardEntry } from '$lib/types/football';
+	import { fetchPredictionHistory } from '$lib/api/community';
+	import type {
+		UpcomingMatchPrediction,
+		LeaderboardEntry,
+		PredictionHistoryItem
+	} from '$lib/types/football';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
 	let upcoming = $state<UpcomingMatchPrediction[]>([]);
 	let leaderboard = $state<LeaderboardEntry[]>([]);
+	let history = $state<PredictionHistoryItem[]>([]);
 	let isSubmitting = $state<Record<string, boolean>>({});
 	let predictionInputs = $state<Record<string, { home: number; away: number }>>({});
 	let notificationMessage = $state<string | null>(null);
 	let errorBanner = $state<{ message: string; isAuth?: boolean } | null>(null);
+	let nowMs = $state(Date.now());
 
-	let isInitialized = false;
+	let isSignedIn = $derived(Boolean(data.user && data.session?.access_token));
 
 	$effect(() => {
-		if (!isInitialized && data.upcoming) {
-			upcoming = data.upcoming;
-			leaderboard = data.leaderboard;
-
-			for (const item of data.upcoming) {
-				if (item.user_prediction) {
-					predictionInputs[item.match.id] = {
-						home: item.user_prediction.predicted_home_score,
-						away: item.user_prediction.predicted_away_score
-					};
-				} else {
-					predictionInputs[item.match.id] = { home: 1, away: 0 };
-				}
-			}
-			isInitialized = true;
-		}
+		const intervalId = setInterval(() => {
+			nowMs = Date.now();
+		}, 60000);
+		return () => {
+			clearInterval(intervalId);
+		};
 	});
+
+	$effect(() => {
+		upcoming = data.upcoming || [];
+		leaderboard = data.leaderboard || [];
+		history = data.history || [];
+
+		const nextInputs: Record<string, { home: number; away: number }> = {};
+		for (const item of upcoming) {
+			if (item.user_prediction) {
+				nextInputs[item.match.id] = {
+					home: item.user_prediction.predicted_home_score,
+					away: item.user_prediction.predicted_away_score
+				};
+			} else {
+				nextInputs[item.match.id] = { home: 1, away: 0 };
+			}
+		}
+		predictionInputs = nextInputs;
+	});
+
+	function isKickoffPassed(utcDate: string, currentMs: number): boolean {
+		const targetMs = new Date(utcDate).getTime();
+		if (Number.isNaN(targetMs)) return false;
+		return targetMs <= currentMs;
+	}
+
+	function formatCountdown(utcDate: string, canPredict: boolean, currentMs: number): string {
+		if (!canPredict || isKickoffPassed(utcDate, currentMs)) {
+			return 'Locked';
+		}
+		const targetMs = new Date(utcDate).getTime();
+		const diffMs = targetMs - currentMs;
+		const totalMinutes = Math.floor(diffMs / 60000);
+		if (totalMinutes < 1) {
+			return 'Kickoff < 1m';
+		}
+		const days = Math.floor(totalMinutes / (60 * 24));
+		const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+		const minutes = totalMinutes % 60;
+		if (days > 0) {
+			return `Kickoff in ${days}d ${hours}h`;
+		}
+		if (hours > 0) {
+			return `Kickoff in ${hours}h ${minutes}m`;
+		}
+		return `Kickoff in ${minutes}m`;
+	}
 
 	async function handlePredict(matchId: string) {
 		errorBanner = null;
@@ -46,7 +90,7 @@
 		}
 
 		const target = upcoming.find((u) => u.match.id === matchId);
-		if (target && !target.can_predict) {
+		if (target && (!target.can_predict || isKickoffPassed(target.match.utc_date, nowMs))) {
 			errorBanner = {
 				message: 'Predictions are locked once kickoff has passed.',
 				isAuth: false
@@ -75,7 +119,12 @@
 					target.user_prediction = res;
 				}
 				notificationMessage = `Score prediction (${scores.home}:${scores.away}) locked in.`;
-				leaderboard = await fetchLeaderboard();
+				const [nextLeaderboard, nextHistory] = await Promise.all([
+					fetchLeaderboard(),
+					fetchPredictionHistory(data.session?.access_token)
+				]);
+				leaderboard = nextLeaderboard;
+				history = nextHistory;
 			}
 		} catch (err) {
 			const isAuth = err instanceof ApiError && err.status === 401;
@@ -106,6 +155,20 @@
 			return utcDate;
 		}
 	}
+
+	function formatMatchStatus(status: string): string {
+		switch (status) {
+			case 'FINISHED':
+				return 'Finished';
+			case 'IN_PLAY':
+			case 'LIVE':
+				return 'In play';
+			case 'SCHEDULED':
+				return 'Scheduled';
+			default:
+				return status;
+		}
+	}
 </script>
 
 <svelte:head>
@@ -130,8 +193,33 @@
 		</div>
 	</div>
 
+	{#if !isSignedIn}
+		<section class="border border-rule bg-paper-2 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+			<div class="space-y-1">
+				<h2 class="text-base font-bold text-ink">Guest preview mode</h2>
+				<p class="text-xs text-ink-2">
+					Browse upcoming Arsenal fixtures and the supporter standings freely. Sign in to lock in your scoreline predictions and track your points history.
+				</p>
+			</div>
+			<div class="flex items-center gap-3 shrink-0">
+				<a
+					href="/login"
+					class="inline-flex items-center h-9 px-4 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity"
+				>
+					Sign in
+				</a>
+				<a
+					href="/signup"
+					class="inline-flex items-center h-9 px-4 rounded-card border border-rule bg-paper hover:bg-paper-3 text-ink font-semibold text-xs transition-colors"
+				>
+					Create account
+				</a>
+			</div>
+		</section>
+	{/if}
+
 	{#if notificationMessage}
-		<div class="p-3.5 rounded-card bg-paper-2 border border-rule text-success text-xs flex items-center justify-between">
+		<div aria-live="polite" class="p-3.5 rounded-card bg-paper-2 border border-rule text-success text-xs flex items-center justify-between">
 			<span>{notificationMessage}</span>
 			<button type="button" onclick={() => (notificationMessage = null)} class="text-muted hover:text-ink font-semibold">Close</button>
 		</div>
@@ -151,95 +239,170 @@
 
 	<div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
 		<!-- Left 8 Cols: Upcoming Match Predictions Stream -->
-		<div class="lg:col-span-8 space-y-6">
-			<div class="flex items-center justify-between border-b border-rule pb-3">
-				<h2 class="text-xl font-bold text-ink">Upcoming matchday fixtures</h2>
-				<span class="text-xs num font-outlier text-muted">{upcoming.length} open for predictions</span>
-			</div>
-
-			{#if upcoming.length === 0}
-				<div class="py-12 border-t border-rule text-muted text-sm">
-					No upcoming matches scheduled for prediction right now.
+		<div class="lg:col-span-8 space-y-10">
+			<section class="space-y-6">
+				<div class="flex items-center justify-between border-b border-rule pb-3">
+					<h2 class="text-xl font-bold text-ink">Upcoming matchday fixtures</h2>
+					<span class="text-xs num font-outlier text-muted">{upcoming.length} open for predictions</span>
 				</div>
-			{:else}
-				<div class="divide-y divide-rule">
-					{#each upcoming as item}
-						{@const match = item.match}
-						{@const hasPred = !!item.user_prediction}
-						{@const isLocked = !item.can_predict}
-						{@const btnLabel = isLocked ? 'Locked (kickoff passed)' : isSubmitting[match.id] ? 'Saving…' : hasPred ? 'Update prediction' : 'Lock in (3 pts)'}
-						<article class="py-6 space-y-5">
-							<!-- Fixture Info Header -->
-							<div class="flex items-center justify-between text-xs">
-								<span class="text-accent-2 font-semibold">
-									{match.competition_name || 'Matchday'}
-								</span>
-								<span class="num font-outlier text-muted">
-									{formatDate(match.utc_date)}
-								</span>
-							</div>
 
-							<!-- Teams Matchup & Score Inputs -->
-							<div class="grid grid-cols-7 gap-3 items-center py-4 border-y border-rule">
-								<div class="col-span-3 text-right">
-									<h3 class="text-base font-bold text-ink truncate">{match.home_team_name}</h3>
-									<p class="text-xs text-muted">Home</p>
-								</div>
-
-								<div class="col-span-1 flex items-center justify-center gap-2 num font-outlier">
-									<input
-										type="number"
-										min="0"
-										max="20"
-										disabled={isLocked}
-										aria-label="Home team predicted goals"
-										bind:value={predictionInputs[match.id].home}
-										class="w-10 h-10 rounded-card bg-paper-2 border border-rule text-center text-sm font-bold text-ink disabled:opacity-50"
-									/>
-									<span class="text-muted font-bold">:</span>
-									<input
-										type="number"
-										min="0"
-										max="20"
-										disabled={isLocked}
-										aria-label="Away team predicted goals"
-										bind:value={predictionInputs[match.id].away}
-										class="w-10 h-10 rounded-card bg-paper-2 border border-rule text-center text-sm font-bold text-ink disabled:opacity-50"
-									/>
-								</div>
-
-								<div class="col-span-3 text-left">
-									<h3 class="text-base font-bold text-ink truncate">{match.away_team_name}</h3>
-									<p class="text-xs text-muted">Away</p>
-								</div>
-							</div>
-
-							<!-- Submission & Lock-in Button -->
-							<div class="flex items-center justify-between text-xs">
-								<div class="text-muted">
-									{#if hasPred}
-										<span class="text-success font-semibold num font-outlier">
-											Predicted: {item.user_prediction?.predicted_home_score}:{item.user_prediction?.predicted_away_score}
+				{#if upcoming.length === 0}
+					<div class="py-12 border-t border-rule text-muted text-sm">
+						No upcoming matches scheduled for prediction right now.
+					</div>
+				{:else}
+					<div class="divide-y divide-rule">
+						{#each upcoming as item}
+							{@const match = item.match}
+							{@const hasPred = !!item.user_prediction}
+							{@const isLocked = !item.can_predict || isKickoffPassed(match.utc_date, nowMs)}
+							{@const countdownLabel = formatCountdown(match.utc_date, item.can_predict, nowMs)}
+							{@const btnLabel = isLocked ? 'Locked (kickoff passed)' : isSubmitting[match.id] ? 'Saving…' : hasPred ? 'Update prediction' : 'Lock in (3 pts)'}
+							<article class="py-6 space-y-5">
+								<!-- Fixture Info Header -->
+								<div class="flex items-center justify-between gap-3 flex-wrap text-xs">
+									<span class="text-accent-2 font-semibold">
+										{match.competition_name || 'Matchday'}
+									</span>
+									<div class="flex items-center gap-3 num font-outlier">
+										<span class="text-muted">
+											{formatDate(match.utc_date)}
 										</span>
-									{:else if isLocked}
-										<span>Prediction window closed</span>
-									{:else}
-										<span>Not predicted yet</span>
-									{/if}
+										<span
+											class="px-2 py-0.5 rounded-card border border-rule {isLocked ? 'bg-paper-3 text-muted' : 'bg-paper-2 text-ink-2'}"
+										>
+											{countdownLabel}
+										</span>
+									</div>
 								</div>
 
-								<button
-									type="button"
-									onclick={() => handlePredict(match.id)}
-									disabled={isLocked || isSubmitting[match.id]}
-									class="h-9 px-4 rounded-card text-xs font-semibold transition-colors border disabled:opacity-50 {hasPred || isLocked ? 'bg-paper-2 text-ink border-rule hover:bg-paper-3' : 'bg-accent hover:opacity-95 text-accent-ink border-accent'}"
-								>
-									{btnLabel}
-								</button>
-							</div>
-						</article>
-					{/each}
-				</div>
+								<!-- Teams Matchup & Score Inputs -->
+								<div class="grid grid-cols-7 gap-3 items-center py-4 border-y border-rule">
+									<div class="col-span-3 text-right">
+										<h3 class="text-base font-bold text-ink truncate">{match.home_team_name}</h3>
+										<p class="text-xs text-muted">Home</p>
+									</div>
+
+									<div class="col-span-1 flex items-center justify-center gap-2 num font-outlier">
+										<input
+											type="number"
+											min="0"
+											max="20"
+											disabled={isLocked}
+											aria-label="Home team predicted goals"
+											bind:value={predictionInputs[match.id].home}
+											class="w-10 h-10 rounded-card bg-paper-2 border border-rule text-center text-sm font-bold text-ink disabled:opacity-50"
+										/>
+										<span class="text-muted font-bold">:</span>
+										<input
+											type="number"
+											min="0"
+											max="20"
+											disabled={isLocked}
+											aria-label="Away team predicted goals"
+											bind:value={predictionInputs[match.id].away}
+											class="w-10 h-10 rounded-card bg-paper-2 border border-rule text-center text-sm font-bold text-ink disabled:opacity-50"
+										/>
+									</div>
+
+									<div class="col-span-3 text-left">
+										<h3 class="text-base font-bold text-ink truncate">{match.away_team_name}</h3>
+										<p class="text-xs text-muted">Away</p>
+									</div>
+								</div>
+
+								<!-- Submission & Lock-in Button -->
+								<div class="flex items-center justify-between text-xs gap-3 flex-wrap">
+									<div class="text-muted">
+										{#if hasPred}
+											<span class="text-success font-semibold num font-outlier">
+												Predicted: {item.user_prediction?.predicted_home_score}:{item.user_prediction?.predicted_away_score}
+											</span>
+										{:else if isLocked}
+											<span>Prediction window closed</span>
+										{:else}
+											<span>Not predicted yet</span>
+										{/if}
+									</div>
+
+									<button
+										type="button"
+										onclick={() => handlePredict(match.id)}
+										disabled={isLocked || isSubmitting[match.id]}
+										class="h-9 px-4 rounded-card text-xs font-semibold transition-colors border disabled:opacity-50 {hasPred || isLocked ? 'bg-paper-2 text-ink border-rule hover:bg-paper-3' : 'bg-accent hover:opacity-95 text-accent-ink border-accent'}"
+									>
+										{btnLabel}
+									</button>
+								</div>
+							</article>
+						{/each}
+					</div>
+				{/if}
+			</section>
+
+			{#if isSignedIn}
+				<section aria-labelledby="prediction-history-heading" class="space-y-5 border-t-2 border-rule-2 pt-8">
+					<div class="flex items-center justify-between border-b border-rule pb-3">
+						<h2 id="prediction-history-heading" class="text-xl font-bold text-ink">
+							My Settled &amp; Active Predictions
+						</h2>
+						<span class="text-xs num font-outlier text-muted">{history.length} total</span>
+					</div>
+
+					{#if history.length === 0}
+						<p class="py-6 text-xs text-muted">
+							You have not submitted any matchday predictions yet. Lock in a scoreline above to begin tracking your record.
+						</p>
+					{:else}
+						<div class="divide-y divide-rule border-b border-rule">
+							{#each history as item}
+								{@const hasActual = item.match_status === 'FINISHED' && item.home_score !== null && item.home_score !== undefined && item.away_score !== null && item.away_score !== undefined}
+								{@const isGraded = item.points_awarded !== null && item.points_awarded !== undefined}
+								<div class="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+									<div class="space-y-1 min-w-0">
+										<div class="flex items-center gap-2.5 flex-wrap">
+											<span class="text-accent-2 font-semibold">{item.competition}</span>
+											<span class="text-muted num font-outlier">{formatDate(item.utc_date)}</span>
+											<span class="px-2 py-0.5 rounded-card border border-rule bg-paper-2 text-ink-2">
+												{formatMatchStatus(item.match_status)}
+											</span>
+										</div>
+										<p class="text-sm font-bold text-ink truncate">
+											{item.home_team} vs {item.away_team}
+										</p>
+									</div>
+
+									<div class="flex items-center gap-5 shrink-0 num font-outlier">
+										<div>
+											<span class="text-muted block">Predicted</span>
+											<span class="text-sm font-bold text-ink">
+												{item.predicted_home_score}:{item.predicted_away_score}
+											</span>
+										</div>
+										<div>
+											<span class="text-muted block">Actual</span>
+											<span class="text-sm font-bold text-ink-2">
+												{hasActual ? `${item.home_score}:${item.away_score}` : '—'}
+											</span>
+										</div>
+										<div class="text-right min-w-[68px]">
+											<span class="text-muted block">Points</span>
+											{#if isGraded}
+												<span
+													class="text-sm font-bold {item.points_awarded === 3 ? 'text-success' : item.points_awarded === 1 ? 'text-accent-2' : 'text-muted'}"
+												>
+													{item.points_awarded} pts
+												</span>
+											{:else}
+												<span class="text-sm font-semibold text-muted">Pending</span>
+											{/if}
+										</div>
+									</div>
+								</div>
+							{/each}
+						</div>
+					{/if}
+				</section>
 			{/if}
 		</div>
 

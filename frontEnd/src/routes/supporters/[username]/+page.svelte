@@ -7,6 +7,22 @@
 	const profile = $derived(data.profile);
 	const name = $derived(profile.display_name);
 	const club = $derived(CLUBS[profile.favorite_club_id] || CLUBS.arsenal);
+	const initials = $derived(
+		(profile.display_name || profile.username || 'G')
+			.split(/\s+/)
+			.map((p: string) => p[0] || '')
+			.join('')
+			.slice(0, 2)
+			.toUpperCase()
+	);
+
+	let avatarFailed = $state(false);
+
+	$effect(() => {
+		if (profile.avatar_url !== undefined) {
+			avatarFailed = false;
+		}
+	});
 
 	function formatDate(isoStr: string): string {
 		try {
@@ -30,22 +46,39 @@
 	<!-- Supporter Profile Header -->
 	<section class="border-t-2 border-rule-2 pt-8 space-y-8">
 		<div class="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-			<div class="space-y-3 min-w-0">
-				<div class="flex items-baseline gap-3 flex-wrap">
-					<h1 class="break-words min-w-0">{name}</h1>
-					<span class="text-sm text-muted">
-						@{profile.username}
-					</span>
+			<div class="flex items-start gap-5 min-w-0">
+				<div class="w-20 h-20 rounded-card border border-rule bg-paper-2 overflow-hidden shrink-0 flex items-center justify-center">
+					{#if profile.avatar_url && !avatarFailed}
+						<img
+							src={profile.avatar_url}
+							alt="{name} avatar"
+							width="80"
+							height="80"
+							class="w-full h-full object-cover"
+							onerror={() => (avatarFailed = true)}
+						/>
+					{:else}
+						<span class="font-display font-bold text-2xl text-accent">{initials}</span>
+					{/if}
 				</div>
-				<div class="flex items-center gap-3 text-xs text-muted">
-					<span>Affiliation: <strong class="text-ink">{club.name}</strong></span>
-					<span>Joined <span class="num font-outlier">{formatDate(profile.joined_at)}</span></span>
+
+				<div class="space-y-3 min-w-0">
+					<div class="flex items-baseline gap-3 flex-wrap">
+						<h1 class="break-words min-w-0">{name}</h1>
+						<span class="text-sm text-muted">
+							@{profile.username}
+						</span>
+					</div>
+					<div class="flex items-center gap-4 flex-wrap text-xs text-muted">
+						<span>Affiliation: <strong class="text-ink">{club.name}</strong></span>
+						<span>Joined <span class="num font-outlier">{formatDate(profile.joined_at)}</span></span>
+					</div>
+					{#if profile.bio}
+						<p class="text-sm text-ink-2 max-w-xl leading-relaxed">
+							{profile.bio}
+						</p>
+					{/if}
 				</div>
-				{#if profile.bio}
-					<p class="text-sm text-ink-2 max-w-xl leading-relaxed">
-						{profile.bio}
-					</p>
-				{/if}
 			</div>
 
 			<div class="self-start sm:self-end shrink-0">
@@ -59,18 +92,28 @@
 		</div>
 
 		<!-- Performance Stats Row -->
-		<div class="grid grid-cols-2 sm:grid-cols-4 gap-6 pt-6 border-t border-rule text-xs">
+		<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-6 pt-6 border-t border-rule text-xs">
 			<div>
 				<p class="text-muted">Predictor points</p>
 				<p class="text-2xl font-bold text-success num font-outlier mt-1">{profile.stats.prediction_points} pts</p>
 			</div>
 			<div>
 				<p class="text-muted">Predictor rank</p>
-				<p class="text-2xl font-bold text-accent-2 num font-outlier mt-1">#{profile.stats.prediction_rank}</p>
+				<p class="text-2xl font-bold text-accent-2 num font-outlier mt-1">
+					{profile.stats.prediction_rank === 0 ? 'Unranked' : `#${profile.stats.prediction_rank}`}
+				</p>
+			</div>
+			<div>
+				<p class="text-muted">Predictions</p>
+				<p class="text-2xl font-bold text-ink num font-outlier mt-1">{profile.stats.total_predictions}</p>
 			</div>
 			<div>
 				<p class="text-muted">Exact scores</p>
 				<p class="text-2xl font-bold text-ink num font-outlier mt-1">{profile.stats.exact_scores}</p>
+			</div>
+			<div>
+				<p class="text-muted">Debates & insights</p>
+				<p class="text-2xl font-bold text-ink num font-outlier mt-1">{profile.stats.posts_count + profile.stats.insights_published}</p>
 			</div>
 			<div>
 				<p class="text-muted">Cheers received</p>

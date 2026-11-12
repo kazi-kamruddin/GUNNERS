@@ -3,18 +3,21 @@ import datetime
 from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, func, or_
+from sqlalchemy import select, and_, func, or_, desc
 from app.core.database import get_db
 from app.core.security import CurrentUserDep, OptionalUserDep
 from app.models.predictions import Prediction
-from app.models.football import Match
+from app.models.football import Club, Match
 from app.schemas.predictions import (
     PredictionCreateRequest,
     PredictionResponse,
     UpcomingMatchPredictionItem,
     LeaderboardEntry,
+    PredictionGradeResponse,
+    PredictionHistoryItem,
 )
 from app.schemas.analytics import MatchResponse
+from app.services.notifications import create_notification
 
 router = APIRouter()
 
@@ -264,3 +267,165 @@ async def get_supporter_leaderboard(
             )
         )
     return result
+
+
+async def grade_match_predictions(db: AsyncSession, match: Match) -> int:
+    """Grade all ungraded predictions for a finished match and emit notifications."""
+    if match.status != "FINISHED" or match.home_score is None or match.away_score is None:
+        return 0
+
+    stmt = select(Prediction).where(
+        and_(
+            Prediction.match_id == match.id,
+            Prediction.points_awarded.is_(None),
+        )
+    )
+    predictions = (await db.execute(stmt)).scalars().all()
+    if not predictions:
+        return 0
+
+    home_label = (
+        match.home_team_name
+        if match.home_team_name and match.home_team_name != "Home Team"
+        else match.home_team_id
+    )
+    away_label = (
+        match.away_team_name
+        if match.away_team_name and match.away_team_name != "Away Team"
+        else match.away_team_id
+    )
+
+    for pred in predictions:
+        if (
+            pred.predicted_home_score == match.home_score
+            and pred.predicted_away_score == match.away_score
+        ):
+            pts = 3
+        elif _outcome_sign(pred.predicted_home_score, pred.predicted_away_score) == _outcome_sign(
+            match.home_score, match.away_score
+        ):
+            pts = 1
+        else:
+            pts = 0
+
+        pred.points_awarded = pts
+        pt_word = "pt" if pts == 1 else "pts"
+        await create_notification(
+            db,
+            user_id=pred.user_id,
+            notif_type="prediction_result",
+            title="Prediction Graded",
+            message=(
+                f"{home_label} {match.home_score}-{match.away_score} {away_label}: "
+                f"you earned {pts} {pt_word} "
+                f"(predicted {pred.predicted_home_score}-{pred.predicted_away_score})."
+            ),
+            link="/predictions",
+        )
+
+    return len(predictions)
+
+
+@router.post("/grade/{match_id}", response_model=PredictionGradeResponse)
+async def grade_match_predictions_endpoint(
+    match_id: str,
+    current_user: CurrentUserDep,
+    db: AsyncSession = Depends(get_db),
+):
+    """Grade all ungraded predictions for a finished match and notify supporters."""
+    match_res = await db.execute(select(Match).where(Match.id == match_id))
+    match = match_res.scalar_one_or_none()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    if match.status != "FINISHED" or match.home_score is None or match.away_score is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Match must be FINISHED with final scores to grade predictions",
+        )
+
+    graded_count = await grade_match_predictions(db, match)
+    await db.commit()
+    return PredictionGradeResponse(match_id=match.id, graded_count=graded_count)
+
+
+@router.get("/history", response_model=List[PredictionHistoryItem])
+async def get_prediction_history(
+    current_user: CurrentUserDep,
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the authenticated supporter's prediction history joined with match and club names."""
+    stmt = (
+        select(Prediction, Match)
+        .outerjoin(Match, Prediction.match_id == Match.id)
+        .where(Prediction.user_id == current_user.id)
+        .order_by(desc(Prediction.created_at))
+    )
+    rows = (await db.execute(stmt)).all()
+    if not rows:
+        return []
+
+    team_ids = {
+        tid
+        for _, match in rows
+        if match is not None
+        for tid in (match.home_team_id, match.away_team_id)
+        if tid
+    }
+    club_names: Dict[str, str] = {}
+    if team_ids:
+        club_res = await db.execute(select(Club).where(Club.id.in_(team_ids)))
+        club_names = {c.id: c.name for c in club_res.scalars().all()}
+
+    items: List[PredictionHistoryItem] = []
+    for pred, match in rows:
+        status_label = "GRADED" if pred.points_awarded is not None else "PENDING"
+        if match is not None:
+            home_team = club_names.get(match.home_team_id) or (
+                match.home_team_name
+                if match.home_team_name and match.home_team_name != "Home Team"
+                else match.home_team_id
+            )
+            away_team = club_names.get(match.away_team_id) or (
+                match.away_team_name
+                if match.away_team_name and match.away_team_name != "Away Team"
+                else match.away_team_id
+            )
+            items.append(
+                PredictionHistoryItem(
+                    id=pred.id,
+                    match_id=pred.match_id,
+                    predicted_home_score=pred.predicted_home_score,
+                    predicted_away_score=pred.predicted_away_score,
+                    points_awarded=pred.points_awarded,
+                    status=status_label,
+                    created_at=pred.created_at,
+                    home_team=home_team,
+                    away_team=away_team,
+                    home_score=match.home_score,
+                    away_score=match.away_score,
+                    utc_date=match.utc_date,
+                    match_status=match.status,
+                    competition=match.competition_name or match.competition_id or "Premier League",
+                )
+            )
+        else:
+            items.append(
+                PredictionHistoryItem(
+                    id=pred.id,
+                    match_id=pred.match_id,
+                    predicted_home_score=pred.predicted_home_score,
+                    predicted_away_score=pred.predicted_away_score,
+                    points_awarded=pred.points_awarded,
+                    status=status_label,
+                    created_at=pred.created_at,
+                    home_team="Home Team",
+                    away_team="Away Team",
+                    home_score=None,
+                    away_score=None,
+                    utc_date=pred.created_at,
+                    match_status="UNKNOWN",
+                    competition="Unknown",
+                )
+            )
+    return items

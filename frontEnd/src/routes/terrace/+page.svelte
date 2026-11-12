@@ -7,6 +7,7 @@
 		fetchComments,
 		createComment
 	} from '$lib/api/football';
+	import { deleteTerracePost, deleteTerraceComment } from '$lib/api/community';
 	import TacticalBoardComponent from '$lib/components/TacticalBoard.svelte';
 	import type { Post, PostComment, Insight, TopicTag, TacticalBoard } from '$lib/types/football';
 	import type { PageProps } from './$types';
@@ -22,9 +23,18 @@
 	let newPostContent = $state('');
 	let newPostImageUrl = $state('');
 	let showImageInput = $state(false);
+	let isUploadingImage = $state(false);
+	let imageUploadStatus = $state<string | null>(null);
+	let imageUploadError = $state<string | null>(null);
+	let imageFileInput = $state<HTMLInputElement | null>(null);
 	let selectedInsightId = $state<string>('');
 	let selectedTacticalBoardId = $state<string>('');
 	let isSubmitting = $state(false);
+
+	let confirmDeletePostId = $state<string | null>(null);
+	let deletingPostId = $state<string | null>(null);
+	let confirmDeleteCommentId = $state<string | null>(null);
+	let deletingCommentId = $state<string | null>(null);
 
 	let showAuthModal = $state(false);
 	let authModalReason = $state<'post' | 'comment' | 'react'>('post');
@@ -40,11 +50,23 @@
 	let selectedTag = $state('');
 	let trendingTags = $state<TopicTag[]>([]);
 
+	const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+	const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+
 	let imageToggleLabel = $derived(showImageInput ? 'Hide photo input' : 'Add image');
-	let publishPostLabel = $derived(isSubmitting ? 'Publishing…' : 'Publish to Terrace');
+	let publishPostLabel = $derived(
+		isUploadingImage ? 'Uploading photo…' : isSubmitting ? 'Publishing…' : 'Publish to Terrace'
+	);
 	let commentPlaceholder = $derived(
 		data.user ? 'Write your debrief or reply…' : 'Sign in to reply to this debrief…'
 	);
+
+	$effect(() => {
+		if (!newPostImageUrl) {
+			imageUploadStatus = null;
+			if (imageFileInput) imageFileInput.value = '';
+		}
+	});
 
 	$effect(() => {
 		posts = data.initialPosts;
@@ -152,6 +174,9 @@
 				posts = [created, ...posts];
 				newPostContent = '';
 				newPostImageUrl = '';
+				imageUploadStatus = null;
+				imageUploadError = null;
+				if (imageFileInput) imageFileInput.value = '';
 				showImageInput = false;
 				selectedInsightId = '';
 				selectedTacticalBoardId = '';
@@ -168,6 +193,118 @@
 			};
 		} finally {
 			isSubmitting = false;
+		}
+	}
+
+	async function handleImageFileSelected(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		imageUploadError = null;
+		imageUploadStatus = null;
+
+		if (!requireAuth('post') || !data.user || !data.supabase) {
+			input.value = '';
+			return;
+		}
+
+		if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+			imageUploadError = 'Unsupported file format. Choose a JPEG, PNG, WebP, or GIF image.';
+			input.value = '';
+			return;
+		}
+
+		if (file.size > MAX_IMAGE_BYTES) {
+			imageUploadError = 'Image exceeds the 5 MB file size limit.';
+			input.value = '';
+			return;
+		}
+
+		const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_') || 'image';
+		const storagePath = `${data.user.id}/${Date.now()}-${safeName}`;
+
+		isUploadingImage = true;
+		imageUploadStatus = 'Uploading photo to Terrace media…';
+		try {
+			const { error: uploadErr } = await data.supabase.storage
+				.from('terrace-media')
+				.upload(storagePath, file, {
+					cacheControl: '3600',
+					contentType: file.type,
+					upsert: false
+				});
+
+			if (uploadErr) {
+				throw new Error(uploadErr.message || 'Image upload failed.');
+			}
+
+			const { data: publicUrlData } = data.supabase.storage
+				.from('terrace-media')
+				.getPublicUrl(storagePath);
+
+			newPostImageUrl = publicUrlData.publicUrl;
+			imageUploadStatus = `Uploaded ${file.name}`;
+		} catch (err) {
+			imageUploadStatus = null;
+			imageUploadError =
+				err instanceof Error ? err.message : 'Could not upload image. Please try again.';
+		} finally {
+			isUploadingImage = false;
+			input.value = '';
+		}
+	}
+
+	function clearImageAttachment() {
+		newPostImageUrl = '';
+		imageUploadStatus = null;
+		imageUploadError = null;
+		if (imageFileInput) imageFileInput.value = '';
+	}
+
+	async function handleDeletePost(postId: string) {
+		if (!requireAuth('post')) return;
+		deletingPostId = postId;
+		errorBanner = null;
+		try {
+			await deleteTerracePost(postId, data.session?.access_token);
+			posts = posts.filter((p) => p.id !== postId);
+			confirmDeletePostId = null;
+		} catch (err) {
+			errorBanner = {
+				message:
+					err instanceof ApiError
+						? err.detail
+						: 'Could not delete post. Please try again.',
+				isAuth: err instanceof ApiError && err.status === 401
+			};
+		} finally {
+			deletingPostId = null;
+		}
+	}
+
+	async function handleDeleteComment(postId: string, commentId: string) {
+		if (!requireAuth('comment')) return;
+		deletingCommentId = commentId;
+		errorBanner = null;
+		try {
+			await deleteTerraceComment(postId, commentId, data.session?.access_token);
+			postComments[postId] = (postComments[postId] || []).filter((c) => c.id !== commentId);
+			const targetPost = posts.find((p) => p.id === postId);
+			if (targetPost) {
+				targetPost.comments_count = Math.max(0, targetPost.comments_count - 1);
+			}
+			confirmDeleteCommentId = null;
+		} catch (err) {
+			errorBanner = {
+				message:
+					err instanceof ApiError
+						? err.detail
+						: 'Could not delete comment. Please try again.',
+				isAuth: err instanceof ApiError && err.status === 401
+			};
+		} finally {
+			deletingCommentId = null;
 		}
 	}
 
@@ -423,33 +560,66 @@
 		></textarea>
 
 		{#if showImageInput}
-			<div class="border-t border-rule pt-3 space-y-2">
-				<div class="flex items-center justify-between text-xs">
-					<label for="image-url-input" class="font-semibold text-ink-2">
-						Image attachment URL <span class="font-normal text-muted">(Cloudinary, Unsplash, or direct link)</span>
-					</label>
+			<div class="border-t border-rule pt-3 space-y-3">
+				<div class="flex items-center justify-between text-xs gap-4">
+					<span class="font-semibold text-ink-2">
+						Photo attachment <span class="font-normal text-muted">(Upload JPEG, PNG, WebP, GIF up to 5 MB or paste a direct URL)</span>
+					</span>
 					<button
 						type="button"
 						onclick={() => { showImageInput = false; newPostImageUrl = ''; }}
-						class="text-muted hover:text-error font-semibold"
+						class="text-muted hover:text-error font-semibold shrink-0"
 					>
 						Cancel
 					</button>
 				</div>
-				<input
-					id="image-url-input"
-					type="url"
-					bind:value={newPostImageUrl}
-					placeholder="https://images.unsplash.com/… or https://res.cloudinary.com/…"
-					class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
-				/>
+
+				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+					<div class="space-y-1">
+						<label for="terrace-image-file" class="block text-xs font-semibold text-ink-2">
+							Upload from device
+						</label>
+						<input
+							id="terrace-image-file"
+							bind:this={imageFileInput}
+							type="file"
+							accept="image/jpeg,image/png,image/webp,image/gif"
+							disabled={isUploadingImage}
+							onchange={handleImageFileSelected}
+							class="block w-full h-10 bg-paper-2 border border-rule rounded-card px-3 py-2 text-xs text-ink-2 file:mr-3 file:border-0 file:bg-paper-3 file:text-ink file:text-xs file:font-semibold file:px-2.5 file:py-1 file:rounded-card hover:file:bg-accent hover:file:text-accent-ink disabled:opacity-50"
+						/>
+					</div>
+
+					<div class="space-y-1">
+						<label for="image-url-input" class="block text-xs font-semibold text-ink-2">
+							Or paste image URL
+						</label>
+						<input
+							id="image-url-input"
+							type="url"
+							bind:value={newPostImageUrl}
+							placeholder="https://images.unsplash.com/…"
+							class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
+						/>
+					</div>
+				</div>
+
+				{#if imageUploadStatus}
+					<p aria-live="polite" class="text-xs text-success font-semibold">{imageUploadStatus}</p>
+				{/if}
+
+				{#if imageUploadError}
+					<p role="alert" class="text-xs text-error font-semibold">{imageUploadError}</p>
+				{/if}
+
 				{#if newPostImageUrl.trim()}
-					<div class="relative w-36 h-20 overflow-hidden border border-rule mt-2">
+					<div class="relative w-40 h-24 overflow-hidden border border-rule mt-2">
 						<img src={newPostImageUrl} alt="Attachment preview" class="w-full h-full object-cover" />
 						<button
 							type="button"
 							onclick={() => (newPostImageUrl = '')}
-							class="absolute top-1 right-1 bg-paper/90 hover:bg-accent text-ink rounded-card px-1.5 py-0.5 text-xs font-semibold"
+							aria-label="Remove attached photo"
+							class="absolute top-1 right-1 bg-paper/90 hover:bg-accent hover:text-accent-ink text-ink rounded-card px-1.5 py-0.5 text-xs font-semibold"
 							title="Remove photo"
 						>
 							Remove
@@ -549,8 +719,8 @@
 			<button
 				type="button"
 				onclick={handlePublishPost}
-				disabled={isSubmitting || (!newPostContent.trim() && !newPostImageUrl.trim())}
-				class="h-9 px-5 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity"
+				disabled={isSubmitting || isUploadingImage || (!newPostContent.trim() && !newPostImageUrl.trim())}
+				class="h-9 px-5 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity disabled:opacity-50"
 			>
 				{publishPostLabel}
 			</button>
@@ -572,9 +742,10 @@
 			{#each posts as post}
 				{@const debateBtnLabel = `Debates (${post.comments_count})`}
 				{@const cheerBtnLabel = `Cheer (${post.reactions_count})`}
-				<article class="py-8 space-y-4">
+				{@const isPostOwner = Boolean(data.user?.id && post.author_id === data.user.id)}
+				<article id="post-{post.id}" class="py-8 space-y-4">
 					<!-- Post Author & Meta -->
-					<div class="flex items-center justify-between text-xs">
+					<div class="flex items-center justify-between text-xs gap-3 flex-wrap">
 						<div class="flex items-center gap-3">
 							<a
 								href="/supporters/{encodeURIComponent(post.author_name)}"
@@ -591,7 +762,41 @@
 								Direct debate
 							</a>
 						</div>
-						<span class="text-muted num font-outlier">{formatTimestamp(post.created_at)}</span>
+						<div class="flex items-center gap-3">
+							<span class="text-muted num font-outlier">{formatTimestamp(post.created_at)}</span>
+							{#if isPostOwner}
+								{#if confirmDeletePostId === post.id}
+									{@const confirmPostBtn = deletingPostId === post.id ? 'Deleting…' : 'Confirm delete'}
+									<div class="flex items-center gap-1.5">
+										<button
+											type="button"
+											onclick={() => handleDeletePost(post.id)}
+											disabled={deletingPostId === post.id}
+											class="h-7 px-2.5 rounded-card bg-accent text-accent-ink font-semibold text-xs whitespace-nowrap disabled:opacity-50"
+										>
+											{confirmPostBtn}
+										</button>
+										<button
+											type="button"
+											onclick={() => (confirmDeletePostId = null)}
+											disabled={deletingPostId === post.id}
+											class="h-7 px-2.5 rounded-card border border-rule bg-paper-2 text-ink-2 hover:text-ink font-semibold text-xs"
+										>
+											Cancel
+										</button>
+									</div>
+								{:else}
+									<button
+										type="button"
+										onclick={() => (confirmDeletePostId = post.id)}
+										aria-label="Delete post by {post.author_name}"
+										class="text-muted hover:text-error font-semibold transition-colors"
+									>
+										Delete
+									</button>
+								{/if}
+							{/if}
+						</div>
 					</div>
 
 					<!-- Post Content -->
@@ -716,15 +921,50 @@
 							{#if postComments[post.id] && postComments[post.id].length > 0}
 								<div class="divide-y divide-rule">
 									{#each postComments[post.id] as comment}
+										{@const isCommentOwner = Boolean(data.user?.id && comment.author_id === data.user.id)}
 										<div class="py-3 space-y-1 text-xs">
-											<div class="flex items-center justify-between">
+											<div class="flex items-center justify-between gap-2">
 												<a
 													href="/supporters/{encodeURIComponent(comment.author_name)}"
 													class="font-bold text-ink hover:text-accent transition-colors"
 												>
 													{comment.author_name}
 												</a>
-												<span class="text-muted num font-outlier">{formatTimestamp(comment.created_at)}</span>
+												<div class="flex items-center gap-3">
+													<span class="text-muted num font-outlier">{formatTimestamp(comment.created_at)}</span>
+													{#if isCommentOwner}
+														{#if confirmDeleteCommentId === comment.id}
+															{@const confirmCommentBtn = deletingCommentId === comment.id ? 'Deleting…' : 'Confirm'}
+															<div class="flex items-center gap-1.5">
+																<button
+																	type="button"
+																	onclick={() => handleDeleteComment(post.id, comment.id)}
+																	disabled={deletingCommentId === comment.id}
+																	class="h-6 px-2 rounded-card bg-accent text-accent-ink font-semibold text-xs whitespace-nowrap disabled:opacity-50"
+																>
+																	{confirmCommentBtn}
+																</button>
+																<button
+																	type="button"
+																	onclick={() => (confirmDeleteCommentId = null)}
+																	disabled={deletingCommentId === comment.id}
+																	class="h-6 px-2 rounded-card border border-rule bg-paper-2 text-ink-2 hover:text-ink font-semibold text-xs"
+																>
+																	Cancel
+																</button>
+															</div>
+														{:else}
+															<button
+																type="button"
+																onclick={() => (confirmDeleteCommentId = comment.id)}
+																aria-label="Delete comment"
+																class="text-muted hover:text-error font-semibold transition-colors"
+															>
+																Delete
+															</button>
+														{/if}
+													{/if}
+												</div>
 											</div>
 											<p class="text-ink-2 leading-relaxed">{comment.content}</p>
 										</div>

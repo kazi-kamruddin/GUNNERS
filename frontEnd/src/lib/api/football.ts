@@ -29,7 +29,7 @@ import type {
 	NewsItem
 } from '$lib/types/football';
 
-const API_BASE = (import.meta.env.PUBLIC_API_URL as string) || 'http://localhost:8000/api/v1';
+export const API_BASE = (import.meta.env.PUBLIC_API_URL as string) || 'http://localhost:8000/api/v1';
 
 export class ApiError extends Error {
 	status: number;
@@ -49,7 +49,11 @@ export function setApiAccessToken(token: string | null): void {
 	currentAccessToken = token;
 }
 
-function buildHeaders(
+export function getApiAccessToken(): string | null {
+	return currentAccessToken;
+}
+
+export function buildHeaders(
 	accessToken?: string | null,
 	extra?: Record<string, string>
 ): Record<string, string> {
@@ -61,7 +65,7 @@ function buildHeaders(
 	return headers;
 }
 
-async function throwApiError(res: Response, fallbackMessage: string): Promise<never> {
+export async function throwApiError(res: Response, fallbackMessage: string): Promise<never> {
 	let detail = fallbackMessage;
 	try {
 		const data = await res.json();
@@ -81,7 +85,7 @@ async function throwApiError(res: Response, fallbackMessage: string): Promise<ne
 	throw new ApiError(res.status, detail);
 }
 
-function toNetworkApiError(err: unknown, fallbackMessage: string): ApiError {
+export function toNetworkApiError(err: unknown, fallbackMessage: string): ApiError {
 	if (err instanceof ApiError) return err;
 	return new ApiError(0, err instanceof Error && err.message ? err.message : fallbackMessage);
 }
@@ -228,6 +232,18 @@ export async function fetchMatches(params?: {
 	} catch (err) {
 		console.warn('API error fetching matches, falling back to local dataset');
 		return getLocalFallbackMatches(params?.club_id);
+	}
+}
+
+export async function fetchMatchDetail(matchId: string): Promise<Match | null> {
+	try {
+		const res = await fetch(`${API_BASE}/matches/${encodeURIComponent(matchId)}`);
+		if (res.status === 404) return null;
+		if (!res.ok) throw new Error(`Failed to fetch match detail: ${res.status}`);
+		return await res.json();
+	} catch (err) {
+		console.warn('API error fetching match detail, checking local fallback');
+		return getLocalFallbackMatches().find((m) => m.id === matchId) ?? null;
 	}
 }
 
@@ -875,19 +891,45 @@ export async function fetchTacticalBoard(boardId: string): Promise<TacticalBoard
 	}
 }
 
-export async function fetchArsenalNews(category?: string, refresh: boolean = false): Promise<NewsFeed> {
+export interface FetchNewsOptions {
+	limit?: number;
+	offset?: number;
+	category?: string;
+	tag?: string;
+	search?: string;
+	refresh?: boolean;
+}
+
+export async function fetchArsenalNews(
+	optsOrCategory?: FetchNewsOptions | string,
+	legacyRefresh: boolean = false
+): Promise<NewsFeed> {
+	const opts: FetchNewsOptions =
+		typeof optsOrCategory === 'string'
+			? { category: optsOrCategory, refresh: legacyRefresh }
+			: (optsOrCategory ?? {});
 	try {
 		const params = new URLSearchParams();
-		if (category && category !== 'all') params.set('category', category);
-		if (refresh) params.set('refresh', 'true');
-		const url = `${API_BASE}/news?${params.toString()}`;
+		if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+		if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+		if (opts.category && opts.category !== 'all') params.set('category', opts.category);
+		if (opts.tag && opts.tag !== 'all') params.set('tag', opts.tag);
+		if (opts.search && opts.search.trim()) params.set('search', opts.search.trim());
+		if (opts.refresh) params.set('refresh', 'true');
+		const qs = params.toString();
+		const url = qs ? `${API_BASE}/news?${qs}` : `${API_BASE}/news`;
 		const res = await fetch(url);
 		if (!res.ok) throw new Error('Failed to fetch Arsenal news');
-		return await res.json();
+		const data = (await res.json()) as NewsFeed;
+		return {
+			...data,
+			has_more: Boolean(data.has_more)
+		};
 	} catch (err) {
 		console.warn('API error fetching Arsenal news, returning baseline feed');
 		return {
 			total: 3,
+			has_more: false,
 			sources_active: ['Pain in the Arsenal', 'Arseblog News', 'BBC Sport Arsenal'],
 			cached_at: new Date().toISOString(),
 			articles: [

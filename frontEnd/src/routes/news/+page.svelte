@@ -1,25 +1,40 @@
 <script lang="ts">
 	import { fetchArsenalNews } from '$lib/api/football';
-	import type { NewsFeed } from '$lib/types/football';
+	import type { NewsItem } from '$lib/types/football';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
-	let feed = $state<NewsFeed>({
-		articles: [],
-		total: 0,
-		sources_active: [],
-		cached_at: ''
-	});
+	const PAGE_SIZE = 12;
+
+	let articles = $state<NewsItem[]>([]);
+	let total = $state<number>(0);
+	let hasMore = $state<boolean>(false);
+	let sourcesActive = $state<string[]>([]);
 	let selectedCategory = $state<string>('all');
 	let selectedTag = $state<string>('all');
 	let searchQuery = $state<string>('');
 	let isRefreshing = $state<boolean>(false);
+	let isFiltering = $state<boolean>(false);
+	let isLoadingMore = $state<boolean>(false);
+	let sentinelEl = $state<HTMLDivElement | null>(null);
+	let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let initialized = false;
+
 	let refreshBtnText = $derived(isRefreshing ? 'Syncing…' : 'Sync feeds');
+	let loadMoreLabel = $derived(isLoadingMore ? 'Loading more dispatches…' : 'Load more dispatches');
 
 	$effect(() => {
-		feed = data.feed;
-		selectedCategory = data.category || 'all';
+		if (!initialized && data.feed) {
+			articles = data.feed.articles ?? [];
+			total = data.feed.total ?? articles.length;
+			hasMore = Boolean(data.feed.has_more);
+			sourcesActive = data.feed.sources_active ?? [];
+			selectedCategory = data.category || 'all';
+			selectedTag = data.tag || 'all';
+			searchQuery = data.search || '';
+			initialized = true;
+		}
 	});
 
 	const categories = [
@@ -42,51 +57,104 @@
 		'Transfers'
 	];
 
-	async function selectCategory(cat: string) {
-		selectedCategory = cat;
-		feed = await fetchArsenalNews(cat);
+	async function reloadFeed(opts: { refresh?: boolean } = {}) {
+		isFiltering = true;
+		try {
+			const nextFeed = await fetchArsenalNews({
+				limit: PAGE_SIZE,
+				offset: 0,
+				category: selectedCategory,
+				tag: selectedTag,
+				search: searchQuery,
+				refresh: Boolean(opts.refresh)
+			});
+			articles = nextFeed.articles ?? [];
+			total = nextFeed.total ?? articles.length;
+			hasMore = Boolean(nextFeed.has_more);
+			sourcesActive = nextFeed.sources_active ?? [];
+		} finally {
+			isFiltering = false;
+		}
 	}
 
-	function toggleTag(tag: string) {
+	async function selectCategory(cat: string) {
+		selectedCategory = cat;
+		await reloadFeed();
+	}
+
+	async function toggleTag(tag: string) {
 		if (tag === 'All' || selectedTag === tag) {
 			selectedTag = 'all';
 		} else {
 			selectedTag = tag;
 		}
+		await reloadFeed();
+	}
+
+	function handleSearchInput(e: Event) {
+		searchQuery = (e.currentTarget as HTMLInputElement).value;
+		if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+		searchDebounceTimer = setTimeout(() => {
+			reloadFeed();
+		}, 280);
 	}
 
 	async function handleRefresh() {
 		isRefreshing = true;
 		try {
-			feed = await fetchArsenalNews(selectedCategory, true);
+			await reloadFeed({ refresh: true });
 		} finally {
 			isRefreshing = false;
 		}
 	}
 
-	const filteredArticles = $derived.by(() => {
-		if (!feed || !feed.articles) return [];
-		let list = feed.articles;
-
-		if (selectedTag !== 'all') {
-			const tagLower = selectedTag.toLowerCase();
-			list = list.filter((a) => {
-				const hasTag = a.tags && a.tags.some((t) => t.toLowerCase() === tagLower);
-				const inTitle = a.title.toLowerCase().includes(tagLower);
-				return hasTag || inTitle;
+	async function loadMore() {
+		if (!hasMore || isLoadingMore || isFiltering) return;
+		isLoadingMore = true;
+		try {
+			const nextFeed = await fetchArsenalNews({
+				limit: PAGE_SIZE,
+				offset: articles.length,
+				category: selectedCategory,
+				tag: selectedTag,
+				search: searchQuery
 			});
+			const seen = new Set(articles.map((a) => a.id));
+			const incoming = (nextFeed.articles ?? []).filter((a) => !seen.has(a.id));
+			articles = [...articles, ...incoming];
+			total = nextFeed.total ?? articles.length;
+			hasMore = Boolean(nextFeed.has_more) && incoming.length > 0;
+			if (nextFeed.sources_active?.length) {
+				sourcesActive = nextFeed.sources_active;
+			}
+		} finally {
+			isLoadingMore = false;
 		}
+	}
 
-		if (searchQuery.trim()) {
-			const q = searchQuery.toLowerCase();
-			list = list.filter(
-				(a) =>
-					a.title.toLowerCase().includes(q) ||
-					a.summary.toLowerCase().includes(q) ||
-					(a.tags && a.tags.some((t) => t.toLowerCase().includes(q)))
-			);
-		}
-		return list;
+	$effect(() => {
+		if (!sentinelEl || !hasMore) return;
+		if (typeof IntersectionObserver === 'undefined') return;
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries.some((entry) => entry.isIntersecting)) {
+					loadMore();
+				}
+			},
+			{ rootMargin: '240px 0px' }
+		);
+
+		observer.observe(sentinelEl);
+		return () => {
+			observer.disconnect();
+		};
+	});
+
+	$effect(() => {
+		return () => {
+			if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+		};
 	});
 
 	function formatTimeAgo(isoOrDateStr: string): string {
@@ -164,7 +232,8 @@
 			<input
 				type="search"
 				aria-label="Filter headlines by keyword or player"
-				bind:value={searchQuery}
+				value={searchQuery}
+				oninput={handleSearchInput}
 				placeholder="Filter headlines, Arteta, Saka…"
 				class="w-full h-10 bg-paper-2 border border-rule rounded-card pl-9 pr-3 text-sm text-ink placeholder-muted transition-colors"
 			/>
@@ -196,27 +265,31 @@
 	</div>
 
 	<!-- Active Sources Bar -->
-	{#if feed && feed.sources_active}
-		<div class="flex items-center justify-between flex-wrap gap-3 text-xs text-muted">
-			<div>
+	<div class="flex items-center justify-between flex-wrap gap-3 text-xs text-muted">
+		<div>
+			{#if sourcesActive.length > 0}
 				<span>Active syndication sources: </span>
-				<span class="text-ink-2 font-semibold">{feed.sources_active.join(', ')}</span>
-			</div>
-			<div class="num">
-				Showing {filteredArticles.length} dispatches
-			</div>
+				<span class="text-ink-2 font-semibold">{sourcesActive.join(', ')}</span>
+			{/if}
 		</div>
-	{/if}
+		<div class="num">
+			Showing {articles.length} of {total} dispatches
+		</div>
+	</div>
 
 	<!-- Articles Grid -->
-	{#if filteredArticles.length === 0}
+	{#if isFiltering && articles.length === 0}
+		<div class="border-t border-rule pt-10 text-sm text-muted">
+			Filtering Arsenal dispatches…
+		</div>
+	{:else if articles.length === 0}
 		<div class="border-t border-rule pt-10 space-y-2">
 			<h2 class="text-lg font-semibold text-ink">No matching news dispatches</h2>
 			<p class="text-sm text-muted">Clear your search filter or refresh the live syndication feeds.</p>
 		</div>
 	{:else}
-		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-			{#each filteredArticles as art, idx}
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+			{#each articles as art, idx (art.id)}
 				<a
 					href={art.article_url}
 					target="_blank"
@@ -232,13 +305,13 @@
 
 						<!-- Image Thumbnail (if present) -->
 						{#if art.image_url}
-							<div class="w-full h-44 rounded-card overflow-hidden bg-paper-2 border border-rule">
+							<div class="w-full h-52 rounded-card overflow-hidden bg-paper-2 border border-rule">
 								<img
 									src={art.image_url}
 									alt={art.title}
-									width="400"
-									height="225"
-									loading={idx === 0 ? 'eager' : 'lazy'}
+									width="640"
+									height="360"
+									loading={idx < 2 ? 'eager' : 'lazy'}
 									fetchpriority={idx === 0 ? 'high' : 'auto'}
 									class="w-full h-full object-cover"
 									onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
@@ -274,5 +347,19 @@
 				</a>
 			{/each}
 		</div>
+
+		<!-- Infinite Scroll Sentinel & Accessible Load More Fallback -->
+		{#if hasMore}
+			<div bind:this={sentinelEl} class="pt-6 border-t border-rule flex flex-col items-center gap-3">
+				<button
+					type="button"
+					onclick={loadMore}
+					disabled={isLoadingMore}
+					class="inline-flex items-center h-10 px-5 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-sm font-semibold text-ink transition-colors whitespace-nowrap"
+				>
+					{loadMoreLabel}
+				</button>
+			</div>
+		{/if}
 	{/if}
 </div>

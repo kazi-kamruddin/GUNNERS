@@ -3,9 +3,9 @@ import json
 import re
 import datetime
 from collections import Counter
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, desc, func, and_, or_
+from sqlalchemy import select, desc, func, and_, or_, delete
 from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from app.core.database import get_db
@@ -13,6 +13,7 @@ from app.core.security import CurrentUserDep, OptionalUserDep
 from app.models.terrace import Post, PostComment, PostReaction
 from app.models.insight import Insight
 from app.models.tactics import TacticalBoard
+from app.services.notifications import create_notification
 from app.schemas.terrace import (
     PostCreateRequest,
     PostResponse,
@@ -297,22 +298,23 @@ async def delete_post(
     post = post_res.scalar_one_or_none()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    if post.author_id != current_user.id:
+    if not post.author_id or post.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this post")
 
-    await db.delete(post)
+    # Clean up child rows explicitly so SQLite tests (with PRAGMA foreign_keys off) stay consistent.
+    await db.execute(delete(PostComment).where(PostComment.post_id == post_id))
+    await db.execute(delete(PostReaction).where(PostReaction.post_id == post_id))
+    await db.execute(delete(Post).where(Post.id == post_id))
     await db.commit()
     return {"status": "deleted", "id": post_id}
 
 
-@router.post("/posts/{post_id}/react")
-async def toggle_reaction(
+async def _toggle_post_reaction(
     post_id: str,
     request: ReactionToggleRequest,
     current_user: CurrentUserDep,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession,
 ):
-    """Toggle a reaction on a post for the authenticated user."""
     post_res = await db.execute(select(Post).where(Post.id == post_id))
     post = post_res.scalar_one_or_none()
     if not post:
@@ -340,6 +342,15 @@ async def toggle_reaction(
         )
         db.add(new_reaction)
         action = "added"
+        if post.author_id and post.author_id != current_user.id:
+            await create_notification(
+                db,
+                user_id=post.author_id,
+                notif_type="cheer",
+                title="Matchday Cheer",
+                message=f"{current_user.display_name} cheered your Terrace post.",
+                link=f"/terrace#post-{post.id}",
+            )
 
     await db.commit()
 
@@ -351,6 +362,29 @@ async def toggle_reaction(
         "reaction_type": request.reaction_type,
         "total_reactions": total_count,
     }
+
+
+@router.post("/posts/{post_id}/react")
+async def toggle_reaction(
+    post_id: str,
+    request: ReactionToggleRequest,
+    current_user: CurrentUserDep,
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle a reaction on a post for the authenticated user."""
+    return await _toggle_post_reaction(post_id, request, current_user, db)
+
+
+@router.post("/posts/{post_id}/cheer")
+async def toggle_cheer(
+    post_id: str,
+    current_user: CurrentUserDep,
+    request: Optional[ReactionToggleRequest] = Body(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Toggle a cheer reaction on a post for the authenticated user."""
+    payload = request if request is not None else ReactionToggleRequest(reaction_type="cheer")
+    return await _toggle_post_reaction(post_id, payload, current_user, db)
 
 
 @router.get("/posts/{post_id}/comments", response_model=List[CommentResponse])
@@ -399,6 +433,18 @@ async def create_comment(
     )
 
     db.add(new_comment)
+    if post.author_id and post.author_id != current_user.id:
+        clean_text = " ".join(request.content.split())
+        snippet = (clean_text[:100] + "...") if len(clean_text) > 103 else clean_text
+        await create_notification(
+            db,
+            user_id=post.author_id,
+            notif_type="reply",
+            title="New Terrace Reply",
+            message=f"{author_name} replied: {snippet}",
+            link=f"/terrace#post-{post.id}",
+        )
+
     await db.commit()
     await db.refresh(new_comment)
     return new_comment
@@ -418,10 +464,10 @@ async def delete_comment(
     comment = (await db.execute(stmt)).scalar_one_or_none()
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
-    if comment.author_id != current_user.id:
+    if not comment.author_id or comment.author_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
 
-    await db.delete(comment)
+    await db.execute(delete(PostComment).where(PostComment.id == comment_id))
     await db.commit()
     return {"status": "deleted", "id": comment_id}
 

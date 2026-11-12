@@ -31,6 +31,10 @@ class PlayerResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class PlayerDetailResponse(PlayerResponse):
+    """Detailed Arsenal FC first-team player dossier schema."""
+
+
 class PlayerComparisonItem(BaseModel):
     player: PlayerResponse
     goals_per_90: float

@@ -25,9 +25,13 @@
 		errorBanner = null;
 		const prevUnread = unreadCount;
 		notif.is_read = true;
-		unreadCount = Math.max(0, unreadCount - 1);
+		const nextUnread = Math.max(0, unreadCount - 1);
+		unreadCount = nextUnread;
 		try {
 			await markNotificationRead(notif.id, data.session?.access_token);
+			window.dispatchEvent(
+				new CustomEvent('gunners:notifications-updated', { detail: { unreadCount: nextUnread } })
+			);
 		} catch (err) {
 			notif.is_read = false;
 			unreadCount = prevUnread;
@@ -49,6 +53,9 @@
 		unreadCount = 0;
 		try {
 			await markAllNotificationsRead(data.currentUserId, data.session?.access_token);
+			window.dispatchEvent(
+				new CustomEvent('gunners:notifications-updated', { detail: { unreadCount: 0 } })
+			);
 		} catch (err) {
 			notifications.forEach((n, idx) => {
 				n.is_read = prevStates[idx];
@@ -80,6 +87,7 @@
 			case 'cheer':
 				return 'Cheer';
 			case 'comment':
+			case 'reply':
 				return 'Reply';
 			case 'direct_message':
 				return 'Debate';
