@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { formatMatchDateTime } from '$lib/utils/format';
 	import type { MatchLineupPlayer } from '$lib/types/football';
 	import type { PageProps } from './$types';
 
@@ -11,6 +12,16 @@
 	const homeLineup = $derived(match.lineups?.home ?? null);
 	const awayLineup = $derived(match.lineups?.away ?? null);
 	const highlights = $derived(match.highlights ?? []);
+
+	let homeCrestFailed = $state(false);
+	let awayCrestFailed = $state(false);
+
+	$effect(() => {
+		if (match.id) {
+			homeCrestFailed = false;
+			awayCrestFailed = false;
+		}
+	});
 
 	const statusLabel = $derived.by(() => {
 		if (match.status === 'FINISHED') return 'Full time';
@@ -62,7 +73,7 @@
 	<div class="flex items-center justify-between gap-4 flex-wrap">
 		<a
 			href="/matches"
-			class="inline-flex items-center h-9 px-3 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs font-semibold text-ink-2 hover:text-ink transition-colors"
+			class="inline-flex items-center min-h-[44px] px-3.5 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs font-semibold text-ink-2 hover:text-ink transition-colors"
 		>
 			Back to match ledger
 		</a>
@@ -70,19 +81,19 @@
 		<div class="flex items-center gap-2.5 flex-wrap">
 			<a
 				href="/predictions"
-				class="inline-flex items-center h-9 px-3.5 rounded-card bg-accent text-accent-ink hover:opacity-90 text-xs font-semibold transition-opacity"
+				class="inline-flex items-center min-h-[44px] px-3.5 rounded-card bg-accent text-accent-ink hover:opacity-90 text-xs font-semibold transition-opacity"
 			>
 				Match predictor
 			</a>
 			<a
 				href="/terrace"
-				class="inline-flex items-center h-9 px-3.5 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs font-semibold text-ink transition-colors"
+				class="inline-flex items-center min-h-[44px] px-3.5 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs font-semibold text-ink transition-colors"
 			>
 				Terrace debrief
 			</a>
 			<a
 				href="/board"
-				class="inline-flex items-center h-9 px-3.5 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs font-semibold text-ink transition-colors"
+				class="inline-flex items-center min-h-[44px] px-3.5 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs font-semibold text-ink transition-colors"
 			>
 				Dugout tactics
 			</a>
@@ -108,20 +119,25 @@
 			</span>
 		</div>
 
+		<h1 class="text-2xl sm:text-3xl font-display font-bold text-ink card-headline">
+			{homeName} <span class="text-muted font-normal">vs</span> {awayName}
+		</h1>
+
 		<div class="grid grid-cols-1 md:grid-cols-12 items-center gap-6 py-2">
 			<!-- Home Club -->
 			<div class="md:col-span-4 flex items-center md:justify-end gap-3 md:text-right min-w-0">
-				{#if match.home_team_crest}
+				{#if match.home_team_crest && !homeCrestFailed}
 					<img
 						src={match.home_team_crest}
 						alt="{match.home_team_name} crest"
 						width="48"
 						height="48"
 						class="w-12 h-12 object-contain shrink-0 md:order-2"
+						onerror={() => (homeCrestFailed = true)}
 					/>
 				{/if}
 				<div class="min-w-0 md:order-1">
-					<h1 class="text-2xl sm:text-3xl font-bold text-ink break-words min-w-0">{homeName}</h1>
+					<span class="block text-lg sm:text-xl font-display font-bold text-ink break-words min-w-0">{homeName}</span>
 					<span class="text-xs text-muted">Home</span>
 				</div>
 			</div>
@@ -141,17 +157,18 @@
 
 			<!-- Away Club -->
 			<div class="md:col-span-4 flex items-center justify-start gap-3 text-left min-w-0">
-				{#if match.away_team_crest}
+				{#if match.away_team_crest && !awayCrestFailed}
 					<img
 						src={match.away_team_crest}
 						alt="{match.away_team_name} crest"
 						width="48"
 						height="48"
 						class="w-12 h-12 object-contain shrink-0"
+						onerror={() => (awayCrestFailed = true)}
 					/>
 				{/if}
 				<div class="min-w-0">
-					<h1 class="text-2xl sm:text-3xl font-bold text-ink break-words min-w-0">{awayName}</h1>
+					<span class="block text-lg sm:text-xl font-display font-bold text-ink break-words min-w-0">{awayName}</span>
 					<span class="text-xs text-muted">Away</span>
 				</div>
 			</div>
@@ -160,8 +177,11 @@
 		<!-- Match Metadata Bar -->
 		<dl class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4 border-t border-rule text-xs">
 			<div>
-				<dt class="text-muted">Kickoff (UTC)</dt>
-				<dd class="text-ink font-semibold num font-outlier mt-0.5">{formatUtcKickoff(match.utc_date)}</dd>
+				<dt class="text-muted">Kickoff</dt>
+				<dd class="text-ink font-semibold num font-outlier mt-0.5">
+					{formatMatchDateTime(match.utc_date)}
+					<span class="block text-muted font-normal mt-0.5">{formatUtcKickoff(match.utc_date)}</span>
+				</dd>
 			</div>
 			<div>
 				<dt class="text-muted">Venue</dt>
@@ -177,7 +197,7 @@
 	<!-- Goalscorers Timeline -->
 	<section class="border-t-2 border-rule-2 pt-8 space-y-5">
 		<div class="flex items-end justify-between border-b border-rule pb-3">
-			<h2 class="text-xl font-bold text-ink">Goalscorers timeline</h2>
+			<h2 class="text-xl font-bold text-ink card-headline">Goalscorers timeline</h2>
 			<span class="text-xs num font-outlier text-muted">{goalscorers.length} events</span>
 		</div>
 
@@ -189,10 +209,10 @@
 			</p>
 		{:else}
 			<ol class="divide-y divide-rule border-y border-rule">
-				{#each goalscorers as goal}
+				{#each goalscorers as goal, idx (idx)}
 					<li class="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-sm">
 						<div class="flex items-center gap-4 min-w-0">
-							<span class="num font-outlier font-semibold text-accent min-w-[44px]">
+							<span class="num font-outlier font-semibold text-accent-text min-w-[44px]">
 								{goal.minute}'
 							</span>
 							<div class="min-w-0">
@@ -215,7 +235,7 @@
 	<!-- Side-by-Side Lineups & Formations -->
 	<section class="border-t-2 border-rule-2 pt-8 space-y-6">
 		<div class="border-b border-rule pb-3">
-			<h2 class="text-xl font-bold text-ink">Starting lineups & formations</h2>
+			<h2 class="text-xl font-bold text-ink card-headline">Starting lineups & formations</h2>
 		</div>
 
 		{#if !homeLineup && !awayLineup}
@@ -227,7 +247,7 @@
 				<!-- Home XI -->
 				<div class="bg-paper-2 border-t-2 border-rule-2 p-5 space-y-4">
 					<div class="flex items-baseline justify-between border-b border-rule pb-3 gap-2">
-						<h3 class="text-base font-bold text-ink">{match.home_team_name}</h3>
+						<h3 class="text-base font-bold text-ink card-headline">{match.home_team_name}</h3>
 						{#if homeLineup?.formation}
 							<span class="num font-outlier text-xs font-semibold text-accent-2">
 								Formation {homeLineup.formation}
@@ -237,7 +257,7 @@
 
 					{#if homeLineup?.xi && homeLineup.xi.length > 0}
 						<ol class="divide-y divide-rule text-sm">
-							{#each homeLineup.xi as player, idx}
+							{#each homeLineup.xi as player, idx (idx)}
 								{@const info = formatLineupPlayer(player)}
 								<li class="py-2 flex items-center justify-between gap-3">
 									<div class="flex items-center gap-3 min-w-0">
@@ -258,7 +278,7 @@
 				<!-- Away XI -->
 				<div class="bg-paper-2 border-t-2 border-rule-2 p-5 space-y-4">
 					<div class="flex items-baseline justify-between border-b border-rule pb-3 gap-2">
-						<h3 class="text-base font-bold text-ink">{match.away_team_name}</h3>
+						<h3 class="text-base font-bold text-ink card-headline">{match.away_team_name}</h3>
 						{#if awayLineup?.formation}
 							<span class="num font-outlier text-xs font-semibold text-accent-2">
 								Formation {awayLineup.formation}
@@ -268,7 +288,7 @@
 
 					{#if awayLineup?.xi && awayLineup.xi.length > 0}
 						<ol class="divide-y divide-rule text-sm">
-							{#each awayLineup.xi as player, idx}
+							{#each awayLineup.xi as player, idx (idx)}
 								{@const info = formatLineupPlayer(player)}
 								<li class="py-2 flex items-center justify-between gap-3">
 									<div class="flex items-center gap-3 min-w-0">
@@ -292,7 +312,7 @@
 	<!-- Highlights & Coverage -->
 	<section class="border-t-2 border-rule-2 pt-8 space-y-5">
 		<div class="flex items-end justify-between border-b border-rule pb-3">
-			<h2 class="text-xl font-bold text-ink">Match highlights & reports</h2>
+			<h2 class="text-xl font-bold text-ink card-headline">Match highlights & reports</h2>
 			<span class="text-xs num font-outlier text-muted">{highlights.length} links</span>
 		</div>
 
@@ -302,12 +322,12 @@
 			</p>
 		{:else}
 			<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-				{#each highlights as hl}
+				{#each highlights as hl, idx (idx)}
 					<a
 						href={hl.url}
 						target="_blank"
 						rel="noopener noreferrer"
-						class="p-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 flex items-center justify-between gap-4 transition-colors"
+						class="min-h-[44px] p-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 flex items-center justify-between gap-4 transition-colors"
 					>
 						<div class="min-w-0 space-y-1">
 							<span class="block text-sm font-semibold text-ink truncate">{hl.label}</span>
@@ -315,7 +335,9 @@
 								<span class="block text-xs text-muted">{hl.source}</span>
 							{/if}
 						</div>
-						<span class="text-xs font-semibold text-accent shrink-0">Watch</span>
+						<span class="text-xs font-semibold text-accent-text shrink-0">
+							Watch<span class="visually-hidden"> (opens in a new tab)</span>
+						</span>
 					</a>
 				{/each}
 			</div>

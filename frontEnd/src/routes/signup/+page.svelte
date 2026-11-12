@@ -1,11 +1,47 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
+	import { page } from '$app/state';
+	import { getSafeRedirectPath } from '$lib/utils/redirect';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 
+	let showPassword = $state(false);
+	let isSubmitting = $state(false);
 	let isGoogleLoading = $state(false);
 	let oauthError = $state('');
+	let isResending = $state(false);
+	let resendStatus = $state('');
+	let resendError = $state('');
+
+	const safeNext = $derived(
+		getSafeRedirectPath(form?.next ?? page.url.searchParams.get('next') ?? data.next, '/profile')
+	);
+	const formError = $derived(form && 'error' in form ? form.error : '');
+	const needsEmailVerification = $derived(
+		Boolean(form && 'needsEmailVerification' in form && form.needsEmailVerification)
+	);
+	const initialUsername = $derived(form && 'username' in form ? (form.username ?? '') : '');
+	const initialDisplayName = $derived(
+		form && 'displayName' in form ? (form.displayName ?? '') : ''
+	);
+	const initialEmail = $derived(form?.email ?? '');
+	const loginHref = $derived(
+		safeNext !== '/profile' ? `/login?next=${encodeURIComponent(safeNext)}` : '/login'
+	);
+
 	const googleLabel = $derived(isGoogleLoading ? 'Connecting to Google…' : 'Continue with Google');
+	const submitLabel = $derived(isSubmitting ? 'Creating account…' : 'Create account');
+	const resendBtnLabel = $derived(isResending ? 'Resending…' : 'Resend verification email');
+	const passToggleLabel = $derived(showPassword ? 'Hide' : 'Show');
+
+	function getCallbackUrl(): string {
+		const callbackUrl = new URL('/auth/callback', window.location.origin);
+		if (safeNext !== '/profile') {
+			callbackUrl.searchParams.set('next', safeNext);
+		}
+		return callbackUrl.toString();
+	}
 
 	async function handleGoogleSignUp() {
 		oauthError = '';
@@ -14,7 +50,7 @@
 			const { error } = await data.supabase.auth.signInWithOAuth({
 				provider: 'google',
 				options: {
-					redirectTo: `${window.location.origin}/auth/callback`
+					redirectTo: getCallbackUrl()
 				}
 			});
 			if (error) {
@@ -24,6 +60,32 @@
 		} catch (err) {
 			oauthError = err instanceof Error ? err.message : 'Unable to start Google sign-up.';
 			isGoogleLoading = false;
+		}
+	}
+
+	async function handleResendVerification() {
+		const email = initialEmail.trim();
+		if (!email || isResending) return;
+		isResending = true;
+		resendStatus = '';
+		resendError = '';
+		try {
+			const { error } = await data.supabase.auth.resend({
+				type: 'signup',
+				email,
+				options: {
+					emailRedirectTo: getCallbackUrl()
+				}
+			});
+			if (error) {
+				resendError = error.message;
+				return;
+			}
+			resendStatus = `Verification email dispatched to ${email}.`;
+		} catch (err) {
+			resendError = err instanceof Error ? err.message : 'Unable to resend confirmation email.';
+		} finally {
+			isResending = false;
 		}
 	}
 </script>
@@ -39,31 +101,47 @@
 			<p class="text-sm text-ink-2">Register your Arsenal supporter identity to publish tactics, insights, and Terrace debriefs.</p>
 		</div>
 
-		{#if form?.error || oauthError}
-			<div class="p-3 rounded-card bg-paper-2 border border-rule text-error text-xs">
-				{form?.error || oauthError}
+		{#if formError || oauthError}
+			<div role="alert" class="p-3 rounded-card bg-paper-2 border border-rule text-error text-xs">
+				{formError || oauthError}
 			</div>
 		{/if}
 
-		{#if form?.needsEmailVerification}
+		{#if needsEmailVerification}
 			<div class="border-t border-rule pt-4 space-y-3">
 				<h2 class="text-base font-bold text-success">Check your inbox to verify</h2>
 				<p class="text-sm text-ink-2 leading-relaxed">
-					We sent a confirmation link to <strong class="text-ink">{form.email}</strong>. Open that email to activate your account before signing in.
+					We sent a confirmation link to <strong class="text-ink">{initialEmail}</strong>. Open that email to activate your account before signing in.
 				</p>
-				<a
-					href="/login"
-					class="inline-flex items-center h-9 px-4 rounded-card bg-accent text-accent-ink font-semibold text-xs hover:opacity-95 transition-opacity whitespace-nowrap"
-				>
-					Proceed to sign in
-				</a>
+				{#if resendError}
+					<p role="alert" class="text-xs text-error">{resendError}</p>
+				{/if}
+				{#if resendStatus}
+					<p role="status" aria-live="polite" class="text-xs text-success">{resendStatus}</p>
+				{/if}
+				<div class="flex flex-wrap items-center gap-3 pt-1">
+					<a
+						href={loginHref}
+						class="inline-flex items-center min-h-[44px] px-4 rounded-card bg-accent text-accent-ink font-semibold text-xs hover:opacity-95 transition-opacity whitespace-nowrap"
+					>
+						Proceed to sign in
+					</a>
+					<button
+						type="button"
+						onclick={handleResendVerification}
+						disabled={isResending}
+						class="inline-flex items-center min-h-[44px] px-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-ink font-semibold text-xs transition-colors whitespace-nowrap disabled:opacity-60"
+					>
+						{resendBtnLabel}
+					</button>
+				</div>
 			</div>
 		{:else}
 			<button
 				type="button"
 				onclick={handleGoogleSignUp}
 				disabled={isGoogleLoading}
-				class="w-full h-10 px-4 bg-paper-2 hover:bg-paper-3 border border-rule rounded-card text-sm font-semibold text-ink inline-flex items-center justify-center gap-2.5 transition-colors whitespace-nowrap"
+				class="w-full min-h-[44px] px-4 bg-paper-2 hover:bg-paper-3 border border-rule rounded-card text-sm font-semibold text-ink inline-flex items-center justify-center gap-2.5 transition-colors whitespace-nowrap"
 			>
 				<svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
 					<path
@@ -92,7 +170,19 @@
 				<span class="flex-1 h-px bg-rule"></span>
 			</div>
 
-			<form method="POST" class="space-y-4">
+			<form
+				method="POST"
+				use:enhance={() => {
+					isSubmitting = true;
+					return async ({ update }) => {
+						isSubmitting = false;
+						await update();
+					};
+				}}
+				class="space-y-4"
+			>
+				<input type="hidden" name="next" value={safeNext} />
+
 				<div>
 					<label for="username" class="block text-xs font-semibold text-ink-2 mb-1">
 						Username
@@ -101,11 +191,18 @@
 						id="username"
 						name="username"
 						type="text"
+						autocomplete="username"
+						pattern="[A-Za-z0-9_]+"
+						minlength="3"
 						required
-						value={form?.username ?? ''}
+						aria-describedby="username-hint"
+						value={initialUsername}
 						placeholder="e.g. gunner_legend"
-						class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink placeholder-muted"
+						class="w-full min-h-[44px] bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink placeholder-muted"
 					/>
+					<span id="username-hint" class="block text-xs text-muted mt-1">
+						Letters, numbers, and underscores only (at least 3 characters); stored lowercase.
+					</span>
 				</div>
 
 				<div>
@@ -116,9 +213,10 @@
 						id="display_name"
 						name="display_name"
 						type="text"
-						value={form?.displayName ?? ''}
+						autocomplete="name"
+						value={initialDisplayName}
 						placeholder="e.g. Thierry H."
-						class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink placeholder-muted"
+						class="w-full min-h-[44px] bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink placeholder-muted"
 					/>
 				</div>
 
@@ -130,10 +228,11 @@
 						id="email"
 						name="email"
 						type="email"
+						autocomplete="email"
 						required
-						value={form?.email ?? ''}
+						value={initialEmail}
 						placeholder="supporter@example.com"
-						class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink placeholder-muted"
+						class="w-full min-h-[44px] bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink placeholder-muted"
 					/>
 				</div>
 
@@ -141,15 +240,32 @@
 					<label for="password" class="block text-xs font-semibold text-ink-2 mb-1">
 						Password
 					</label>
-					<input
-						id="password"
-						name="password"
-						type="password"
-						required
-						minlength="6"
-						placeholder="Minimum 6 characters"
-						class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink placeholder-muted"
-					/>
+					<div class="flex items-stretch gap-2">
+						<input
+							id="password"
+							name="password"
+							type={showPassword ? 'text' : 'password'}
+							autocomplete="new-password"
+							required
+							minlength="6"
+							aria-describedby="password-hint"
+							placeholder="Enter password"
+							class="flex-1 min-w-0 min-h-[44px] bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink placeholder-muted"
+						/>
+						<button
+							type="button"
+							onclick={() => (showPassword = !showPassword)}
+							aria-pressed={showPassword}
+							aria-controls="password"
+							aria-label={showPassword ? 'Hide password' : 'Show password'}
+							class="min-h-[44px] px-3 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs font-semibold text-ink-2 hover:text-ink transition-colors whitespace-nowrap"
+						>
+							{passToggleLabel}
+						</button>
+					</div>
+					<span id="password-hint" class="block text-xs text-muted mt-1">
+						At least 6 characters.
+					</span>
 				</div>
 
 				<div>
@@ -161,7 +277,7 @@
 						name="favorite_club_id"
 						value="arsenal"
 					/>
-					<div id="club-display" class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink flex items-center">
+					<div id="club-display" class="w-full min-h-[44px] bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink flex items-center">
 						<span>Arsenal FC (The Gunners)</span>
 					</div>
 					<span class="block text-xs text-muted mt-1">Platform membership is exclusively dedicated to Arsenal Football Club supporters.</span>
@@ -169,16 +285,17 @@
 
 				<button
 					type="submit"
-					class="w-full h-10 px-4 bg-accent hover:opacity-95 text-accent-ink font-semibold text-sm rounded-card transition-opacity mt-2"
+					disabled={isSubmitting}
+					class="w-full min-h-[44px] px-4 bg-accent hover:opacity-95 text-accent-ink font-semibold text-sm rounded-card transition-opacity mt-2 disabled:opacity-60"
 				>
-					Create account
+					{submitLabel}
 				</button>
 			</form>
 		{/if}
 
 		<div class="pt-4 border-t border-rule text-xs text-muted">
 			Already have an account?
-			<a href="/login" class="text-accent hover:text-ink font-semibold ml-1 transition-colors">Sign in</a>
+			<a href={loginHref} class="text-accent-text hover:text-ink font-semibold ml-1 transition-colors">Sign in</a>
 		</div>
 	</div>
 </div>

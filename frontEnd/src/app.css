@@ -2,6 +2,8 @@
  * paper: oklch(14% 0.012 24) · accent: oklch(56% 0.22 27) · display: Besley · body: Hanken Grotesk · hero: Stage (/) · nav: Masthead · footer: Colophon · signature: Matchday Ledger and Arteta Timeline
  * axes: dark/slab-serif/chromatic-red · posture: restrained · contrast: pass · fold: pass · v2.0.0 */
 /* Hallmark · pre-emit critique: P9 H9 E9 S9 R9 V9 · weakest: R, replaced 4-tile emoji grid with ruled editorial matchday ledger */
+/* Hallmark · dropped requireAuth('comment'), requireAuth('post'), lightboxImageUrl = null · WCAG 3.2.1 and 2.1.2 remediation replacing guest onfocus traps and nested lightbox button with focusTrap */
+/* Hallmark · reworded "/supporters/{entry.user_name}" to "/supporters/{encodeURIComponent(entry.user_name)}" · encode supporter path segment cleanly */
 @import "tailwindcss";
 @import "./tokens.css";
 @import "./base.css" layer(base);

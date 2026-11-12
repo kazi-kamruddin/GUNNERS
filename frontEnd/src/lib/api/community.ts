@@ -1,9 +1,11 @@
 import {
 	API_BASE,
 	buildHeaders,
+	fetchWithTimeout,
 	getApiAccessToken,
 	throwApiError,
-	toNetworkApiError
+	toNetworkApiError,
+	type ApiResult
 } from '$lib/api/football';
 import type { Post, PostComment, PredictionHistoryItem, SupporterSummary } from '$lib/types/football';
 
@@ -127,12 +129,36 @@ export async function fetchPredictionHistory(
 	const token = accessToken ?? getApiAccessToken();
 	if (!token) return [];
 	try {
-		const res = await fetch(`${API_BASE}/predictions/history`, {
+		const res = await fetchWithTimeout(`${API_BASE}/predictions/history`, {
 			headers: buildHeaders(token)
 		});
 		if (!res.ok) return [];
 		return await res.json();
 	} catch {
 		return [];
+	}
+}
+
+export async function fetchPredictionHistoryResult(
+	accessToken?: string | null,
+	fetchFn: typeof fetch = fetch
+): Promise<ApiResult<PredictionHistoryItem[]>> {
+	const token = accessToken ?? getApiAccessToken();
+	if (!token) {
+		return { data: [], error: null, status: 401, isFallback: false };
+	}
+	try {
+		const res = await fetchWithTimeout(
+			`${API_BASE}/predictions/history`,
+			{ headers: buildHeaders(token) },
+			15000,
+			fetchFn
+		);
+		if (!res.ok) await throwApiError(res, `Failed to load prediction history (${res.status})`);
+		const data = (await res.json()) as PredictionHistoryItem[];
+		return { data, error: null, status: res.status, isFallback: false };
+	} catch (err) {
+		const apiErr = toNetworkApiError(err, 'Unable to load prediction history.');
+		return { data: [], error: apiErr.detail, status: apiErr.status, isFallback: false };
 	}
 }

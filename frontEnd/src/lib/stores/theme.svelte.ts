@@ -55,9 +55,9 @@ class ThemeState {
 	applyCssTokens() {
 		if (!isBrowser()) return;
 		const root = document.documentElement;
-		root.style.setProperty('--club-primary', ARSENAL_THEME.primary_color);
-		root.style.setProperty('--club-secondary', ARSENAL_THEME.secondary_color);
-		root.style.setProperty('--club-accent', ARSENAL_THEME.accent_color);
+		root.style.setProperty('--club-primary', 'oklch(56% 0.22 27)');
+		root.style.setProperty('--club-secondary', 'oklch(98% 0.005 75)');
+		root.style.setProperty('--club-accent', 'oklch(76% 0.11 78)');
 	}
 }
 

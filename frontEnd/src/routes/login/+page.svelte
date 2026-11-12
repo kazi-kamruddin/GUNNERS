@@ -1,10 +1,14 @@
 <script lang="ts">
+	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
+	import { getSafeRedirectPath } from '$lib/utils/redirect';
 	import type { PageProps } from './$types';
 
 	let { data, form }: PageProps = $props();
 
 	let emailInput = $state('');
+	let showPassword = $state(false);
+	let isSubmitting = $state(false);
 	let showForgot = $state(false);
 	let resetEmail = $state('');
 	let resetStatus = $state('');
@@ -13,10 +17,36 @@
 	let isGoogleLoading = $state(false);
 	let oauthError = $state('');
 
+	const safeNext = $derived(
+		getSafeRedirectPath(form?.next ?? page.url.searchParams.get('next') ?? data.next, '/profile')
+	);
+	const signupHref = $derived(
+		safeNext !== '/profile' ? `/signup?next=${encodeURIComponent(safeNext)}` : '/signup'
+	);
+
 	const googleLabel = $derived(isGoogleLoading ? 'Connecting to Google…' : 'Continue with Google');
 	const forgotLabel = $derived(showForgot ? 'Close reset' : 'Forgot password?');
 	const resetBtnLabel = $derived(isSendingReset ? 'Sending…' : 'Send link');
-	const callbackError = $derived(page.url.searchParams.get('error'));
+	const submitLabel = $derived(isSubmitting ? 'Signing in…' : 'Sign in');
+	const passToggleLabel = $derived(showPassword ? 'Hide' : 'Show');
+
+	function formatAuthError(raw: string | null | undefined): string {
+		if (!raw) return '';
+		const code = raw.trim().toLowerCase();
+		if (code === 'access_denied') {
+			return 'Google sign-in was cancelled. Try again or sign in with email.';
+		}
+		if (code === 'otp_expired') {
+			return 'That sign-in or recovery link has expired. Request a new one below.';
+		}
+		if (code === 'server_error') {
+			return 'Authentication service returned an error. Please try again.';
+		}
+		return raw;
+	}
+
+	const callbackError = $derived(formatAuthError(page.url.searchParams.get('error')));
+	const activeError = $derived(form?.error || oauthError || callbackError);
 
 	$effect(() => {
 		if (form?.email) {
@@ -28,14 +58,18 @@
 		oauthError = '';
 		isGoogleLoading = true;
 		try {
+			const callbackUrl = new URL('/auth/callback', window.location.origin);
+			if (safeNext !== '/profile') {
+				callbackUrl.searchParams.set('next', safeNext);
+			}
 			const { error } = await data.supabase.auth.signInWithOAuth({
 				provider: 'google',
 				options: {
-					redirectTo: `${window.location.origin}/auth/callback`
+					redirectTo: callbackUrl.toString()
 				}
 			});
 			if (error) {
-				oauthError = error.message;
+				oauthError = formatAuthError(error.message);
 				isGoogleLoading = false;
 			}
 		} catch (err) {
@@ -90,11 +124,14 @@
 		<div class="space-y-2">
 			<h1>Welcome back</h1>
 			<p class="text-sm text-ink-2">Enter your email and password to access your Arsenal supporter account.</p>
+			{#if safeNext !== '/profile'}
+				<p class="text-xs text-muted">You will be returned to your destination after signing in.</p>
+			{/if}
 		</div>
 
-		{#if form?.error || callbackError || oauthError}
-			<div class="p-3 rounded-card bg-paper-2 border border-rule text-error text-xs">
-				{form?.error || oauthError || callbackError}
+		{#if activeError}
+			<div role="alert" class="p-3 rounded-card bg-paper-2 border border-rule text-error text-xs">
+				{activeError}
 			</div>
 		{/if}
 
@@ -102,7 +139,7 @@
 			type="button"
 			onclick={handleGoogleSignIn}
 			disabled={isGoogleLoading}
-			class="w-full h-10 px-4 bg-paper-2 hover:bg-paper-3 border border-rule rounded-card text-sm font-semibold text-ink inline-flex items-center justify-center gap-2.5 transition-colors whitespace-nowrap"
+			class="w-full min-h-[44px] px-4 bg-paper-2 hover:bg-paper-3 border border-rule rounded-card text-sm font-semibold text-ink inline-flex items-center justify-center gap-2.5 transition-colors whitespace-nowrap"
 		>
 			<svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
 				<path
@@ -131,7 +168,19 @@
 			<span class="flex-1 h-px bg-rule"></span>
 		</div>
 
-		<form method="POST" class="space-y-4">
+		<form
+			method="POST"
+			use:enhance={() => {
+				isSubmitting = true;
+				return async ({ update }) => {
+					isSubmitting = false;
+					await update();
+				};
+			}}
+			class="space-y-4"
+		>
+			<input type="hidden" name="next" value={safeNext} />
+
 			<div>
 				<label for="email" class="block text-xs font-semibold text-ink-2 mb-1">
 					Email
@@ -140,41 +189,57 @@
 					id="email"
 					name="email"
 					type="email"
+					autocomplete="email"
 					required
 					bind:value={emailInput}
 					placeholder="supporter@example.com"
-					class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink placeholder-muted"
+					class="w-full min-h-[44px] bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink placeholder-muted"
 				/>
 			</div>
 
 			<div>
-				<div class="flex items-center justify-between mb-1">
+				<div class="flex items-center justify-between gap-2 mb-1">
 					<label for="password" class="block text-xs font-semibold text-ink-2">
 						Password
 					</label>
 					<button
 						type="button"
 						onclick={toggleForgot}
-						class="text-xs text-accent hover:text-ink font-semibold transition-colors whitespace-nowrap"
+						aria-expanded={showForgot}
+						class="min-h-[36px] px-1 text-xs text-accent-text hover:text-ink font-semibold transition-colors whitespace-nowrap"
 					>
 						{forgotLabel}
 					</button>
 				</div>
-				<input
-					id="password"
-					name="password"
-					type="password"
-					required
-					placeholder="Enter password"
-					class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink placeholder-muted"
-				/>
+				<div class="flex items-stretch gap-2">
+					<input
+						id="password"
+						name="password"
+						type={showPassword ? 'text' : 'password'}
+						autocomplete="current-password"
+						required
+						placeholder="Enter password"
+						class="flex-1 min-w-0 min-h-[44px] bg-paper-2 border border-rule rounded-card px-3 text-sm text-ink placeholder-muted"
+					/>
+					<button
+						type="button"
+						onclick={() => (showPassword = !showPassword)}
+						aria-pressed={showPassword}
+						aria-controls="password"
+						aria-label={showPassword ? 'Hide password' : 'Show password'}
+						class="min-h-[44px] px-3 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs font-semibold text-ink-2 hover:text-ink transition-colors whitespace-nowrap"
+					>
+						{passToggleLabel}
+					</button>
+				</div>
 			</div>
 
 			<button
 				type="submit"
-				class="w-full h-10 px-4 bg-accent hover:opacity-95 text-accent-ink font-semibold text-sm rounded-card transition-opacity mt-2"
+				disabled={isSubmitting}
+				class="w-full min-h-[44px] px-4 bg-accent hover:opacity-95 text-accent-ink font-semibold text-sm rounded-card transition-opacity mt-2 disabled:opacity-60"
 			>
-				Sign in
+				{submitLabel}
 			</button>
 		</form>
 
@@ -186,25 +251,26 @@
 				</div>
 
 				{#if resetError}
-					<p class="text-xs text-error">{resetError}</p>
+					<p role="alert" class="text-xs text-error">{resetError}</p>
 				{/if}
 				{#if resetStatus}
-					<p class="text-xs text-success">{resetStatus}</p>
+					<p role="status" aria-live="polite" class="text-xs text-success">{resetStatus}</p>
 				{/if}
 
-				<div class="flex gap-2">
+				<div class="flex flex-wrap sm:flex-nowrap gap-2">
 					<input
 						type="email"
+						autocomplete="email"
 						aria-label="Recovery email address"
 						required
 						bind:value={resetEmail}
 						placeholder="supporter@example.com"
-						class="flex-1 min-w-0 h-9 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
+						class="flex-1 min-w-[180px] min-h-[44px] bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
 					/>
 					<button
 						type="submit"
 						disabled={isSendingReset}
-						class="h-9 px-3 rounded-card border border-rule bg-paper-3 hover:bg-paper text-xs font-semibold text-ink whitespace-nowrap transition-colors"
+						class="min-h-[44px] px-3 rounded-card border border-rule bg-paper-3 hover:bg-paper text-xs font-semibold text-ink whitespace-nowrap transition-colors"
 					>
 						{resetBtnLabel}
 					</button>
@@ -214,7 +280,7 @@
 
 		<div class="pt-4 border-t border-rule text-xs text-muted">
 			Don’t have an account yet?
-			<a href="/signup" class="text-accent hover:text-ink font-semibold ml-1 transition-colors">Join club</a>
+			<a href={signupHref} class="text-accent-text hover:text-ink font-semibold ml-1 transition-colors">Join club</a>
 		</div>
 	</div>
 </div>

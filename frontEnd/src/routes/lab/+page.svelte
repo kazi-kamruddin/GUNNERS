@@ -1,12 +1,17 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { CLUBS } from '$lib/stores/theme.svelte';
+	import { focusTrap } from '$lib/actions/focusTrap';
+	import StateBanner from '$lib/components/StateBanner.svelte';
 	import {
 		ApiError,
-		queryAnalytics,
+		queryAnalyticsStrict,
 		createInsight,
-		fetchMultiSeasonTrends,
-		fetchOpponentH2H,
-		comparePlayers
+		deleteInsight,
+		fetchInsightsResult,
+		fetchMultiSeasonTrendsStrict,
+		fetchOpponentH2HStrict,
+		comparePlayersStrict
 	} from '$lib/api/football';
 	import HistoricalPitchExplorer from '$lib/components/HistoricalPitchExplorer.svelte';
 	import type {
@@ -24,40 +29,99 @@
 
 	let { data }: PageProps = $props();
 
-	let activeTab = $state<LabTab>('query');
+	const clubList = Object.values(CLUBS);
+
+	function buildStamp(d: typeof data): string {
+		return [
+			d.initialTab,
+			d.initialMetric,
+			d.initialTeamIds.join(','),
+			d.initialVenue,
+			d.activeSeasonId,
+			d.initialTrendsClub,
+			d.initialTrendMetric,
+			d.initialH2HClub,
+			d.initialOpponentId,
+			d.initialCompare1Id,
+			d.initialCompare2Id
+		].join('|');
+	}
+
+	function pickInitialTrendSeasonId(trends: MultiSeasonTrendsResponse | null): string | null {
+		const rows = trends?.trends || [];
+		const active = rows.filter((t) => t.matches_played > 0);
+		if (active.length > 0) return active[active.length - 1].season_id;
+		return rows[0]?.season_id || null;
+	}
+
+	let activeTab = $state<LabTab>(untrack(() => data.initialTab || 'query'));
 
 	// Lens 1: Analytics Query state
-	let mode = $state<'single' | 'comparison'>('single');
-	let team1 = $state<string>('arsenal');
-	let team2 = $state<string>('real-madrid');
-	let metric = $state<string>('win_rate');
-	let venue = $state<string>('all');
-	let selectedSeason = $state<string>('all');
+	let mode = $state<'single' | 'comparison'>(
+		untrack(() => (data.initialTeamIds.length > 1 ? 'comparison' : 'single'))
+	);
+	let team1 = $state<string>(untrack(() => data.initialTeamIds[0] || 'arsenal'));
+	let team2 = $state<string>(untrack(() => data.initialTeamIds[1] || 'real-madrid'));
+	let metric = $state<string>(untrack(() => data.initialMetric || 'win_rate'));
+	let venue = $state<string>(untrack(() => data.initialVenue || 'all'));
+	let selectedSeason = $state<string>(untrack(() => data.activeSeasonId || 'all'));
 	let loading = $state(false);
-	let result = $state<AnalyticsResponse | null>(null);
-	let insights = $state<Insight[]>([]);
+	let result = $state<AnalyticsResponse | null>(untrack(() => data.initialResult));
+	let queryError = $state<string | null>(untrack(() => data.initialQueryError ?? null));
+	let insights = $state<Insight[]>(untrack(() => data.insights || []));
+	let insightsError = $state<string | null>(untrack(() => data.insightsError ?? null));
+	let isRetryingInsights = $state(false);
+	let showAllInsights = $state(false);
+	let confirmDeleteInsightId = $state<string | null>(null);
+	let deletingInsightId = $state<string | null>(null);
 	let seasons = $derived(data.seasons || []);
 
+	// Track exact query parameters captured by `result` so Save as insight never pairs mismatched filters
+	let resultSnapshotMeta = $state<{
+		metric: string;
+		team_ids: string[];
+		venue: string;
+		season_id: string;
+	} | null>(
+		untrack(() =>
+			data.initialResult
+				? {
+						metric: data.initialMetric || 'win_rate',
+						team_ids: data.initialTeamIds,
+						venue: data.initialVenue || 'all',
+						season_id: data.activeSeasonId || 'all'
+					}
+				: null
+		)
+	);
+
 	// Lens 2: Multi-Season Trends state
-	let trendsClub = $state<string>('arsenal');
-	let trendsVenue = $state<string>('all');
-	let trendMetric = $state<TrendMetricKey>('win_rate');
-	let trendsData = $state<MultiSeasonTrendsResponse | null>(null);
+	let trendsClub = $state<string>(untrack(() => data.initialTrendsClub || 'arsenal'));
+	let trendsVenue = $state<string>(untrack(() => data.initialVenue || 'all'));
+	let trendMetric = $state<TrendMetricKey>(untrack(() => data.initialTrendMetric || 'win_rate'));
+	let trendsData = $state<MultiSeasonTrendsResponse | null>(untrack(() => data.initialTrends));
+	let trendsError = $state<string | null>(untrack(() => data.initialTrendsError ?? null));
 	let trendsLoading = $state(false);
-	let selectedTrendSeasonId = $state<string | null>(null);
+	let selectedTrendSeasonId = $state<string | null>(
+		untrack(() => pickInitialTrendSeasonId(data.initialTrends))
+	);
 
 	// Lens 3: Opponent H2H state
-	let h2hClub = $state<string>('arsenal');
-	let h2hOpponent = $state<string>('chelsea');
-	let h2hVenue = $state<string>('all');
-	let h2hData = $state<OpponentH2HResponse | null>(null);
+	let h2hClub = $state<string>(untrack(() => data.initialH2HClub || 'arsenal'));
+	let h2hOpponent = $state<string>(untrack(() => data.initialOpponentId || 'chelsea'));
+	let h2hVenue = $state<string>(untrack(() => data.initialVenue || 'all'));
+	let h2hData = $state<OpponentH2HResponse | null>(untrack(() => data.initialH2H));
+	let h2hError = $state<string | null>(untrack(() => data.initialH2HError ?? null));
 	let h2hLoading = $state(false);
 
 	// Lens 4: Squad H2H state
 	let squadList = $derived(data.squad || []);
-	let comparePlayer1Id = $state<string>('ply_saka');
-	let comparePlayer2Id = $state<string>('ply_gyokeres');
-	let playerComparison = $state<PlayerComparison | null>(null);
+	let comparePlayer1Id = $state<string>(untrack(() => data.initialCompare1Id || 'ply_saka'));
+	let comparePlayer2Id = $state<string>(untrack(() => data.initialCompare2Id || 'ply_gyokeres'));
+	let playerComparison = $state<PlayerComparison | null>(
+		untrack(() => data.initialPlayerComparison)
+	);
+	let squadError = $state<string | null>(untrack(() => data.initialSquadError ?? null));
 	let squadLoading = $state(false);
 
 	// Modal & toast state
@@ -71,20 +135,14 @@
 	let toastNeedsLogin = $state(false);
 	let toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-	let lastSyncStamp = $state<string | null>(null);
+	let lastSyncStamp = $state<string>(untrack(() => buildStamp(data)));
+	let queryRequestSeq = 0;
+	let trendsRequestSeq = 0;
+	let h2hRequestSeq = 0;
+	let squadRequestSeq = 0;
 
 	$effect(() => {
-		const stamp = [
-			data.initialTab,
-			data.initialMetric,
-			data.initialTeamIds.join(','),
-			data.initialVenue,
-			data.activeSeasonId,
-			data.initialOpponentId,
-			data.initialCompare1Id,
-			data.initialCompare2Id
-		].join('|');
-
+		const stamp = buildStamp(data);
 		if (stamp !== lastSyncStamp) {
 			lastSyncStamp = stamp;
 			activeTab = data.initialTab || 'query';
@@ -95,25 +153,35 @@
 			venue = data.initialVenue || 'all';
 			selectedSeason = data.activeSeasonId || 'all';
 			result = data.initialResult;
+			queryError = data.initialQueryError ?? null;
+			resultSnapshotMeta = data.initialResult
+				? {
+						metric: data.initialMetric || 'win_rate',
+						team_ids: data.initialTeamIds,
+						venue: data.initialVenue || 'all',
+						season_id: data.activeSeasonId || 'all'
+					}
+				: null;
 			insights = data.insights || [];
+			insightsError = data.insightsError ?? null;
 
-			trendsClub = 'arsenal';
+			trendsClub = data.initialTrendsClub || 'arsenal';
 			trendsVenue = data.initialVenue || 'all';
+			trendMetric = data.initialTrendMetric || 'win_rate';
 			trendsData = data.initialTrends;
-			const activeSeasons = (data.initialTrends?.trends || []).filter((t) => t.matches_played > 0);
-			selectedTrendSeasonId =
-				activeSeasons.length > 0
-					? activeSeasons[activeSeasons.length - 1].season_id
-					: data.initialTrends?.trends?.[0]?.season_id || null;
+			trendsError = data.initialTrendsError ?? null;
+			selectedTrendSeasonId = pickInitialTrendSeasonId(data.initialTrends);
 
-			h2hClub = 'arsenal';
+			h2hClub = data.initialH2HClub || 'arsenal';
 			h2hOpponent = data.initialOpponentId || 'chelsea';
 			h2hVenue = data.initialVenue || 'all';
 			h2hData = data.initialH2H;
+			h2hError = data.initialH2HError ?? null;
 
 			comparePlayer1Id = data.initialCompare1Id || 'ply_saka';
 			comparePlayer2Id = data.initialCompare2Id || 'ply_gyokeres';
 			playerComparison = data.initialPlayerComparison;
+			squadError = data.initialSquadError ?? null;
 		}
 	});
 
@@ -123,8 +191,11 @@
 	let squadBtnLabel = $derived(squadLoading ? 'Comparing players…' : 'Compare Arsenal players');
 	let publishBtnLabel = $derived(isSavingInsight ? 'Publishing…' : 'Publish insight');
 	let primaryClubLabel = $derived(mode === 'single' ? 'Club' : 'Club A');
-
-	const clubList = Object.values(CLUBS);
+	let visibleInsights = $derived(showAllInsights ? insights : insights.slice(0, 6));
+	let trimmedInsightTitle = $derived(insightTitle.trim());
+	let isInsightTitleValid = $derived(
+		trimmedInsightTitle.length >= 3 && trimmedInsightTitle.length <= 200
+	);
 
 	const labTabs: Array<{ id: LabTab; label: string; hint: string }> = [
 		{ id: 'query', label: 'Analytics query', hint: 'Single club or club-to-club metrics' },
@@ -168,6 +239,26 @@
 		syncUrlParams({ tab: nextTab });
 	}
 
+	function handleTabKeydown(event: KeyboardEvent, currentIdx: number) {
+		let nextIdx = -1;
+		if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+			nextIdx = (currentIdx + 1) % labTabs.length;
+		} else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+			nextIdx = (currentIdx - 1 + labTabs.length) % labTabs.length;
+		} else if (event.key === 'Home') {
+			nextIdx = 0;
+		} else if (event.key === 'End') {
+			nextIdx = labTabs.length - 1;
+		}
+		if (nextIdx !== -1) {
+			event.preventDefault();
+			const targetTab = labTabs[nextIdx];
+			switchTab(targetTab.id);
+			const el = document.getElementById(`tab-${targetTab.id}`);
+			el?.focus();
+		}
+	}
+
 	function updateUrlState(team_ids: string[]) {
 		syncUrlParams({
 			tab: activeTab,
@@ -179,25 +270,53 @@
 	}
 
 	async function runQuery() {
+		if (mode === 'comparison' && team1 === team2) {
+			const alt = clubList.find((c) => c.id !== team1);
+			if (alt) team2 = alt.id;
+		}
 		loading = true;
+		queryError = null;
+		const snapshotMetric = metric;
+		const snapshotVenue = venue;
+		const snapshotSeason = selectedSeason;
 		const team_ids = mode === 'single' ? [team1] : [team1, team2];
+		const reqId = ++queryRequestSeq;
 		try {
-			result = await queryAnalytics({
-				metric,
+			const res = await queryAnalyticsStrict({
+				metric: snapshotMetric,
 				team_ids,
-				venue,
-				season_id: selectedSeason !== 'all' ? selectedSeason : undefined
+				venue: snapshotVenue,
+				season_id: snapshotSeason !== 'all' ? snapshotSeason : undefined
 			});
+			if (reqId !== queryRequestSeq) return;
+			result = res;
+			resultSnapshotMeta = {
+				metric: snapshotMetric,
+				team_ids,
+				venue: snapshotVenue,
+				season_id: snapshotSeason
+			};
 			updateUrlState(team_ids);
+		} catch (err) {
+			if (reqId !== queryRequestSeq) return;
+			queryError =
+				err instanceof ApiError
+					? err.detail
+					: 'Unable to reach Data Lab analytics engine right now.';
 		} finally {
-			loading = false;
+			if (reqId === queryRequestSeq) {
+				loading = false;
+			}
 		}
 	}
 
 	async function runTrendsQuery() {
 		trendsLoading = true;
+		trendsError = null;
+		const reqId = ++trendsRequestSeq;
 		try {
-			const res = await fetchMultiSeasonTrends(trendsClub, trendsVenue);
+			const res = await fetchMultiSeasonTrendsStrict(trendsClub, trendsVenue);
+			if (reqId !== trendsRequestSeq) return;
 			trendsData = res;
 			if (res && res.trends.length > 0) {
 				const valid = res.trends.filter((t) => t.matches_played > 0);
@@ -207,38 +326,97 @@
 						valid.length > 0 ? valid[valid.length - 1].season_id : res.trends[0].season_id;
 				}
 			}
-			syncUrlParams({ tab: 'trends', venue: trendsVenue });
+			syncUrlParams({
+				tab: 'trends',
+				club: trendsClub,
+				tmetric: trendMetric,
+				venue: trendsVenue
+			});
+		} catch (err) {
+			if (reqId !== trendsRequestSeq) return;
+			trendsError =
+				err instanceof ApiError
+					? err.detail
+					: 'Unable to load multi-season trajectories right now.';
 		} finally {
-			trendsLoading = false;
+			if (reqId === trendsRequestSeq) {
+				trendsLoading = false;
+			}
 		}
 	}
 
 	async function runH2HQuery() {
+		if (h2hClub === h2hOpponent) {
+			const alt = h2hOpponentOptions.find((o) => o.opponent_id !== h2hClub);
+			if (alt) h2hOpponent = alt.opponent_id;
+		}
 		h2hLoading = true;
+		h2hError = null;
+		const reqId = ++h2hRequestSeq;
 		try {
-			const res = await fetchOpponentH2H(h2hOpponent, h2hClub, h2hVenue);
+			const res = await fetchOpponentH2HStrict(h2hOpponent, h2hClub, h2hVenue);
+			if (reqId !== h2hRequestSeq) return;
 			h2hData = res;
-			syncUrlParams({ tab: 'h2h', opponent: h2hOpponent, venue: h2hVenue });
+			syncUrlParams({
+				tab: 'h2h',
+				hclub: h2hClub,
+				opponent: h2hOpponent,
+				venue: h2hVenue
+			});
+		} catch (err) {
+			if (reqId !== h2hRequestSeq) return;
+			h2hError =
+				err instanceof ApiError
+					? err.detail
+					: 'Unable to load opponent head-to-head records right now.';
 		} finally {
-			h2hLoading = false;
+			if (reqId === h2hRequestSeq) {
+				h2hLoading = false;
+			}
 		}
 	}
 
 	async function runSquadComparison() {
 		if (!comparePlayer1Id || !comparePlayer2Id || comparePlayer1Id === comparePlayer2Id) return;
 		squadLoading = true;
+		squadError = null;
+		const reqId = ++squadRequestSeq;
 		try {
-			playerComparison = await comparePlayers(comparePlayer1Id, comparePlayer2Id);
+			const res = await comparePlayersStrict(comparePlayer1Id, comparePlayer2Id);
+			if (reqId !== squadRequestSeq) return;
+			playerComparison = res;
 			syncUrlParams({ tab: 'squad', p1: comparePlayer1Id, p2: comparePlayer2Id });
+		} catch (err) {
+			if (reqId !== squadRequestSeq) return;
+			squadError =
+				err instanceof ApiError
+					? err.detail
+					: 'Unable to compare selected Arsenal players right now.';
 		} finally {
-			squadLoading = false;
+			if (reqId === squadRequestSeq) {
+				squadLoading = false;
+			}
 		}
 	}
 
-	function copyShareLink() {
-		if (typeof window !== 'undefined') {
-			navigator.clipboard.writeText(window.location.href);
+	async function retryInsights() {
+		isRetryingInsights = true;
+		try {
+			const res = await fetchInsightsResult();
+			insightsError = res.error;
+			if (!res.error) insights = res.data;
+		} finally {
+			isRetryingInsights = false;
+		}
+	}
+
+	async function copyShareLink() {
+		if (typeof window === 'undefined') return;
+		try {
+			await navigator.clipboard.writeText(window.location.href);
 			showToast('Reproducible analysis link copied to clipboard.');
+		} catch {
+			showToast('Clipboard permission unavailable: copy the URL from your browser address bar.', 'error');
 		}
 	}
 
@@ -249,19 +427,29 @@
 			return;
 		}
 		modalError = null;
+		const snapMetric = result.metric || resultSnapshotMeta?.metric || metric;
+		const snapVenue = result.venue_filter || resultSnapshotMeta?.venue || venue;
+		const snapSeason = resultSnapshotMeta?.season_id || selectedSeason;
 		const t1 = result.series[0];
 		if (result.series.length === 1) {
-			insightTitle = `${t1.team_name} ${getMetricLabel(metric)}: ${t1.metric_value} ${t1.unit} (${venue})`;
+			insightTitle = `${t1.team_name} ${getMetricLabel(snapMetric)}: ${t1.metric_value} ${t1.unit} (${snapVenue})`;
 		} else {
 			const t2 = result.series[1];
-			insightTitle = `${t1.team_name} vs ${t2.team_name}: ${getMetricLabel(metric)} comparison`;
+			insightTitle = `${t1.team_name} vs ${t2.team_name}: ${getMetricLabel(snapMetric)} comparison`;
 		}
-		insightDesc = `Computed across eligible completed matches (venue filter: ${venue}).`;
+		const seasonNote =
+			snapSeason && snapSeason !== 'all'
+				? ` Season filter: ${seasons.find((s) => s.id === snapSeason)?.label || snapSeason}.`
+				: '';
+		insightDesc = `Computed across eligible completed matches (venue filter: ${snapVenue}).${seasonNote}`;
 		isModalOpen = true;
 	}
 
 	async function submitInsight() {
-		if (!result || !insightTitle) return;
+		if (!result || !isInsightTitleValid) {
+			modalError = { message: 'Insight title must be between 3 and 200 characters.' };
+			return;
+		}
 		if (!data.user || !data.session?.access_token) {
 			modalError = { message: 'Please sign in to publish Data Lab insights.', isAuth: true };
 			showToast('Please sign in to publish Data Lab insights.', 'error', true);
@@ -270,16 +458,22 @@
 		modalError = null;
 		isSavingInsight = true;
 		try {
-			const team_ids = mode === 'single' ? [team1] : [team1, team2];
+			const snapMetric = result.metric || resultSnapshotMeta?.metric || metric;
+			const snapVenue = result.venue_filter || resultSnapshotMeta?.venue || venue;
+			const snapTeams =
+				result.series.length > 0
+					? result.series.map((s) => s.team_id)
+					: resultSnapshotMeta?.team_ids || (mode === 'single' ? [team1] : [team1, team2]);
 			const newInsight = await createInsight(
 				{
-					title: insightTitle,
-					description: insightDesc,
-					metric,
-					team_ids,
-					venue,
-					chart_type: mode === 'single' ? 'bar' : 'comparison',
-					author_name: data.profile?.display_name || data.user?.email?.split('@')[0] || 'Supporter',
+					title: trimmedInsightTitle,
+					description: insightDesc.trim() || undefined,
+					metric: snapMetric,
+					team_ids: snapTeams,
+					venue: snapVenue,
+					chart_type: snapTeams.length === 1 ? 'bar' : 'comparison',
+					author_name:
+						data.profile?.display_name || data.user?.email?.split('@')[0] || 'Supporter',
 					author_club_id: data.profile?.favorite_club_id || 'arsenal',
 					snapshot: result
 				},
@@ -288,6 +482,7 @@
 
 			if (newInsight) {
 				insights = [newInsight, ...insights];
+				insightsError = null;
 				isModalOpen = false;
 				showToast('Insight published to the community feed.', 'success', false);
 			}
@@ -305,10 +500,38 @@
 		}
 	}
 
+	async function handleDeleteInsight(ins: Insight) {
+		if (!data.session?.access_token) {
+			showToast('Please sign in to manage your insights.', 'error', true);
+			return;
+		}
+		deletingInsightId = ins.id;
+		try {
+			await deleteInsight(ins.id, data.session.access_token);
+			insights = insights.filter((i) => i.id !== ins.id);
+			confirmDeleteInsightId = null;
+			showToast(`Deleted insight “${ins.title}”.`, 'success', false);
+		} catch (err) {
+			const isAuth = err instanceof ApiError && err.status === 401;
+			showToast(
+				isAuth
+					? 'Please sign in to delete this insight.'
+					: err instanceof ApiError
+						? err.detail
+						: 'Could not delete insight. Please try again.',
+				'error',
+				isAuth
+			);
+		} finally {
+			deletingInsightId = null;
+		}
+	}
+
 	function loadExistingInsight(ins: Insight) {
 		activeTab = 'query';
 		metric = ins.metric;
 		venue = ins.venue;
+		selectedSeason = 'all';
 		if (ins.team_ids.length > 1) {
 			mode = 'comparison';
 			team1 = ins.team_ids[0];
@@ -318,6 +541,13 @@
 			team1 = ins.team_ids[0];
 		}
 		result = ins.snapshot;
+		queryError = null;
+		resultSnapshotMeta = {
+			metric: ins.metric,
+			team_ids: ins.team_ids,
+			venue: ins.venue,
+			season_id: 'all'
+		};
 		updateUrlState(ins.team_ids);
 		showToast(`Loaded insight: “${ins.title}”`, 'success', false);
 	}
@@ -326,7 +556,11 @@
 		return metricsList.find((m) => m.id === id)?.label || id;
 	}
 
-	function showToast(msg: string, kind: 'success' | 'error' = 'success', needsLogin: boolean = false) {
+	function showToast(
+		msg: string,
+		kind: 'success' | 'error' = 'success',
+		needsLogin: boolean = false
+	) {
 		if (toastTimer) clearTimeout(toastTimer);
 		toastMessage = msg;
 		toastKind = kind;
@@ -360,6 +594,12 @@
 		if (!result || result.series.length < 2) return null;
 		const s1 = result.series[0];
 		const s2 = result.series[1];
+		if (s1.matches_played === 0 || s2.matches_played === 0) {
+			return {
+				leader: 'Incomplete sample',
+				text: 'One or both clubs have 0 completed matches under this filter'
+			};
+		}
 		const diff = Math.round((s1.metric_value - s2.metric_value) * 10) / 10;
 		if (diff === 0) return { leader: 'Tied', text: 'Equal performance' };
 		const leaderName = diff > 0 ? s1.team_name : s2.team_name;
@@ -398,7 +638,10 @@
 		const meta = activeTrendMeta;
 		let ceiling = meta.maxBound;
 		if (trendMetric === 'goals_per_match') {
-			const highest = Math.max(2.5, ...rows.map((r) => (r.matches_played > 0 ? r.goals_per_match : 0)));
+			const highest = Math.max(
+				2.5,
+				...rows.map((r) => (r.matches_played > 0 ? r.goals_per_match : 0))
+			);
 			ceiling = Math.ceil(highest * 2) / 2;
 		}
 		const ticks = [0, ceiling * 0.25, ceiling * 0.5, ceiling * 0.75, ceiling];
@@ -411,18 +654,38 @@
 			return { row, x, y, val, hasData: row.matches_played > 0 };
 		});
 
-		const activePts = points.filter((p) => p.hasData);
-		const linePath =
-			activePts.length > 1
-				? activePts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
-				: '';
 		const baselineY = PAD_T + PLOT_H;
-		const areaPath =
-			activePts.length > 1
-				? `${linePath} L ${activePts[activePts.length - 1].x.toFixed(1)} ${baselineY} L ${activePts[0].x.toFixed(1)} ${baselineY} Z`
-				: '';
 
-		return { ceiling, ticks, points, linePath, areaPath, baselineY };
+		// Break paths cleanly across unplayed intermediate seasons instead of fabricating continuity
+		const runs: Array<typeof points> = [];
+		let currentRun: typeof points = [];
+		for (const pt of points) {
+			if (pt.hasData) {
+				currentRun.push(pt);
+			} else if (currentRun.length > 0) {
+				runs.push(currentRun);
+				currentRun = [];
+			}
+		}
+		if (currentRun.length > 0) runs.push(currentRun);
+
+		const linePath = runs
+			.filter((r) => r.length > 1)
+			.map((r) =>
+				r.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')
+			)
+			.join(' ');
+
+		const areaPaths = runs
+			.filter((r) => r.length > 1)
+			.map((r) => {
+				const seg = r
+					.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
+					.join(' ');
+				return `${seg} L ${r[r.length - 1].x.toFixed(1)} ${baselineY} L ${r[0].x.toFixed(1)} ${baselineY} Z`;
+			});
+
+		return { ceiling, ticks, points, linePath, areaPaths, baselineY };
 	});
 
 	let activeTrendItem = $derived.by(() => {
@@ -543,12 +806,23 @@
 	{#if toastMessage}
 		<div
 			role={toastKind === 'error' ? 'alert' : 'status'}
-			class="fixed bottom-6 right-6 z-50 bg-paper-2 border border-rule-2 px-4 py-3 rounded-card text-xs flex items-center gap-3 {toastKind === 'error' ? 'text-error' : 'text-success'}"
+			class="fixed bottom-6 right-6 left-6 sm:left-auto max-w-md z-[var(--z-toast)] bg-paper-2 border border-rule-2 px-4 py-3 rounded-card text-xs flex items-center justify-between gap-3 {toastKind === 'error' ? 'text-error' : 'text-success'}"
 		>
-			<span>{toastMessage}</span>
-			{#if toastNeedsLogin}
-				<a href="/login" class="underline text-ink font-semibold hover:text-accent">Sign in</a>
-			{/if}
+			<div class="flex items-center gap-3 flex-wrap min-w-0">
+				<span>{toastMessage}</span>
+				{#if toastNeedsLogin}
+					<a href="/login?next=/lab" class="underline text-ink font-semibold hover:text-accent-text">
+						Sign in
+					</a>
+				{/if}
+			</div>
+			<button
+				type="button"
+				onclick={() => (toastMessage = null)}
+				class="min-h-[44px] px-2 text-muted hover:text-ink font-semibold shrink-0"
+			>
+				Close
+			</button>
 		</div>
 	{/if}
 
@@ -564,7 +838,7 @@
 		<div class="flex items-center gap-3 flex-wrap">
 			<a
 				href="/lab/historical"
-				class="h-10 px-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs text-accent-2 font-semibold transition-colors inline-flex items-center whitespace-nowrap"
+				class="min-h-[44px] px-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs text-accent-2 font-semibold transition-colors inline-flex items-center whitespace-nowrap"
 			>
 				StatsBomb 2D pitch
 			</a>
@@ -579,17 +853,26 @@
 		<!-- Left Workbench Control Column (4 cols) -->
 		<aside class="lg:col-span-4 space-y-6 bg-paper-2 border-t-2 border-rule-2 p-5">
 			<!-- Lens Switcher -->
-			<div class="space-y-2" role="tablist" aria-label="Data Lab analytical lenses">
+			<div class="space-y-2">
 				<div class="text-xs font-semibold text-muted pb-1">Analytical lens</div>
-				<div class="divide-y divide-rule border-y border-rule">
-					{#each labTabs as tab}
+				<div
+					role="tablist"
+					aria-label="Data Lab analytical lenses"
+					aria-orientation="vertical"
+					class="divide-y divide-rule border-y border-rule"
+				>
+					{#each labTabs as tab, idx (tab.id)}
 						{@const isActive = activeTab === tab.id}
 						<button
+							id="tab-{tab.id}"
 							type="button"
 							role="tab"
 							aria-selected={isActive}
+							aria-controls="lab-tabpanel"
+							tabindex={isActive ? 0 : -1}
 							onclick={() => switchTab(tab.id)}
-							class="w-full py-2.5 px-3 text-left flex items-center justify-between gap-2 transition-colors {isActive ? 'bg-paper-3 text-ink border-l-2 border-accent' : 'text-ink-2 hover:text-ink hover:bg-paper-3'}"
+							onkeydown={(e) => handleTabKeydown(e, idx)}
+							class="w-full min-h-[44px] py-2.5 px-3 text-left flex items-center justify-between gap-2 transition-colors {isActive ? 'bg-paper-3 text-ink border border-rule-2' : 'text-ink-2 hover:text-ink hover:bg-paper-3'}"
 						>
 							<span class="text-sm font-semibold">{tab.label}</span>
 							<span class="text-xs text-muted truncate max-w-[140px]">{tab.hint}</span>
@@ -607,7 +890,7 @@
 								type="button"
 								onclick={() => { mode = 'single'; runQuery(); }}
 								aria-pressed={mode === 'single'}
-								class="h-9 px-3 rounded-card transition-colors font-semibold border {mode === 'single' ? 'bg-paper-3 text-ink border-rule-2' : 'bg-paper text-ink-2 border-rule hover:text-ink'}"
+								class="min-h-[44px] px-3 rounded-card transition-colors font-semibold border {mode === 'single' ? 'bg-paper-3 text-ink border-rule-2' : 'bg-paper text-ink-2 border-rule hover:text-ink'}"
 							>
 								Single club analysis
 							</button>
@@ -615,7 +898,7 @@
 								type="button"
 								onclick={() => { mode = 'comparison'; runQuery(); }}
 								aria-pressed={mode === 'comparison'}
-								class="h-9 px-3 rounded-card transition-colors font-semibold border {mode === 'comparison' ? 'bg-paper-3 text-ink border-rule-2' : 'bg-paper text-ink-2 border-rule hover:text-ink'}"
+								class="min-h-[44px] px-3 rounded-card transition-colors font-semibold border {mode === 'comparison' ? 'bg-paper-3 text-ink border-rule-2' : 'bg-paper text-ink-2 border-rule hover:text-ink'}"
 							>
 								Head-to-head comparison
 							</button>
@@ -628,9 +911,10 @@
 							<select
 								id="primary-club"
 								bind:value={team1}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink"
+								onchange={runQuery}
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink"
 							>
-								{#each clubList as club}
+								{#each clubList as club (club.id)}
 									<option value={club.id}>{club.name}</option>
 								{/each}
 							</select>
@@ -644,9 +928,10 @@
 								<select
 									id="secondary-club"
 									bind:value={team2}
-									class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink"
+									onchange={runQuery}
+									class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink"
 								>
-									{#each clubList as club}
+									{#each clubList as club (club.id)}
 										<option value={club.id} disabled={club.id === team1}>{club.name}</option>
 									{/each}
 								</select>
@@ -660,9 +945,10 @@
 							<select
 								id="metric-select"
 								bind:value={metric}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink"
+								onchange={runQuery}
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink"
 							>
-								{#each metricsList as m}
+								{#each metricsList as m (m.id)}
 									<option value={m.id}>{m.label}</option>
 								{/each}
 							</select>
@@ -675,7 +961,8 @@
 							<select
 								id="venue-filter"
 								bind:value={venue}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink"
+								onchange={runQuery}
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink"
 							>
 								<option value="all">All matches</option>
 								<option value="home">Home matches only</option>
@@ -691,10 +978,10 @@
 								id="season-filter"
 								bind:value={selectedSeason}
 								onchange={runQuery}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-accent-2 num font-outlier"
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-accent-2 num font-outlier"
 							>
 								<option value="all">All (2019 to present)</option>
-								{#each seasons as s}
+								{#each seasons as s (s.id)}
 									<option value={s.id}>{s.label}</option>
 								{/each}
 							</select>
@@ -704,7 +991,7 @@
 							type="button"
 							onclick={runQuery}
 							disabled={loading}
-							class="w-full h-10 px-4 bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs rounded-card transition-opacity"
+							class="w-full min-h-[44px] px-4 bg-accent hover:opacity-95 disabled:opacity-60 text-accent-ink font-semibold text-xs rounded-card transition-opacity"
 						>
 							{queryBtnLabel}
 						</button>
@@ -719,9 +1006,9 @@
 								id="trends-club"
 								bind:value={trendsClub}
 								onchange={runTrendsQuery}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink"
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink"
 							>
-								{#each clubList as club}
+								{#each clubList as club (club.id)}
 									<option value={club.id}>{club.name}</option>
 								{/each}
 							</select>
@@ -734,9 +1021,10 @@
 							<select
 								id="trends-metric"
 								bind:value={trendMetric}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink"
+								onchange={() => syncUrlParams({ tab: 'trends', tmetric: trendMetric, club: trendsClub, venue: trendsVenue })}
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink"
 							>
-								{#each trendMetrics as tm}
+								{#each trendMetrics as tm (tm.id)}
 									<option value={tm.id}>{tm.label}</option>
 								{/each}
 							</select>
@@ -750,7 +1038,7 @@
 								id="trends-venue"
 								bind:value={trendsVenue}
 								onchange={runTrendsQuery}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink"
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink"
 							>
 								<option value="all">All venues</option>
 								<option value="home">Home matches only</option>
@@ -762,7 +1050,7 @@
 							type="button"
 							onclick={runTrendsQuery}
 							disabled={trendsLoading}
-							class="w-full h-10 px-4 bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs rounded-card transition-opacity whitespace-nowrap"
+							class="w-full min-h-[44px] px-4 bg-accent hover:opacity-95 disabled:opacity-60 text-accent-ink font-semibold text-xs rounded-card transition-opacity whitespace-nowrap"
 						>
 							{trendsBtnLabel}
 						</button>
@@ -777,9 +1065,9 @@
 								id="h2h-club"
 								bind:value={h2hClub}
 								onchange={runH2HQuery}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink"
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink"
 							>
-								{#each clubList as club}
+								{#each clubList as club (club.id)}
 									<option value={club.id}>{club.name}</option>
 								{/each}
 							</select>
@@ -793,9 +1081,9 @@
 								id="h2h-opponent"
 								bind:value={h2hOpponent}
 								onchange={runH2HQuery}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink"
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink"
 							>
-								{#each h2hOpponentOptions as opt}
+								{#each h2hOpponentOptions as opt (opt.opponent_id)}
 									<option value={opt.opponent_id} disabled={opt.opponent_id === h2hClub}>
 										{opt.opponent_name} ({opt.matches_played})
 									</option>
@@ -811,7 +1099,7 @@
 								id="h2h-venue"
 								bind:value={h2hVenue}
 								onchange={runH2HQuery}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink"
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink"
 							>
 								<option value="all">All venues</option>
 								<option value="home">Home matches only</option>
@@ -823,7 +1111,7 @@
 							type="button"
 							onclick={runH2HQuery}
 							disabled={h2hLoading}
-							class="w-full h-10 px-4 bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs rounded-card transition-opacity whitespace-nowrap"
+							class="w-full min-h-[44px] px-4 bg-accent hover:opacity-95 disabled:opacity-60 text-accent-ink font-semibold text-xs rounded-card transition-opacity whitespace-nowrap"
 						>
 							{h2hBtnLabel}
 						</button>
@@ -838,9 +1126,9 @@
 								id="squad-player-1"
 								bind:value={comparePlayer1Id}
 								onchange={runSquadComparison}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink"
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink"
 							>
-								{#each squadList as p}
+								{#each squadList as p (p.id)}
 									<option value={p.id} disabled={p.id === comparePlayer2Id}>
 										#{p.jersey_number} {p.name} ({p.position})
 									</option>
@@ -856,9 +1144,9 @@
 								id="squad-player-2"
 								bind:value={comparePlayer2Id}
 								onchange={runSquadComparison}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink"
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink"
 							>
-								{#each squadList as p}
+								{#each squadList as p (p.id)}
 									<option value={p.id} disabled={p.id === comparePlayer1Id}>
 										#{p.jersey_number} {p.name} ({p.position})
 									</option>
@@ -870,7 +1158,7 @@
 							type="button"
 							onclick={runSquadComparison}
 							disabled={squadLoading || comparePlayer1Id === comparePlayer2Id}
-							class="w-full h-10 px-4 bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs rounded-card transition-opacity whitespace-nowrap"
+							class="w-full min-h-[44px] px-4 bg-accent hover:opacity-95 disabled:opacity-50 text-accent-ink font-semibold text-xs rounded-card transition-opacity whitespace-nowrap"
 						>
 							{squadBtnLabel}
 						</button>
@@ -882,7 +1170,7 @@
 						</p>
 						<a
 							href="/lab/historical"
-							class="inline-flex items-center justify-center w-full h-9 px-3 rounded-card border border-rule bg-paper hover:bg-paper-3 text-xs font-semibold text-ink transition-colors"
+							class="inline-flex items-center justify-center w-full min-h-[44px] px-3 rounded-card border border-rule bg-paper hover:bg-paper-3 text-xs font-semibold text-ink transition-colors"
 						>
 							Open standalone pitch view
 						</a>
@@ -895,15 +1183,15 @@
 				<button
 					type="button"
 					onclick={copyShareLink}
-					class="w-full h-9 px-4 rounded-card border border-rule bg-paper hover:bg-paper-3 text-xs text-ink-2 hover:text-ink font-semibold transition-colors"
+					class="w-full min-h-[44px] px-4 rounded-card border border-rule bg-paper hover:bg-paper-3 text-xs text-ink-2 hover:text-ink font-semibold transition-colors"
 				>
 					Share analysis link
 				</button>
-				{#if result && result.series.length > 0}
+				{#if activeTab === 'query' && result && result.series.length > 0}
 					<button
 						type="button"
 						onclick={openCreateModal}
-						class="w-full h-9 px-4 rounded-card border border-rule-2 bg-paper-3 hover:bg-paper text-xs text-ink font-semibold transition-colors"
+						class="w-full min-h-[44px] px-4 rounded-card border border-rule-2 bg-paper-3 hover:bg-paper text-xs text-ink font-semibold transition-colors"
 					>
 						Save as insight
 					</button>
@@ -917,54 +1205,138 @@
 					<span class="text-xs text-muted num font-outlier">{insights.length}</span>
 				</div>
 
-				{#if insights.length === 0}
+				{#if insightsError && insights.length === 0}
+					<StateBanner
+						variant="error"
+						title="Unable to load saved insights"
+						message={insightsError}
+						onretry={retryInsights}
+						busy={isRetryingInsights}
+					/>
+				{:else if insights.length === 0}
 					<p class="text-xs text-muted">
 						No community insights saved yet. Run a query and publish the first snapshot.
 					</p>
 				{:else}
 					<div class="divide-y divide-rule border-t border-rule">
-						{#each insights.slice(0, 6) as ins}
+						{#each visibleInsights as ins (ins.id)}
+							{@const isOwner = Boolean(data.user?.id && ins.user_id && data.user.id === ins.user_id)}
 							<div class="py-3 space-y-1.5">
 								<div class="flex items-center justify-between gap-2 text-xs text-muted">
 									<span class="text-accent-2 font-semibold">{getMetricLabel(ins.metric)}</span>
 									<span class="num font-outlier">{formatShortDate(ins.created_at)}</span>
 								</div>
 								<div class="text-xs font-semibold text-ink leading-snug line-clamp-2">{ins.title}</div>
-								<div class="flex items-center justify-between text-xs pt-0.5">
+								<div class="flex items-center justify-between gap-2 text-xs pt-0.5 flex-wrap">
 									<span class="text-muted">By {ins.author_name}</span>
-									<button
-										type="button"
-										onclick={() => loadExistingInsight(ins)}
-										class="font-semibold text-accent hover:underline"
-									>
-										Load
-									</button>
+									<div class="flex items-center gap-2">
+										{#if isOwner}
+											{#if confirmDeleteInsightId === ins.id}
+												{@const delInsLabel = deletingInsightId === ins.id ? 'Deleting…' : 'Confirm'}
+												<button
+													type="button"
+													disabled={deletingInsightId === ins.id}
+													onclick={() => handleDeleteInsight(ins)}
+													class="min-h-[44px] px-2 font-semibold text-error hover:text-ink whitespace-nowrap"
+												>
+													{delInsLabel}
+												</button>
+												<button
+													type="button"
+													onclick={() => (confirmDeleteInsightId = null)}
+													class="min-h-[44px] px-1.5 text-muted hover:text-ink"
+												>
+													Cancel
+												</button>
+											{:else}
+												<button
+													type="button"
+													onclick={() => (confirmDeleteInsightId = ins.id)}
+													aria-label="Delete insight {ins.title}"
+													class="min-h-[44px] px-2 font-semibold text-muted hover:text-error"
+												>
+													Delete
+												</button>
+											{/if}
+										{/if}
+										<button
+											type="button"
+											onclick={() => loadExistingInsight(ins)}
+											class="min-h-[44px] px-2 font-semibold text-accent-text hover:underline"
+										>
+											Load
+										</button>
+									</div>
 								</div>
 							</div>
 						{/each}
 					</div>
+
+					{#if insights.length > 6}
+						{@const toggleInsLabel = showAllInsights ? 'Show fewer insights' : `Show all (${insights.length})`}
+						<button
+							type="button"
+							onclick={() => (showAllInsights = !showAllInsights)}
+							class="w-full min-h-[44px] text-xs font-semibold text-ink-2 hover:text-ink border border-rule rounded-card bg-paper hover:bg-paper-3 transition-colors whitespace-nowrap"
+						>
+							{toggleInsLabel}
+						</button>
+					{/if}
 				{/if}
 			</div>
 		</aside>
 
 		<!-- Right Analysis Stage (8 cols) -->
-		<main class="lg:col-span-8 space-y-8 min-w-0">
+		<main class="lg:col-span-8 min-w-0">
+			<div
+				id="lab-tabpanel"
+				role="tabpanel"
+				aria-labelledby="tab-{activeTab}"
+				class="space-y-8"
+			>
 			{#if activeTab === 'query'}
 				{#if loading}
-					<div class="py-16 border-t border-rule text-muted text-sm">
+					<div class="py-16 border-t border-rule text-muted text-sm" role="status" aria-live="polite">
 						Computing verified analytics across eligible completed records…
 					</div>
+				{:else if queryError}
+					<StateBanner
+						variant="error"
+						title="Analytics query unavailable"
+						message={queryError}
+						onretry={runQuery}
+						busy={loading}
+					/>
 				{:else if result && result.series.length > 0}
 					{#if mode === 'single'}
 						{@const s = result.series[0]}
 						<div class="space-y-8">
+							{#if s.team_id !== 'arsenal'}
+								<StateBanner
+									variant="info"
+									title="Arsenal-fixture sample scope"
+									message={`Metrics for ${s.team_name} are computed across stored fixtures involving Arsenal FC.`}
+								/>
+							{/if}
+
 							<div class="grid grid-cols-1 md:grid-cols-12 gap-8">
 								<!-- Big Metric Hero -->
 								<div class="md:col-span-5 bg-paper-2 border-t-2 border-rule-2 p-6 flex flex-col justify-between space-y-6">
 									<div class="space-y-2">
-										<span class="text-xs font-semibold text-ink-2">{s.team_name}</span>
+										<div class="flex items-center justify-between gap-2 flex-wrap">
+											<span class="text-xs font-semibold text-ink-2">{s.team_name}</span>
+											{#if s.matches_played > 0 && s.matches_played < 5}
+												<span class="text-xs font-semibold text-accent-2 border border-rule px-2 py-0.5 rounded-card">
+													Small sample (n = {s.matches_played})
+												</span>
+											{/if}
+										</div>
 										<div class="text-4xl font-bold text-ink num font-outlier">
-											{s.metric_value} <span class="text-lg text-accent-2 font-normal">{s.unit}</span>
+											{#if s.matches_played === 0}
+												n/a <span class="text-sm text-muted font-normal block mt-1">No completed matches in sample</span>
+											{:else}
+												{s.metric_value} <span class="text-lg text-accent-2 font-normal">{s.unit}</span>
+											{/if}
 										</div>
 										<p class="text-xs text-muted">Formula: {result.formula}</p>
 									</div>
@@ -1030,9 +1402,14 @@
 						<div class="space-y-8">
 							{#if deltaDiff}
 								<div class="border-y border-rule py-4 flex items-center justify-between flex-wrap gap-2 text-xs">
-									<div class="flex items-center gap-2">
+									<div class="flex items-center gap-2 flex-wrap">
 										<span class="text-muted">Result:</span>
 										<span class="text-sm font-bold text-accent-2">{deltaDiff.text}</span>
+										{#if Math.abs(t1.matches_played - t2.matches_played) >= 10}
+											<span class="text-xs text-ink-2 border border-rule px-2 py-0.5 rounded-card">
+												Unequal sample sizes ({t1.matches_played} vs {t2.matches_played})
+											</span>
+										{/if}
 									</div>
 									<div class="text-muted">
 										Comparing <strong class="text-ink">{t1.team_name}</strong> vs <strong class="text-ink">{t2.team_name}</strong> ({result.venue_filter} matches)
@@ -1043,33 +1420,47 @@
 							<!-- Side-by-Side Stat Blocks -->
 							<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
 								<div class="bg-paper-2 border-t-2 border-rule-2 p-5 space-y-4">
-									<div class="flex items-center justify-between">
-										<h3 class="text-base font-bold text-ink">{t1.team_name}</h3>
+									<div class="flex items-center justify-between gap-2">
+										<h3 class="text-base font-bold text-ink card-headline">{t1.team_name}</h3>
 										<span class="text-xs num font-outlier text-muted">{t1.matches_played} matches</span>
 									</div>
 									<div class="text-3xl font-bold num font-outlier text-ink">
-										{t1.metric_value} <span class="text-base text-accent-2">{t1.unit}</span>
+										{#if t1.matches_played === 0}
+											n/a <span class="text-xs text-muted font-normal">No matches</span>
+										{:else}
+											{t1.metric_value} <span class="text-base text-accent-2">{t1.unit}</span>
+										{/if}
 									</div>
+									{#if t1.matches_played > 0 && t1.matches_played < 5}
+										<p class="text-xs text-accent-2">Small sample (n = {t1.matches_played})</p>
+									{/if}
 									<div class="w-full bg-paper h-2.5 rounded-card overflow-hidden">
 										<div
 											class="h-full bg-accent"
-											style="width: {(Math.abs(t1.metric_value) / maxMetricVal) * 100}%;"
+											style="width: {t1.matches_played > 0 ? (Math.abs(t1.metric_value) / maxMetricVal) * 100 : 0}%;"
 										></div>
 									</div>
 								</div>
 
 								<div class="bg-paper-2 border-t-2 border-rule-2 p-5 space-y-4">
-									<div class="flex items-center justify-between">
-										<h3 class="text-base font-bold text-ink">{t2.team_name}</h3>
+									<div class="flex items-center justify-between gap-2">
+										<h3 class="text-base font-bold text-ink card-headline">{t2.team_name}</h3>
 										<span class="text-xs num font-outlier text-muted">{t2.matches_played} matches</span>
 									</div>
 									<div class="text-3xl font-bold num font-outlier text-ink">
-										{t2.metric_value} <span class="text-base text-accent-2">{t2.unit}</span>
+										{#if t2.matches_played === 0}
+											n/a <span class="text-xs text-muted font-normal">No matches</span>
+										{:else}
+											{t2.metric_value} <span class="text-base text-accent-2">{t2.unit}</span>
+										{/if}
 									</div>
+									{#if t2.matches_played > 0 && t2.matches_played < 5}
+										<p class="text-xs text-accent-2">Small sample (n = {t2.matches_played})</p>
+									{/if}
 									<div class="w-full bg-paper h-2.5 rounded-card overflow-hidden">
 										<div
 											class="h-full bg-accent-2"
-											style="width: {(Math.abs(t2.metric_value) / maxMetricVal) * 100}%;"
+											style="width: {t2.matches_played > 0 ? (Math.abs(t2.metric_value) / maxMetricVal) * 100 : 0}%;"
 										></div>
 									</div>
 								</div>
@@ -1111,9 +1502,9 @@
 											<td class="py-3 pl-4">{t2.clean_sheets || 0}</td>
 										</tr>
 										<tr>
-											<td class="py-3 pr-4 font-body text-ink font-semibold">Selected metric ({getMetricLabel(metric)})</td>
-											<td class="py-3 px-4 font-bold text-accent-2">{t1.metric_value} {t1.unit}</td>
-											<td class="py-3 pl-4 font-bold text-accent-2">{t2.metric_value} {t2.unit}</td>
+											<td class="py-3 pr-4 font-body text-ink font-semibold">Selected metric ({getMetricLabel(result.metric || metric)})</td>
+											<td class="py-3 px-4 font-bold text-accent-2">{t1.matches_played === 0 ? '—' : `${t1.metric_value} ${t1.unit}`}</td>
+											<td class="py-3 pl-4 font-bold text-accent-2">{t2.matches_played === 0 ? '—' : `${t2.metric_value} ${t2.unit}`}</td>
 										</tr>
 									</tbody>
 								</table>
@@ -1128,9 +1519,17 @@
 
 			{:else if activeTab === 'trends'}
 				{#if trendsLoading}
-					<div class="py-16 border-t border-rule text-muted text-sm">
+					<div class="py-16 border-t border-rule text-muted text-sm" role="status" aria-live="polite">
 						Compiling Mikel Arteta era seasonal trajectories…
 					</div>
+				{:else if trendsError}
+					<StateBanner
+						variant="error"
+						title="Multi-season trends unavailable"
+						message={trendsError}
+						onretry={runTrendsQuery}
+						busy={trendsLoading}
+					/>
 				{:else if trendsData && trendsData.trends.length > 0}
 					<div class="space-y-8">
 						<!-- Trends Header & Selected Point Callout -->
@@ -1140,7 +1539,7 @@
 									{trendsData.club_name} multi-season trajectory ({activeTrendMeta.label})
 								</h2>
 								<p class="text-xs text-muted">
-									Chronological Arteta-era progression across {trendsData.venue_filter} venues. Hover or focus any season point to inspect.
+									Chronological progression across {trendsData.venue_filter} venues{trendsData.club_id !== 'arsenal' ? ' (Arsenal fixtures only)' : ''}. Select any season point or pill to inspect.
 								</p>
 							</div>
 							{#if activeTrendItem}
@@ -1151,126 +1550,149 @@
 											? `${getTrendValue(activeTrendItem, trendMetric)} ${activeTrendMeta.unit}`
 											: 'No matches'}
 									</div>
+									<div class="text-xs text-muted num font-outlier">
+										{activeTrendItem.matches_played} matches
+									</div>
 								</div>
 							{/if}
 						</div>
 
-						<!-- Interactive SVG Line & Point Chart -->
-						<div class="bg-paper-2 border border-rule rounded-card p-5 space-y-4">
-							<svg
-								viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-								aria-label={`${trendsData.club_name} ${activeTrendMeta.label} trend from 2019/20 to 2026/27`}
-								class="w-full h-auto"
-							>
-								<defs>
-									<linearGradient id="trend-area-grad" x1="0" y1="0" x2="0" y2="1">
-										<stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0.2" />
-										<stop offset="100%" stop-color="var(--color-accent)" stop-opacity="0" />
-									</linearGradient>
-								</defs>
-
-								<!-- Horizontal Gridlines & Y-Axis Ticks -->
-								{#each trendScale.ticks as tickVal}
-									{@const yPos = PAD_T + PLOT_H - (tickVal / trendScale.ceiling) * PLOT_H}
-									<line
-										x1={PAD_L}
-										y1={yPos}
-										x2={CHART_W - PAD_R}
-										y2={yPos}
-										stroke="var(--color-rule)"
-										stroke-width="1"
-									/>
-									<text
-										x={PAD_L - 10}
-										y={yPos + 4}
-										text-anchor="end"
-										fill="var(--color-muted)"
-										font-size="11"
-										font-family="var(--font-outlier)"
+						<!-- Interactive SVG Line & Point Chart (horizontally scrollable on small phones for readability) -->
+						<div class="bg-paper-2 border-y border-rule p-5 space-y-4">
+							<div class="overflow-x-auto">
+								<div class="min-w-[540px]">
+									<svg
+										viewBox={`0 0 ${CHART_W} ${CHART_H}`}
+										role="img"
+										aria-label={`${trendsData.club_name} ${activeTrendMeta.label} trend from 2019/20 to 2026/27`}
+										class="w-full h-auto block"
 									>
-										{trendMetric === 'win_rate' || trendMetric === 'clean_sheet_rate'
-											? `${Math.round(tickVal)}%`
-											: tickVal.toFixed(1)}
-									</text>
-								{/each}
+										<defs>
+											<linearGradient id="trend-area-grad" x1="0" y1="0" x2="0" y2="1">
+												<stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0.2" />
+												<stop offset="100%" stop-color="var(--color-accent)" stop-opacity="0" />
+											</linearGradient>
+										</defs>
 
-								<!-- Area Fill -->
-								{#if trendScale.areaPath}
-									<path d={trendScale.areaPath} fill="url(#trend-area-grad)" />
-								{/if}
-
-								<!-- Trend Line -->
-								{#if trendScale.linePath}
-									<path
-										d={trendScale.linePath}
-										fill="none"
-										stroke="var(--color-accent)"
-										stroke-width="2.5"
-										stroke-linejoin="round"
-										stroke-linecap="round"
-									/>
-								{/if}
-
-								<!-- Season Points & X-Axis Labels -->
-								{#each trendScale.points as pt}
-									{@const isFocused = activeTrendItem?.season_id === pt.row.season_id}
-									{@const shortLabel = shortSeasonLabel(pt.row)}
-									<text
-										x={pt.x}
-										y={CHART_H - 14}
-										text-anchor="middle"
-										fill={isFocused ? 'var(--color-ink)' : 'var(--color-muted)'}
-										font-size="11"
-										font-weight={isFocused ? '700' : '400'}
-										font-family="var(--font-outlier)"
-									>
-										{shortLabel}
-									</text>
-
-									<g
-										role="button"
-										tabindex="0"
-										aria-label={`${pt.row.label}: ${pt.hasData ? `${pt.val} ${activeTrendMeta.unit}, ${pt.row.wins}W ${pt.row.draws}D ${pt.row.losses}L` : 'No completed matches'}`}
-										aria-pressed={isFocused}
-										onclick={() => (selectedTrendSeasonId = pt.row.season_id)}
-										onmouseenter={() => (selectedTrendSeasonId = pt.row.season_id)}
-										onfocus={() => (selectedTrendSeasonId = pt.row.season_id)}
-										onkeydown={(e) => handleTrendPointKeydown(e, pt.row.season_id)}
-										class="cursor-pointer trend-point"
-									>
-										<circle cx={pt.x} cy={pt.hasData ? pt.y : trendScale.baselineY} r="14" fill="transparent" />
-										{#if pt.hasData}
-											{#if isFocused}
-												<circle
-													cx={pt.x}
-													cy={pt.y}
-													r="9"
-													fill="none"
-													stroke="var(--color-accent-2)"
-													stroke-width="2"
-												/>
-											{/if}
-											<circle
-												cx={pt.x}
-												cy={pt.y}
-												r={isFocused ? '6' : '4.5'}
-												fill={isFocused ? 'var(--color-accent-2)' : 'var(--color-accent)'}
-												stroke="var(--color-paper)"
-												stroke-width="2"
+										<!-- Horizontal Gridlines & Y-Axis Ticks -->
+										{#each trendScale.ticks as tickVal (tickVal)}
+											{@const yPos = PAD_T + PLOT_H - (tickVal / trendScale.ceiling) * PLOT_H}
+											<line
+												x1={PAD_L}
+												y1={yPos}
+												x2={CHART_W - PAD_R}
+												y2={yPos}
+												stroke="var(--color-rule)"
+												stroke-width="1"
 											/>
-										{:else}
-											<circle
-												cx={pt.x}
-												cy={trendScale.baselineY}
-												r="4"
-												fill="var(--color-paper-2)"
-												stroke="var(--color-muted)"
-												stroke-width="1.5"
+											<text
+												x={PAD_L - 10}
+												y={yPos + 4}
+												text-anchor="end"
+												fill="var(--color-muted)"
+												font-size="11"
+												font-family="var(--font-outlier)"
+											>
+												{trendMetric === 'win_rate' || trendMetric === 'clean_sheet_rate'
+													? `${Math.round(tickVal)}%`
+													: tickVal.toFixed(1)}
+											</text>
+										{/each}
+
+										<!-- Area Fills (split across unplayed season gaps) -->
+										{#each trendScale.areaPaths as aPath, idx (`area_${idx}`)}
+											<path d={aPath} fill="url(#trend-area-grad)" />
+										{/each}
+
+										<!-- Trend Line -->
+										{#if trendScale.linePath}
+											<path
+												d={trendScale.linePath}
+												fill="none"
+												stroke="var(--color-accent)"
+												stroke-width="2.5"
+												stroke-linejoin="round"
+												stroke-linecap="round"
 											/>
 										{/if}
-									</g>
+
+										<!-- Season Points & X-Axis Labels -->
+										{#each trendScale.points as pt (pt.row.season_id)}
+											{@const isFocused = activeTrendItem?.season_id === pt.row.season_id}
+											{@const shortLabel = shortSeasonLabel(pt.row)}
+											<text
+												x={pt.x}
+												y={CHART_H - 14}
+												text-anchor="middle"
+												fill={isFocused ? 'var(--color-ink)' : 'var(--color-muted)'}
+												font-size="11"
+												font-weight={isFocused ? '700' : '400'}
+												font-family="var(--font-outlier)"
+											>
+												{shortLabel}
+											</text>
+
+											<g
+												role="button"
+												tabindex="0"
+												aria-label={`${pt.row.label}: ${pt.hasData ? `${pt.val} ${activeTrendMeta.unit}, ${pt.row.wins}W ${pt.row.draws}D ${pt.row.losses}L` : 'No completed matches'}`}
+												aria-pressed={isFocused}
+												onclick={() => (selectedTrendSeasonId = pt.row.season_id)}
+												onmouseenter={() => (selectedTrendSeasonId = pt.row.season_id)}
+												onfocus={() => (selectedTrendSeasonId = pt.row.season_id)}
+												onkeydown={(e) => handleTrendPointKeydown(e, pt.row.season_id)}
+												class="cursor-pointer trend-point"
+											>
+												<circle cx={pt.x} cy={pt.hasData ? pt.y : trendScale.baselineY} r="18" fill="transparent" />
+												{#if pt.hasData}
+													{#if isFocused}
+														<circle
+															cx={pt.x}
+															cy={pt.y}
+															r="9"
+															fill="none"
+															stroke="var(--color-accent-2)"
+															stroke-width="2"
+														/>
+													{/if}
+													<circle
+														cx={pt.x}
+														cy={pt.y}
+														r={isFocused ? '6' : '4.5'}
+														fill={isFocused ? 'var(--color-accent-2)' : 'var(--color-accent)'}
+														stroke="var(--color-paper)"
+														stroke-width="2"
+													/>
+												{:else}
+													<circle
+														cx={pt.x}
+														cy={trendScale.baselineY}
+														r="4"
+														fill="var(--color-paper-2)"
+														stroke="var(--color-muted)"
+														stroke-width="1.5"
+													/>
+												{/if}
+											</g>
+										{/each}
+									</svg>
+								</div>
+							</div>
+
+							<!-- Touch-Friendly 44px Season Selector Strip -->
+							<div class="flex items-center gap-2 overflow-x-auto pb-1">
+								{#each trendsData.trends as item (item.season_id)}
+									{@const isPillActive = activeTrendItem?.season_id === item.season_id}
+									<button
+										type="button"
+										onclick={() => (selectedTrendSeasonId = item.season_id)}
+										aria-pressed={isPillActive}
+										class="min-h-[44px] px-3 rounded-card border text-xs font-outlier whitespace-nowrap transition-colors {isPillActive ? 'bg-paper-3 text-ink border-rule-2 font-bold' : 'bg-paper text-ink-2 border-rule hover:text-ink'}"
+									>
+										{shortSeasonLabel(item)}
+									</button>
 								{/each}
-							</svg>
+							</div>
 
 							{#if activeTrendItem}
 								<div class="border-t border-rule pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
@@ -1278,7 +1700,7 @@
 										<div class="font-bold text-ink">{activeTrendItem.label}</div>
 										<p class="text-ink-2">{activeTrendItem.arteta_milestone}</p>
 									</div>
-									<div class="flex items-center gap-4 num font-outlier shrink-0">
+									<div class="flex items-center gap-4 num font-outlier shrink-0 flex-wrap">
 										<span class="text-ink">{activeTrendItem.matches_played} P</span>
 										<span class="text-success">{activeTrendItem.wins}W</span>
 										<span class="text-accent-2">{activeTrendItem.draws}D</span>
@@ -1302,18 +1724,24 @@
 										<th class="py-3 px-2 font-semibold">Win %</th>
 										<th class="py-3 px-2 font-semibold">PPG</th>
 										<th class="py-3 px-2 font-semibold">G/M</th>
-										<th class="py-3 pl-3 font-semibold">Arteta milestone</th>
+										<th class="py-3 pl-3 font-semibold">
+											{trendsData.club_id === 'arsenal' ? 'Arteta milestone' : 'Campaign context'}
+										</th>
 									</tr>
 								</thead>
 								<tbody class="divide-y divide-rule text-ink-2">
-									{#each trendsData.trends as item}
+									{#each trendsData.trends as item (item.season_id)}
 										{@const isRowActive = activeTrendItem?.season_id === item.season_id}
-										<tr
-											onclick={() => (selectedTrendSeasonId = item.season_id)}
-											class="cursor-pointer transition-colors {isRowActive ? 'bg-paper-2 text-ink' : 'hover:bg-paper-2'}"
-										>
-											<td class="py-3 pr-3 font-semibold text-ink whitespace-nowrap num font-outlier">
-												{item.label}
+										<tr class="transition-colors {isRowActive ? 'bg-paper-2 text-ink' : 'hover:bg-paper-2'}">
+											<td class="py-1.5 pr-3 whitespace-nowrap num font-outlier">
+												<button
+													type="button"
+													onclick={() => (selectedTrendSeasonId = item.season_id)}
+													aria-pressed={isRowActive}
+													class="min-h-[44px] text-left font-semibold text-ink hover:text-accent-text transition-colors"
+												>
+													{item.label}
+												</button>
 											</td>
 											<td class="py-3 px-2 num font-outlier">{item.matches_played}</td>
 											<td class="py-3 px-2 num font-outlier whitespace-nowrap">
@@ -1343,9 +1771,17 @@
 
 			{:else if activeTab === 'h2h'}
 				{#if h2hLoading}
-					<div class="py-16 border-t border-rule text-muted text-sm">
+					<div class="py-16 border-t border-rule text-muted text-sm" role="status" aria-live="polite">
 						Loading head-to-head match history…
 					</div>
+				{:else if h2hError}
+					<StateBanner
+						variant="error"
+						title="Opponent head-to-head unavailable"
+						message={h2hError}
+						onretry={runH2HQuery}
+						busy={h2hLoading}
+					/>
 				{:else if h2hData}
 					<div class="space-y-8">
 						<!-- H2H Header & W-D-L Bar -->
@@ -1360,9 +1796,20 @@
 							</div>
 
 							<div class="flex flex-wrap items-baseline justify-between gap-4">
-								<div class="flex items-baseline gap-3">
-									<span class="text-3xl font-bold text-ink num font-outlier">{h2hData.win_rate}%</span>
-									<span class="text-xs text-muted">win rate across {h2hData.matches_played} meetings</span>
+								<div class="flex items-baseline gap-3 flex-wrap">
+									<span class="text-3xl font-bold text-ink num font-outlier">
+										{h2hData.matches_played === 0 ? '—' : `${h2hData.win_rate}%`}
+									</span>
+									<span class="text-xs text-muted">
+										{h2hData.matches_played === 0
+											? 'No completed meetings recorded'
+											: `win rate across ${h2hData.matches_played} meetings`}
+									</span>
+									{#if h2hData.matches_played > 0 && h2hData.matches_played < 5}
+										<span class="text-xs font-semibold text-accent-2 border border-rule px-2 py-0.5 rounded-card">
+											Small sample (n = {h2hData.matches_played})
+										</span>
+									{/if}
 								</div>
 								<div class="flex items-center gap-4 text-xs num font-outlier font-semibold">
 									<span class="text-success">{h2hData.wins}W</span>
@@ -1415,7 +1862,7 @@
 								</p>
 							{:else}
 								<div class="divide-y divide-rule border-b border-rule">
-									{#each h2hData.recent_matches as m}
+									{#each h2hData.recent_matches as m (m.id)}
 										{@const outcome = getH2HMatchOutcome(m.home_team_id, m.away_team_id, m.home_score, m.away_score, h2hData.club_id)}
 										<a
 											href="/matches/{encodeURIComponent(m.id)}"
@@ -1452,15 +1899,23 @@
 					</div>
 				{:else}
 					<div class="py-12 border-t border-rule text-muted text-sm">
-						Unable to load opponent head-to-head records right now.
+						No opponent head-to-head records found for this selection.
 					</div>
 				{/if}
 
 			{:else if activeTab === 'squad'}
 				{#if squadLoading}
-					<div class="py-16 border-t border-rule text-muted text-sm">
+					<div class="py-16 border-t border-rule text-muted text-sm" role="status" aria-live="polite">
 						Computing Arsenal squad head-to-head metrics…
 					</div>
+				{:else if squadError}
+					<StateBanner
+						variant="error"
+						title="Squad comparison unavailable"
+						message={squadError}
+						onretry={runSquadComparison}
+						busy={squadLoading}
+					/>
 				{:else if playerComparison}
 					{@const p1 = playerComparison.player1.player}
 					{@const p2 = playerComparison.player2.player}
@@ -1472,12 +1927,12 @@
 								class="bg-paper-2 border-t-2 border-accent p-5 space-y-2 hover:bg-paper-3 transition-colors block"
 							>
 								<div class="flex items-center justify-between text-xs text-muted">
-									<span class="text-accent font-semibold">Player A</span>
+									<span class="text-accent-text font-semibold">Player A</span>
 									<span class="num font-outlier">{p1.appearances} apps ({p1.minutes_played} min)</span>
 								</div>
 								<div class="flex items-baseline gap-3">
-									<span class="num font-display font-bold text-2xl text-accent">#{p1.jersey_number}</span>
-									<h2 class="text-lg font-bold text-ink">{p1.name}</h2>
+									<span class="num font-display font-bold text-2xl text-accent-text">#{p1.jersey_number}</span>
+									<h2 class="text-lg font-bold text-ink card-headline">{p1.name}</h2>
 								</div>
 								<p class="text-xs text-muted">{p1.position}, {p1.nationality}</p>
 							</a>
@@ -1492,7 +1947,7 @@
 								</div>
 								<div class="flex items-baseline gap-3">
 									<span class="num font-display font-bold text-2xl text-accent-2">#{p2.jersey_number}</span>
-									<h2 class="text-lg font-bold text-ink">{p2.name}</h2>
+									<h2 class="text-lg font-bold text-ink card-headline">{p2.name}</h2>
 								</div>
 								<p class="text-xs text-muted">{p2.position}, {p2.nationality}</p>
 							</a>
@@ -1500,7 +1955,7 @@
 
 						<!-- Normalized Comparison Bars -->
 						<div class="border-t-2 border-rule-2 pt-5 space-y-6">
-							<div class="flex items-baseline justify-between border-b border-rule pb-3">
+							<div class="flex items-baseline justify-between border-b border-rule pb-3 flex-wrap gap-2">
 								<h3 class="text-base font-bold text-ink">Normalized head-to-head comparison</h3>
 								<div class="flex items-center gap-4 text-xs text-ink-2">
 									<span class="inline-flex items-center gap-1.5">
@@ -1515,7 +1970,7 @@
 							</div>
 
 							<div class="divide-y divide-rule">
-								{#each squadComparisonBars as bar}
+								{#each squadComparisonBars as bar (bar.key)}
 									<div class="py-4 space-y-3">
 										<div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
 											<span class="text-sm font-semibold text-ink">{bar.label}</span>
@@ -1561,22 +2016,42 @@
 					matches={data.historicalMatches}
 					initialDetail={data.initialHistoricalDetail}
 					initialMatchId={data.activeHistoricalMatchId}
+					initialMatchesError={data.historicalMatchesError}
+					initialDetailError={data.initialHistoricalDetailError}
 					showBackLink={false}
 				/>
 			{/if}
+			</div>
 		</main>
 	</div>
 
 	<!-- Create Insight Modal -->
 	{#if isModalOpen}
-		<div class="fixed inset-0 z-50 bg-paper/85 flex items-center justify-center p-4">
-			<div class="bg-paper-2 border-t-2 border-rule-2 max-w-lg w-full p-6 space-y-5">
+		<div class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4">
+			<button
+				type="button"
+				tabindex="-1"
+				aria-label="Close modal"
+				onclick={() => (isModalOpen = false)}
+				class="fixed inset-0 w-full h-full bg-paper/85 cursor-default"
+			></button>
+			<div
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="ins-modal-title"
+				use:focusTrap={{
+					active: isModalOpen,
+					onEscape: () => (isModalOpen = false),
+					initialFocusSelector: '#ins-title'
+				}}
+				class="relative z-10 bg-paper-2 border-t-2 border-rule-2 max-w-lg w-full p-6 space-y-5"
+			>
 				<div class="flex items-center justify-between border-b border-rule pb-3">
-					<h3 class="text-base font-bold text-ink">Publish shareable insight</h3>
+					<h3 id="ins-modal-title" class="text-base font-bold text-ink">Publish shareable insight</h3>
 					<button
 						type="button"
 						onclick={() => (isModalOpen = false)}
-						class="text-muted hover:text-ink text-xs font-semibold"
+						class="min-h-[44px] px-2 text-muted hover:text-ink text-xs font-semibold"
 					>
 						Close
 					</button>
@@ -1584,55 +2059,79 @@
 
 				<div class="space-y-4 text-xs">
 					<div>
-						<label for="ins-title" class="block font-semibold text-ink-2 mb-1">Insight title</label>
+						<div class="flex items-center justify-between mb-1">
+							<label for="ins-title" class="font-semibold text-ink-2">Insight title</label>
+							<span class="num font-outlier text-muted">{trimmedInsightTitle.length}/200</span>
+						</div>
 						<input
 							id="ins-title"
 							type="text"
+							minlength={3}
+							maxlength={200}
 							bind:value={insightTitle}
-							class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-ink"
+							class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-ink"
 						/>
+						{#if trimmedInsightTitle.length < 3}
+							<p class="text-xs text-error mt-1">Title must be at least 3 characters.</p>
+						{/if}
 					</div>
 
 					<div>
-						<label for="ins-desc" class="block font-semibold text-ink-2 mb-1">Notes & description (optional)</label>
+						<div class="flex items-center justify-between mb-1">
+							<label for="ins-desc" class="font-semibold text-ink-2">Notes &amp; description (optional)</label>
+							<span class="num font-outlier text-muted">{insightDesc.length}/500</span>
+						</div>
 						<textarea
 							id="ins-desc"
 							rows="3"
+							maxlength={500}
 							bind:value={insightDesc}
 							class="w-full bg-paper border border-rule rounded-card p-3 text-ink"
 						></textarea>
 					</div>
 
 					<div class="border-t border-rule pt-3 text-xs text-muted space-y-1">
-						<p><strong class="text-ink-2">Metric:</strong> {getMetricLabel(metric)}</p>
-						<p><strong class="text-ink-2">Venue filter:</strong> {venue}</p>
 						<p>
-							This insight stores the exact query parameters and current statistical snapshot as an immutable record.
+							<strong class="text-ink-2">Metric:</strong>
+							{getMetricLabel(result?.metric || resultSnapshotMeta?.metric || metric)}
+						</p>
+						<p>
+							<strong class="text-ink-2">Venue filter:</strong>
+							{result?.venue_filter || resultSnapshotMeta?.venue || venue}
+						</p>
+						{#if (resultSnapshotMeta?.season_id || selectedSeason) !== 'all'}
+							<p>
+								<strong class="text-ink-2">Season snapshot:</strong>
+								{seasons.find((s) => s.id === (resultSnapshotMeta?.season_id || selectedSeason))?.label || (resultSnapshotMeta?.season_id || selectedSeason)}
+							</p>
+						{/if}
+						<p>
+							This insight stores the verified query parameters and statistical snapshot as an immutable record.
 						</p>
 					</div>
 				</div>
 
-				<div class="flex items-center justify-end gap-3 pt-2">
+				<div class="flex items-center justify-end gap-3 pt-2 flex-wrap">
 					{#if modalError}
 						<div role="alert" class="mr-auto text-xs text-error flex items-center gap-2">
 							<span>{modalError.message}</span>
 							{#if modalError.isAuth}
-								<a href="/login" class="underline text-ink font-semibold hover:text-accent">Sign in</a>
+								<a href="/login?next=/lab" class="underline text-ink font-semibold hover:text-accent-text">Sign in</a>
 							{/if}
 						</div>
 					{/if}
 					<button
 						type="button"
 						onclick={() => (isModalOpen = false)}
-						class="h-9 px-3 rounded-card text-xs font-semibold text-ink-2 hover:text-ink"
+						class="min-h-[44px] px-3 rounded-card text-xs font-semibold text-ink-2 hover:text-ink"
 					>
 						Cancel
 					</button>
 					<button
 						type="button"
 						onclick={submitInsight}
-						disabled={isSavingInsight || !insightTitle}
-						class="h-9 px-4 rounded-card text-xs font-semibold bg-accent hover:opacity-95 text-accent-ink transition-opacity"
+						disabled={isSavingInsight || !isInsightTitleValid}
+						class="min-h-[44px] px-4 rounded-card text-xs font-semibold bg-accent hover:opacity-95 disabled:opacity-50 text-accent-ink transition-opacity"
 					>
 						{publishBtnLabel}
 					</button>

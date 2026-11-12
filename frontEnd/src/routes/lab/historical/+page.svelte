@@ -21,6 +21,8 @@
 		matches={data.matches}
 		initialDetail={data.detail}
 		initialMatchId={data.activeMatchId}
+		initialMatchesError={data.matchesError}
+		initialDetailError={data.detailError}
 		showBackLink={true}
 	/>
 </div>

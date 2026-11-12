@@ -74,9 +74,21 @@ jobs:
         working-directory: frontEnd
         run: npm run check
 
+      - name: Run Frontend Unit Tests
+        working-directory: frontEnd
+        run: npm run test:unit
+
       - name: Build SvelteKit Production Bundle
         working-directory: frontEnd
         run: npm run build
+
+      - name: Install Playwright Chromium
+        working-directory: frontEnd
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Frontend E2E Tests
+        working-directory: frontEnd
+        run: npm run test:e2e
 
   preview-deployment:
     name: Preview Environment

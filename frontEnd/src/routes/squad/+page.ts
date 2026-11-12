@@ -1,19 +1,16 @@
-import { fetchSquad, fetchClubs } from '$lib/api/football';
+import { fetchSquadResult } from '$lib/api/football';
 import type { PageLoad } from './$types';
 
-export const load: PageLoad = async ({ url }) => {
-	const posParam = url.searchParams.get('position') || undefined;
+export const load: PageLoad = async ({ url, fetch }) => {
+	const posParam = url.searchParams.get('position') || 'all';
 	const compare1 = url.searchParams.get('compare1');
 	const compare2 = url.searchParams.get('compare2');
 
-	const [players, clubs] = await Promise.all([
-		fetchSquad('arsenal', posParam),
-		fetchClubs()
-	]);
+	const squadRes = await fetchSquadResult('arsenal', posParam !== 'all' ? posParam : undefined, fetch);
 
 	return {
-		players,
-		clubs,
+		players: squadRes.data,
+		squadError: squadRes.error,
 		activeClubId: 'arsenal',
 		activePosition: posParam,
 		initialCompare1: compare1,

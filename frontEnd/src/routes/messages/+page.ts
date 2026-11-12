@@ -1,15 +1,17 @@
-import { fetchConversations, fetchClubs } from '$lib/api/football';
+import { fetchConversationsResult, fetchClubs } from '$lib/api/football';
 import { searchSupporters } from '$lib/api/community';
 import type { PageLoad } from './$types';
 
-export const load: PageLoad = async ({ parent, url }) => {
-	const { session, profile } = await parent();
-	const userId = session?.user?.id || profile?.id || null;
+export const load: PageLoad = async ({ parent, url, fetch }) => {
+	const { user, session, profile } = await parent();
+	const userId = user?.id || profile?.id || null;
 	const accessToken = session?.access_token ?? null;
-	const isSignedIn = Boolean(userId && accessToken);
+	const isSignedIn = Boolean(user && userId && accessToken);
 
-	const [conversations, clubs, initialSupporters] = await Promise.all([
-		isSignedIn ? fetchConversations(userId ?? undefined, accessToken) : Promise.resolve([]),
+	const [conversationsResult, clubs, initialSupporters] = await Promise.all([
+		isSignedIn
+			? fetchConversationsResult(userId ?? undefined, accessToken, fetch)
+			: Promise.resolve({ data: [], error: null, status: 200, isFallback: false }),
 		fetchClubs(),
 		isSignedIn ? searchSupporters('', 12, accessToken).catch(() => []) : Promise.resolve([])
 	]);
@@ -20,7 +22,8 @@ export const load: PageLoad = async ({ parent, url }) => {
 	const initialConversationId = url.searchParams.get('c');
 
 	return {
-		conversations,
+		conversations: conversationsResult.data,
+		conversationsError: conversationsResult.error,
 		clubs,
 		initialSupporters,
 		initialConversationId,
