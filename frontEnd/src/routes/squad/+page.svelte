@@ -160,16 +160,9 @@
 	<title>Arsenal First-Team Squad & Player Comparisons | GUNNERS</title>
 </svelte:head>
 
-<div class="container py-12 space-y-10">
-	<!-- Page Header -->
-	<div class="border-b-2 border-rule-2 pb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
-		<div class="space-y-3">
-			<h1 class="text-[length:var(--text-display-s)]">Arsenal squad directory</h1>
-			<p class="lead text-ink-2">
-				Mikel Arteta’s first-team roster statistics, appearances, goal contributions, and head-to-head player comparisons.
-			</p>
-		</div>
-
+<div class="container py-8 space-y-6">
+	<!-- Compact Action Bar -->
+	<div class="border-b border-rule pb-4 flex items-center justify-between gap-4 flex-wrap">
 		<div class="flex items-center gap-3 flex-wrap">
 			<a
 				href="/board"

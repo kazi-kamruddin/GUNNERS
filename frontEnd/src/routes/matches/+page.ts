@@ -17,7 +17,8 @@ export const load: PageLoad = async ({ url, fetch }) => {
 				club_id: 'arsenal',
 				competition_id: compParam !== 'ALL' ? compParam : undefined,
 				status: statusParam !== 'ALL' ? statusParam : undefined,
-				season_id: seasonId === 'all' ? undefined : seasonId
+				season_id: seasonId === 'all' ? undefined : seasonId,
+				limit: 100
 			},
 			fetch
 		),

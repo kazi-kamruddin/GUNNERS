@@ -219,42 +219,9 @@
 	<title>The Armory | Live Arsenal News Aggregator</title>
 </svelte:head>
 
-<div class="container py-12 space-y-10">
-	<!-- Page Header -->
-	<div class="border-b-2 border-rule-2 pb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
-		<div class="space-y-3">
-			<h1 class="text-[length:var(--text-display-s)]">The Armory news wire</h1>
-			<p class="lead text-ink-2">
-				Aggregated coverage and tactical debriefs from Pain in the Arsenal, Arseblog, BBC Sport, and r/Gunners.
-			</p>
-		</div>
-
-		<button
-			type="button"
-			onclick={handleRefresh}
-			disabled={isRefreshing}
-			class="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-sm font-semibold text-ink transition-colors self-start md:self-auto whitespace-nowrap"
-		>
-			<svg
-				class="w-4 h-4 shrink-0 {isRefreshing ? 'motion-safe:animate-spin text-accent-text' : 'text-muted'}"
-				aria-hidden="true"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-				/>
-			</svg>
-			<span>{refreshBtnText}</span>
-		</button>
-	</div>
-
-	<!-- Controls & Category Tabs -->
-	<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+<div class="container py-8 space-y-6">
+	<!-- Compact Controls & Category Tabs -->
+	<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-rule pb-4">
 		<!-- Category Filter Tabs -->
 		<div class="flex items-center gap-2 flex-wrap">
 			{#each categories as cat (cat.id)}
@@ -270,25 +237,50 @@
 			{/each}
 		</div>
 
-		<!-- Live Keyword Search -->
-		<div class="relative w-full lg:w-80">
-			<input
-				type="search"
-				aria-label="Filter headlines by keyword or player"
-				value={searchQuery}
-				oninput={handleSearchInput}
-				placeholder="Filter headlines, Arteta, Saka…"
-				class="w-full min-h-[44px] bg-paper-2 border border-rule rounded-card pl-9 pr-3 text-sm text-ink placeholder-muted transition-colors"
-			/>
-			<svg
-				class="w-4 h-4 text-muted absolute left-3 top-3.5 shrink-0"
-				aria-hidden="true"
-				fill="none"
-				viewBox="0 0 24 24"
-				stroke="currentColor"
+		<div class="flex items-center gap-3 w-full lg:w-auto">
+			<!-- Live Keyword Search -->
+			<div class="relative flex-1 lg:w-72">
+				<input
+					type="search"
+					aria-label="Filter headlines by keyword or player"
+					value={searchQuery}
+					oninput={handleSearchInput}
+					placeholder="Filter headlines, Arteta, Saka…"
+					class="w-full min-h-[44px] bg-paper-2 border border-rule rounded-card pl-9 pr-3 text-sm text-ink placeholder-muted transition-colors"
+				/>
+				<svg
+					class="w-4 h-4 text-muted absolute left-3 top-3.5 shrink-0"
+					aria-hidden="true"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				</svg>
+			</div>
+
+			<button
+				type="button"
+				onclick={handleRefresh}
+				disabled={isRefreshing}
+				class="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-sm font-semibold text-ink transition-colors whitespace-nowrap shrink-0"
 			>
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-			</svg>
+				<svg
+					class="w-4 h-4 shrink-0 {isRefreshing ? 'motion-safe:animate-spin text-accent-text' : 'text-muted'}"
+					aria-hidden="true"
+					fill="none"
+					viewBox="0 0 24 24"
+					stroke="currentColor"
+				>
+					<path
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						stroke-width="2"
+						d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+					/>
+				</svg>
+				<span>{refreshBtnText}</span>
+			</button>
 		</div>
 	</div>
 
@@ -357,65 +349,61 @@
 			onretry={hasActiveFilters ? clearFilters : handleRefresh}
 		/>
 	{:else if articles.length > 0}
-		<div class="grid grid-cols-1 md:grid-cols-2 gap-8 {isFiltering ? 'opacity-70 transition-opacity' : ''}">
+		<div class="w-full lg:w-[80%] mx-auto flex flex-col gap-5 {isFiltering ? 'opacity-70 transition-opacity' : ''}">
 			{#each articles as art, idx (art.id)}
 				<a
 					href={art.article_url}
 					target="_blank"
 					rel="noopener noreferrer"
-					class="group border-t border-rule pt-5 flex flex-col justify-between space-y-4 hover:border-rule-2 transition-colors"
+					class="group rounded-card border border-rule bg-paper-2 hover:border-rule-2 hover:bg-paper-3/60 transition-colors p-4 flex flex-col sm:flex-row items-stretch gap-5"
 				>
-					<div class="space-y-3">
-						<!-- Source Name & Timestamp Header -->
-						<div class="flex items-center justify-between text-xs text-muted">
-							<span class="font-semibold text-ink-2">{art.source_name}</span>
-							<time class="num">{formatTimeAgo(art.published_at)}</time>
+					<!-- Left: Image Thumbnail (~30% width on desktop) -->
+					{#if art.image_url && !failedImages[art.id]}
+						<div class="w-full sm:w-[30%] shrink-0 rounded-card overflow-hidden bg-paper border border-rule flex items-center justify-center">
+							<img
+								src={art.image_url}
+								alt={art.title}
+								width="480"
+								height="320"
+								loading={idx < 3 ? 'eager' : 'lazy'}
+								fetchpriority={idx === 0 ? 'high' : 'auto'}
+								class="w-full h-44 sm:h-full sm:max-h-48 object-cover object-center"
+								onerror={() => {
+									failedImages = { ...failedImages, [art.id]: true };
+								}}
+							/>
+						</div>
+					{/if}
+
+					<!-- Right: Title (top, left-aligned) + Excerpt (smaller, left-aligned) + Meta -->
+					<div class="flex-1 min-w-0 flex flex-col justify-between gap-3 text-left">
+						<div class="space-y-2 text-left">
+							<div class="flex items-center justify-between gap-2 text-xs text-muted">
+								<span class="font-semibold text-ink-2">{art.source_name}</span>
+								<time class="num">{formatTimeAgo(art.published_at)}</time>
+							</div>
+
+							<h3 class="text-lg font-bold text-ink group-hover:text-accent-text transition-colors text-left card-headline">
+								{art.title}
+							</h3>
+
+							<p class="text-xs sm:text-sm text-ink-2 line-clamp-3 leading-relaxed text-left">
+								{art.summary}
+							</p>
 						</div>
 
-						<!-- Image Thumbnail (collapses cleanly if image fails) -->
-						{#if art.image_url && !failedImages[art.id]}
-							<div class="w-full h-52 rounded-card overflow-hidden bg-paper-2 border border-rule">
-								<img
-									src={art.image_url}
-									alt={art.title}
-									width="640"
-									height="360"
-									loading={idx < 2 ? 'eager' : 'lazy'}
-									fetchpriority={idx === 0 ? 'high' : 'auto'}
-									class="w-full h-full object-cover"
-									onerror={() => {
-										failedImages = { ...failedImages, [art.id]: true };
-									}}
-								/>
+						<div class="pt-2 border-t border-rule flex items-center justify-between gap-3 flex-wrap text-xs text-muted">
+							<div class="flex items-center gap-2 flex-wrap">
+								{#if art.tags && art.tags.length > 0}
+									{#each art.tags as tag, tIdx (tIdx)}
+										<span>#{tag}</span>
+									{/each}
+								{/if}
 							</div>
-						{/if}
-
-						<!-- Title -->
-						<h3 class="text-base font-bold text-ink group-hover:text-accent-text transition-colors line-clamp-2 card-headline">
-							{art.title}
-						</h3>
-
-						<!-- Summary / Snippet -->
-						<p class="text-sm text-ink-2 line-clamp-3">
-							{art.summary}
-						</p>
-
-						<!-- Dynamic Entity Tags -->
-						{#if art.tags && art.tags.length > 0}
-							<div class="flex items-center gap-2 flex-wrap pt-1 text-xs text-muted">
-								{#each art.tags as tag, tIdx (tIdx)}
-									<span>#{tag}</span>
-								{/each}
-							</div>
-						{/if}
-					</div>
-
-					<!-- Outbound Redirect Footer -->
-					<div class="pt-3 border-t border-rule flex items-center justify-between text-xs text-muted">
-						<span>Source: {art.source_name}</span>
-						<span class="font-semibold text-accent-text group-hover:underline">
-							Read dispatch<span class="visually-hidden"> (opens in a new tab)</span>
-						</span>
+							<span class="font-semibold text-accent-text group-hover:underline ml-auto">
+								Read dispatch<span class="visually-hidden"> (opens in a new tab)</span>
+							</span>
+						</div>
 					</div>
 				</a>
 			{/each}

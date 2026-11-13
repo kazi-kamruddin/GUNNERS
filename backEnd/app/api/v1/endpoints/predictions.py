@@ -72,14 +72,23 @@ def format_prediction_response(p: Prediction) -> PredictionResponse:
 async def get_upcoming_matches_for_prediction(
     optional_user: OptionalUserDep,
     user_id: Optional[str] = Query(None),
-    club_id: Optional[str] = Query(None, description="Optional club filter (e.g. arsenal)"),
+    club_id: str = Query("arsenal", description="Club filter (defaults to arsenal)"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Retrieve scheduled matches from DB along with real prediction counts and kickoff lock status."""
-    stmt = select(Match).where(Match.status == "SCHEDULED")
-    if club_id:
-        stmt = stmt.where(or_(Match.home_team_id == club_id, Match.away_team_id == club_id))
-    stmt = stmt.order_by(Match.utc_date.asc()).limit(10)
+    """Retrieve scheduled Arsenal matches from DB along with real prediction counts and kickoff lock status."""
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    stmt = (
+        select(Match)
+        .where(
+            and_(
+                Match.status == "SCHEDULED",
+                Match.utc_date > now_utc,
+                or_(Match.home_team_id == club_id, Match.away_team_id == club_id),
+            )
+        )
+        .order_by(Match.utc_date.asc())
+        .limit(10)
+    )
 
     res = await db.execute(stmt)
     scheduled_matches = res.scalars().all()

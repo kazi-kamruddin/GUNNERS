@@ -206,10 +206,10 @@
 				<a
 					href="/"
 					aria-label="GUNNERS Home"
-					class="inline-flex items-baseline gap-2.5 min-h-[44px] py-2 text-ink hover:text-accent-text transition-colors shrink-0"
+					class="inline-flex items-center gap-2.5 min-h-[44px] py-2 text-ink hover:text-accent-text transition-colors shrink-0"
 				>
+					<img src={favicon} alt="" class="w-6 h-6 rounded-[4px] shrink-0" aria-hidden="true" />
 					<span class="font-display font-bold text-lg sm:text-xl">Gunners</span>
-					<span class="hidden sm:inline text-xs text-muted">North London</span>
 				</a>
 
 				<nav aria-label="Primary navigation" class="hidden lg:flex items-center gap-4 xl:gap-5 text-sm">
@@ -344,7 +344,7 @@
 					<a href="/terrace" class="inline-flex items-center min-h-[44px] text-ink-2 hover:text-ink transition-colors">The Terrace</a>
 				</nav>
 			</div>
-			<p class="text-muted text-xs sm:text-sm">Victoria Concordia Crescit. Built with SvelteKit, FastAPI, and Supabase.</p>
+			<p class="text-muted text-xs sm:text-sm">North London Forever. Built with SvelteKit, FastAPI, and Supabase.</p>
 		</div>
 	</footer>
 </div>

@@ -15,7 +15,7 @@ test.describe('Interactive Tools: Dugout, Data Lab, Historical Pitch & Predictor
 			expect(bodyText).not.toContain(legacy);
 		}
 
-		const sakaToken = page.locator('svg[aria-label="Arsenal tactical pitch diagram"] g[role="button"]', {
+		const sakaToken = page.locator('svg[aria-label*="tactical pitch diagram"] g[role="button"]', {
 			hasText: 'Saka'
 		}).first();
 		await expect(sakaToken).toBeVisible();
@@ -35,17 +35,17 @@ test.describe('Interactive Tools: Dugout, Data Lab, Historical Pitch & Predictor
 		expect(afterTransform).not.toBe(beforeTransform);
 
 		// Bench swap replaces starter cleanly
-		const gyokeresBench = page.getByRole('button', { name: /Gyökeres/i }).first();
-		await gyokeresBench.click();
-		await expect(gyokeresBench).toHaveAttribute('aria-pressed', 'true');
+		const maduekeBench = page.getByRole('button', { name: /Madueke/i }).first();
+		await maduekeBench.click();
+		await expect(maduekeBench).toHaveAttribute('aria-pressed', 'true');
 		await sakaToken.click();
 		await expect(
-			page.locator('svg[aria-label="Arsenal tactical pitch diagram"] g[role="button"]', { hasText: 'Gyökeres' })
+			page.locator('svg[aria-label*="tactical pitch diagram"] g[role="button"]', { hasText: 'Madueke' })
 		).toBeVisible();
 
 		// Vector drawing + Undo + Clear
 		await page.getByRole('button', { name: 'Run vector' }).click();
-		const pitchSvg = page.locator('svg[aria-label="Arsenal tactical pitch diagram"]');
+		const pitchSvg = page.locator('svg[aria-label*="tactical pitch diagram"]');
 		await pitchSvg.scrollIntoViewIfNeeded();
 		const box = await pitchSvg.boundingBox();
 		expect(box).not.toBeNull();
@@ -86,7 +86,7 @@ test.describe('Interactive Tools: Dugout, Data Lab, Historical Pitch & Predictor
 		await page.waitForLoadState('load');
 		await navigateSpa(page, '/board');
 
-		const sakaToken = page.locator('svg[aria-label="Arsenal tactical pitch diagram"] g[role="button"]', {
+		const sakaToken = page.locator('svg[aria-label*="tactical pitch diagram"] g[role="button"]', {
 			hasText: 'Saka'
 		}).first();
 		await sakaToken.focus();

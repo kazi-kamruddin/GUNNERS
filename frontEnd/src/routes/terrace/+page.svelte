@@ -706,22 +706,19 @@
 	<title>The Terrace | Arsenal FC Supporter Community & Tactical Debriefs</title>
 </svelte:head>
 
-<div class="container py-12 space-y-12 max-w-4xl">
-	<!-- Page Header -->
-	<div class="border-b-2 border-rule-2 pb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
-		<div class="space-y-3">
-			<h1>The Terrace</h1>
-			<p class="lead text-ink-2">
-				Share match observations, debate tactical lineups, attach Data Lab snapshots, and connect with fellow Gooners worldwide.
+<div class="container py-8 space-y-8 max-w-4xl">
+	<!-- Compact Purpose Banner -->
+	<div class="border-b border-rule pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+		<div class="space-y-1">
+			<div class="text-xs font-semibold uppercase tracking-wider text-accent-text">Supporter Forum &amp; Tactical Feed</div>
+			<p class="text-sm text-ink-2">
+				Post match reactions, share Dugout tactical blueprints, and debate Data Lab snapshots with fellow Gooners.
 			</p>
 		</div>
 
 		{#if !data.user}
-			<div class="border-t border-rule pt-3 text-xs text-ink-2 max-w-xs space-y-1">
-				<div class="font-bold text-accent-text">Guest browsing mode</div>
-				<p class="text-muted leading-snug">
-					Read all posts, tactics, and debriefs freely. <a href="/login?next={authNext}" class="text-ink underline font-semibold hover:text-accent-text">Sign in</a> to join debates or publish.
-				</p>
+			<div class="text-xs text-muted shrink-0">
+				Guest mode · <a href="/login?next={authNext}" class="text-ink underline font-semibold hover:text-accent-text">Sign in</a> to post or debate
 			</div>
 		{/if}
 	</div>
@@ -1102,16 +1099,20 @@
 			/>
 		{/if}
 
-		<div class="divide-y divide-rule border-t border-rule">
+		<div class="space-y-5">
 			{#each visiblePosts as post (post.id)}
 				{@const debateBtnLabel = `Debates (${post.comments_count})`}
 				{@const cheerBtnLabel = `Cheer (${post.reactions_count})`}
 				{@const isPostOwner = Boolean(data.user?.id && post.author_id === data.user.id)}
 				{@const edited = isPostEdited(post)}
-				<article id="post-{post.id}" class="py-8 space-y-4">
+				{@const postKind = post.tactical_board_id ? 'Tactical Blueprint' : post.insight_id ? 'Data Lab Insight' : 'Supporter Dispatch'}
+				<article id="post-{post.id}" class="rounded-card border border-rule bg-paper-2 p-5 sm:p-6 space-y-4">
 					<!-- Post Author & Meta -->
-					<div class="flex items-center justify-between text-xs gap-3 flex-wrap">
-						<div class="flex items-center gap-3 flex-wrap">
+					<div class="flex items-center justify-between text-xs gap-3 flex-wrap border-b border-rule pb-3">
+						<div class="flex items-center gap-2.5 flex-wrap">
+							<span class="px-2 py-0.5 rounded-chip bg-paper-3 border border-rule text-[11px] font-semibold text-accent-text uppercase tracking-wider">
+								{postKind}
+							</span>
 							<a
 								href="/supporters/{encodeURIComponent(post.author_name)}"
 								class="font-bold text-ink hover:text-accent-text transition-colors"
