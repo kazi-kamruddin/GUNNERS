@@ -1,5 +1,9 @@
 <script lang="ts">
-	import { fetchArsenalNews } from '$lib/api/football';
+	import { replaceState } from '$app/navigation';
+	import { page } from '$app/state';
+	import { untrack } from 'svelte';
+	import StateBanner from '$lib/components/StateBanner.svelte';
+	import { fetchArsenalNewsResult } from '$lib/api/football';
 	import type { NewsItem } from '$lib/types/football';
 	import type { PageProps } from './$types';
 
@@ -7,39 +11,43 @@
 
 	const PAGE_SIZE = 12;
 
-	let articles = $state<NewsItem[]>([]);
-	let total = $state<number>(0);
-	let hasMore = $state<boolean>(false);
-	let sourcesActive = $state<string[]>([]);
-	let selectedCategory = $state<string>('all');
-	let selectedTag = $state<string>('all');
-	let searchQuery = $state<string>('');
+	let articles = $state<NewsItem[]>(untrack(() => data.feed?.articles ?? []));
+	let total = $state<number>(untrack(() => data.feed?.total ?? 0));
+	let hasMore = $state<boolean>(untrack(() => Boolean(data.feed?.has_more)));
+	let sourcesActive = $state<string[]>(untrack(() => data.feed?.sources_active ?? []));
+	let apiError = $state<string | null>(untrack(() => data.apiError ?? null));
+	let selectedCategory = $state<string>(untrack(() => data.category || 'all'));
+	let selectedTag = $state<string>(untrack(() => data.tag || 'all'));
+	let searchQuery = $state<string>(untrack(() => data.search || ''));
 	let isRefreshing = $state<boolean>(false);
 	let isFiltering = $state<boolean>(false);
 	let isLoadingMore = $state<boolean>(false);
+	let failedImages = $state<Record<string, boolean>>({});
 	let sentinelEl = $state<HTMLDivElement | null>(null);
 	let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-	let initialized = false;
+	let requestSeq = 0;
 
 	let refreshBtnText = $derived(isRefreshing ? 'Syncing…' : 'Sync feeds');
-	let loadMoreLabel = $derived(isLoadingMore ? 'Loading more dispatches…' : 'Load more dispatches');
+	let loadMoreLabel = $derived(isLoadingMore ? 'Loading more…' : 'Load more dispatches');
+	let hasActiveFilters = $derived(
+		selectedCategory !== 'all' || selectedTag !== 'all' || searchQuery.trim().length > 0
+	);
 
 	$effect(() => {
-		if (!initialized && data.feed) {
-			articles = data.feed.articles ?? [];
-			total = data.feed.total ?? articles.length;
-			hasMore = Boolean(data.feed.has_more);
-			sourcesActive = data.feed.sources_active ?? [];
-			selectedCategory = data.category || 'all';
-			selectedTag = data.tag || 'all';
-			searchQuery = data.search || '';
-			initialized = true;
-		}
+		articles = data.feed?.articles ?? [];
+		total = data.feed?.total ?? articles.length;
+		hasMore = Boolean(data.feed?.has_more);
+		sourcesActive = data.feed?.sources_active ?? [];
+		apiError = data.apiError ?? null;
+		selectedCategory = data.category || 'all';
+		selectedTag = data.tag || 'all';
+		searchQuery = data.search || '';
+		failedImages = {};
 	});
 
 	const categories = [
 		{ id: 'all', label: 'All updates' },
-		{ id: 'fan_blog', label: 'Fan blogs (Pain in the Arsenal, Arseblog)' },
+		{ id: 'fan_blog', label: 'Fan blogs' },
 		{ id: 'reddit', label: 'r/Gunners top week' },
 		{ id: 'broadcast', label: 'Broadcast (BBC Sport)' }
 	];
@@ -57,10 +65,24 @@
 		'Transfers'
 	];
 
+	function syncNewsUrl() {
+		if (typeof window === 'undefined') return;
+		const nextUrl = new URL(page.url.href);
+		if (selectedCategory && selectedCategory !== 'all') nextUrl.searchParams.set('category', selectedCategory);
+		else nextUrl.searchParams.delete('category');
+		if (selectedTag && selectedTag !== 'all') nextUrl.searchParams.set('tag', selectedTag);
+		else nextUrl.searchParams.delete('tag');
+		if (searchQuery.trim()) nextUrl.searchParams.set('search', searchQuery.trim());
+		else nextUrl.searchParams.delete('search');
+		replaceState(nextUrl, {});
+	}
+
 	async function reloadFeed(opts: { refresh?: boolean } = {}) {
+		const seq = ++requestSeq;
 		isFiltering = true;
+		syncNewsUrl();
 		try {
-			const nextFeed = await fetchArsenalNews({
+			const res = await fetchArsenalNewsResult({
 				limit: PAGE_SIZE,
 				offset: 0,
 				category: selectedCategory,
@@ -68,12 +90,18 @@
 				search: searchQuery,
 				refresh: Boolean(opts.refresh)
 			});
-			articles = nextFeed.articles ?? [];
-			total = nextFeed.total ?? articles.length;
-			hasMore = Boolean(nextFeed.has_more);
-			sourcesActive = nextFeed.sources_active ?? [];
+			if (seq !== requestSeq) return;
+			apiError = res.error;
+			if (!res.error) {
+				articles = res.data.articles ?? [];
+				total = res.data.total ?? articles.length;
+				hasMore = Boolean(res.data.has_more);
+				sourcesActive = res.data.sources_active ?? [];
+			}
 		} finally {
-			isFiltering = false;
+			if (seq === requestSeq) {
+				isFiltering = false;
+			}
 		}
 	}
 
@@ -91,11 +119,19 @@
 		await reloadFeed();
 	}
 
+	async function clearFilters() {
+		if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+		selectedCategory = 'all';
+		selectedTag = 'all';
+		searchQuery = '';
+		await reloadFeed();
+	}
+
 	function handleSearchInput(e: Event) {
 		searchQuery = (e.currentTarget as HTMLInputElement).value;
 		if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
 		searchDebounceTimer = setTimeout(() => {
-			reloadFeed();
+			void reloadFeed();
 		}, 280);
 	}
 
@@ -112,20 +148,25 @@
 		if (!hasMore || isLoadingMore || isFiltering) return;
 		isLoadingMore = true;
 		try {
-			const nextFeed = await fetchArsenalNews({
+			const res = await fetchArsenalNewsResult({
 				limit: PAGE_SIZE,
 				offset: articles.length,
 				category: selectedCategory,
 				tag: selectedTag,
 				search: searchQuery
 			});
+			if (res.error) {
+				apiError = res.error;
+				return;
+			}
+			apiError = null;
 			const seen = new Set(articles.map((a) => a.id));
-			const incoming = (nextFeed.articles ?? []).filter((a) => !seen.has(a.id));
+			const incoming = (res.data.articles ?? []).filter((a) => !seen.has(a.id));
 			articles = [...articles, ...incoming];
-			total = nextFeed.total ?? articles.length;
-			hasMore = Boolean(nextFeed.has_more) && incoming.length > 0;
-			if (nextFeed.sources_active?.length) {
-				sourcesActive = nextFeed.sources_active;
+			total = res.data.total ?? articles.length;
+			hasMore = Boolean(res.data.has_more) && incoming.length > 0;
+			if (res.data.sources_active?.length) {
+				sourcesActive = res.data.sources_active;
 			}
 		} finally {
 			isLoadingMore = false;
@@ -139,7 +180,7 @@
 		const observer = new IntersectionObserver(
 			(entries) => {
 				if (entries.some((entry) => entry.isIntersecting)) {
-					loadMore();
+					void loadMore();
 				}
 			},
 			{ rootMargin: '240px 0px' }
@@ -182,7 +223,7 @@
 	<!-- Page Header -->
 	<div class="border-b-2 border-rule-2 pb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
 		<div class="space-y-3">
-			<h1>The Armory news wire</h1>
+			<h1 class="text-[length:var(--text-display-s)]">The Armory news wire</h1>
 			<p class="lead text-ink-2">
 				Aggregated coverage and tactical debriefs from Pain in the Arsenal, Arseblog, BBC Sport, and r/Gunners.
 			</p>
@@ -192,10 +233,10 @@
 			type="button"
 			onclick={handleRefresh}
 			disabled={isRefreshing}
-			class="inline-flex items-center gap-2 h-10 px-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-sm font-semibold text-ink transition-colors self-start md:self-auto whitespace-nowrap"
+			class="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-sm font-semibold text-ink transition-colors self-start md:self-auto whitespace-nowrap"
 		>
 			<svg
-				class="w-4 h-4 shrink-0 {isRefreshing ? 'motion-safe:animate-spin text-accent' : 'text-muted'}"
+				class="w-4 h-4 shrink-0 {isRefreshing ? 'motion-safe:animate-spin text-accent-text' : 'text-muted'}"
 				aria-hidden="true"
 				fill="none"
 				viewBox="0 0 24 24"
@@ -216,11 +257,13 @@
 	<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
 		<!-- Category Filter Tabs -->
 		<div class="flex items-center gap-2 flex-wrap">
-			{#each categories as cat}
+			{#each categories as cat (cat.id)}
+				{@const active = selectedCategory === cat.id}
 				<button
 					type="button"
+					aria-pressed={active}
 					onclick={() => selectCategory(cat.id)}
-					class="h-9 px-3.5 rounded-card text-sm font-semibold transition-colors border whitespace-nowrap {selectedCategory === cat.id ? 'bg-accent text-accent-ink border-accent' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink hover:bg-paper-3'}"
+					class="min-h-[44px] px-3.5 rounded-card text-sm font-semibold transition-colors border whitespace-nowrap {active ? 'bg-accent text-accent-ink border-accent' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink hover:bg-paper-3'}"
 				>
 					{cat.label}
 				</button>
@@ -235,10 +278,10 @@
 				value={searchQuery}
 				oninput={handleSearchInput}
 				placeholder="Filter headlines, Arteta, Saka…"
-				class="w-full h-10 bg-paper-2 border border-rule rounded-card pl-9 pr-3 text-sm text-ink placeholder-muted transition-colors"
+				class="w-full min-h-[44px] bg-paper-2 border border-rule rounded-card pl-9 pr-3 text-sm text-ink placeholder-muted transition-colors"
 			/>
 			<svg
-				class="w-4 h-4 text-muted absolute left-3 top-3 shrink-0"
+				class="w-4 h-4 text-muted absolute left-3 top-3.5 shrink-0"
 				aria-hidden="true"
 				fill="none"
 				viewBox="0 0 24 24"
@@ -252,43 +295,69 @@
 	<!-- Quick Topic & Player Tags Bar -->
 	<div class="flex items-center gap-2 flex-wrap border-y border-rule py-3">
 		<span class="text-xs text-muted mr-1">Filter by topic:</span>
-		{#each quickTags as tag}
+		{#each quickTags as tag (tag)}
 			{@const isActive = (tag === 'All' && selectedTag === 'all') || selectedTag === tag}
 			<button
 				type="button"
+				aria-pressed={isActive}
 				onclick={() => toggleTag(tag)}
-				class="h-7 px-2.5 rounded-card text-xs font-semibold transition-colors border whitespace-nowrap {isActive ? 'bg-paper-3 text-accent-2 border-rule-2' : 'bg-paper text-muted border-rule hover:text-ink'}"
+				class="min-h-[44px] px-3 rounded-card text-xs font-semibold transition-colors border whitespace-nowrap {isActive ? 'bg-paper-3 text-accent-2 border-rule-2' : 'bg-paper text-muted border-rule hover:text-ink'}"
 			>
 				#{tag}
 			</button>
 		{/each}
+		{#if hasActiveFilters}
+			<button
+				type="button"
+				onclick={clearFilters}
+				class="min-h-[44px] px-3 rounded-card text-xs font-semibold text-accent-text hover:underline whitespace-nowrap"
+			>
+				Reset filters
+			</button>
+		{/if}
 	</div>
 
-	<!-- Active Sources Bar -->
+	<!-- Active Sources Bar & Live Count -->
 	<div class="flex items-center justify-between flex-wrap gap-3 text-xs text-muted">
-		<div>
+		<div class="min-w-0">
 			{#if sourcesActive.length > 0}
 				<span>Active syndication sources: </span>
 				<span class="text-ink-2 font-semibold">{sourcesActive.join(', ')}</span>
 			{/if}
 		</div>
-		<div class="num">
-			Showing {articles.length} of {total} dispatches
+		<div role="status" aria-live="polite" class="num flex items-center gap-2">
+			{#if isFiltering}
+				<span class="text-accent-2 font-semibold">Updating dispatches…</span>
+			{/if}
+			<span>Showing {articles.length} of {total} dispatches</span>
 		</div>
 	</div>
 
+	{#if apiError}
+		<StateBanner
+			variant="error"
+			title="The Armory wire is temporarily unavailable"
+			message={apiError}
+			busy={isFiltering || isRefreshing}
+			onretry={() => reloadFeed({ refresh: true })}
+		/>
+	{/if}
+
 	<!-- Articles Grid -->
 	{#if isFiltering && articles.length === 0}
-		<div class="border-t border-rule pt-10 text-sm text-muted">
+		<div role="status" class="border-t border-rule pt-10 text-sm text-muted">
 			Filtering Arsenal dispatches…
 		</div>
-	{:else if articles.length === 0}
-		<div class="border-t border-rule pt-10 space-y-2">
-			<h2 class="text-lg font-semibold text-ink">No matching news dispatches</h2>
-			<p class="text-sm text-muted">Clear your search filter or refresh the live syndication feeds.</p>
-		</div>
-	{:else}
-		<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+	{:else if articles.length === 0 && !apiError}
+		<StateBanner
+			variant="empty"
+			title="No matching news dispatches"
+			message="No dispatches matched your active category, topic tag, or search query."
+			retryLabel={hasActiveFilters ? 'Reset filters' : 'Refresh feeds'}
+			onretry={hasActiveFilters ? clearFilters : handleRefresh}
+		/>
+	{:else if articles.length > 0}
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-8 {isFiltering ? 'opacity-70 transition-opacity' : ''}">
 			{#each articles as art, idx (art.id)}
 				<a
 					href={art.article_url}
@@ -303,8 +372,8 @@
 							<time class="num">{formatTimeAgo(art.published_at)}</time>
 						</div>
 
-						<!-- Image Thumbnail (if present) -->
-						{#if art.image_url}
+						<!-- Image Thumbnail (collapses cleanly if image fails) -->
+						{#if art.image_url && !failedImages[art.id]}
 							<div class="w-full h-52 rounded-card overflow-hidden bg-paper-2 border border-rule">
 								<img
 									src={art.image_url}
@@ -314,13 +383,15 @@
 									loading={idx < 2 ? 'eager' : 'lazy'}
 									fetchpriority={idx === 0 ? 'high' : 'auto'}
 									class="w-full h-full object-cover"
-									onerror={(e) => ((e.currentTarget as HTMLElement).style.display = 'none')}
+									onerror={() => {
+										failedImages = { ...failedImages, [art.id]: true };
+									}}
 								/>
 							</div>
 						{/if}
 
 						<!-- Title -->
-						<h3 class="text-base font-bold text-ink group-hover:text-accent transition-colors line-clamp-2">
+						<h3 class="text-base font-bold text-ink group-hover:text-accent-text transition-colors line-clamp-2 card-headline">
 							{art.title}
 						</h3>
 
@@ -332,7 +403,7 @@
 						<!-- Dynamic Entity Tags -->
 						{#if art.tags && art.tags.length > 0}
 							<div class="flex items-center gap-2 flex-wrap pt-1 text-xs text-muted">
-								{#each art.tags as tag}
+								{#each art.tags as tag, tIdx (tIdx)}
 									<span>#{tag}</span>
 								{/each}
 							</div>
@@ -342,7 +413,9 @@
 					<!-- Outbound Redirect Footer -->
 					<div class="pt-3 border-t border-rule flex items-center justify-between text-xs text-muted">
 						<span>Source: {art.source_name}</span>
-						<span class="font-semibold text-accent group-hover:underline">Read dispatch</span>
+						<span class="font-semibold text-accent-text group-hover:underline">
+							Read dispatch<span class="visually-hidden"> (opens in a new tab)</span>
+						</span>
 					</div>
 				</a>
 			{/each}
@@ -355,7 +428,7 @@
 					type="button"
 					onclick={loadMore}
 					disabled={isLoadingMore}
-					class="inline-flex items-center h-10 px-5 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-sm font-semibold text-ink transition-colors whitespace-nowrap"
+					class="inline-flex items-center min-h-[44px] px-5 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-sm font-semibold text-ink transition-colors whitespace-nowrap"
 				>
 					{loadMoreLabel}
 				</button>

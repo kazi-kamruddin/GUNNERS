@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
+	import { focusTrap } from '$lib/actions/focusTrap';
 	import type { TacticalPlayerToken, TacticalAnnotation, Player } from '$lib/types/football';
 
 	interface Props {
@@ -27,9 +29,75 @@
 		onshare
 	}: Props = $props();
 
+	const DEFAULT_BENCH_POOL: TacticalPlayerToken[] = [
+		{ id: 'b1', name: 'Kepa', number: 13, role: 'GK', x: 0, y: 0 },
+		{ id: 'b2', name: 'Timber', number: 12, role: 'RB', x: 0, y: 0 },
+		{ id: 'b3', name: 'Calafiori', number: 33, role: 'LB', x: 0, y: 0 },
+		{ id: 'b4', name: 'Lewis-Skelly', number: 49, role: 'LB', x: 0, y: 0 },
+		{ id: 'b5', name: 'Merino', number: 23, role: 'CM', x: 0, y: 0 },
+		{ id: 'b6', name: 'Eze', number: 10, role: 'AM', x: 0, y: 0 },
+		{ id: 'b7', name: 'Trossard', number: 19, role: 'LW', x: 0, y: 0 },
+		{ id: 'b8', name: 'Madueke', number: 20, role: 'RW', x: 0, y: 0 },
+		{ id: 'b9', name: 'G. Jesus', number: 9, role: 'ST', x: 0, y: 0 },
+		{ id: 'b10', name: 'Gyökeres', number: 14, role: 'ST', x: 0, y: 0 },
+		{ id: 'b11', name: 'Zubimendi', number: 36, role: 'DM', x: 0, y: 0 },
+		{ id: 'b12', name: 'Nwaneri', number: 22, role: 'AM', x: 0, y: 0 }
+	];
+
+	function mapPositionToRole(position: string, existingRole?: string): string {
+		if (position === 'Goalkeeper') return 'GK';
+		if (position === 'Defender') {
+			return existingRole && ['CB', 'LB', 'RB', 'LWB', 'RWB'].includes(existingRole) ? existingRole : 'CB';
+		}
+		if (position === 'Midfielder') {
+			return existingRole && ['DM', 'CM', 'AM', 'LM', 'RM'].includes(existingRole) ? existingRole : 'CM';
+		}
+		if (position === 'Attacker') {
+			return existingRole && ['LW', 'RW', 'ST', 'CF'].includes(existingRole) ? existingRole : 'ST';
+		}
+		return existingRole || 'CM';
+	}
+
+	function shortSquadName(fullName: string): string {
+		const parts = fullName.trim().split(/\s+/);
+		return parts.length > 1 ? parts[parts.length - 1] : fullName;
+	}
+
+	function buildInitialBench(currentLineup: TacticalPlayerToken[], roster: Player[]): TacticalPlayerToken[] {
+		const starterNames = new Set(currentLineup.map((p) => p.name.trim().toLowerCase()));
+		const starterNums = new Set(currentLineup.map((p) => p.number));
+
+		if (roster && roster.length > 0) {
+			const derived: TacticalPlayerToken[] = [];
+			for (const p of roster) {
+				const last = shortSquadName(p.name).toLowerCase();
+				const full = p.name.trim().toLowerCase();
+				if (starterNames.has(last) || starterNames.has(full) || starterNums.has(p.jersey_number)) {
+					continue;
+				}
+				derived.push({
+					id: `b_${p.id}`,
+					name: shortSquadName(p.name),
+					number: p.jersey_number,
+					role: mapPositionToRole(p.position),
+					x: 0,
+					y: 0
+				});
+				if (derived.length >= 8) break;
+			}
+			if (derived.length >= 4) return derived;
+		}
+
+		const filtered = DEFAULT_BENCH_POOL.filter(
+			(bp) => !starterNames.has(bp.name.toLowerCase()) && !starterNums.has(bp.number)
+		);
+		return (filtered.length >= 8 ? filtered : DEFAULT_BENCH_POOL).slice(0, 8);
+	}
+
 	let activeTool = $state<'select' | 'run' | 'pass' | 'press'>('select');
 	let svgRef = $state<SVGSVGElement | null>(null);
 	let draggingPlayerId = $state<string | null>(null);
+	let dragStartCoords = $state<{ x: number; y: number } | null>(null);
 	let hasDragged = $state(false);
 	let isDrawingVector = $state(false);
 	let vectorStart = $state<{ x: number; y: number } | null>(null);
@@ -39,32 +107,30 @@
 	let isEditingBench = $state(false);
 	let selectedRosterId = $state('');
 	let exportSuccessMessage = $state<string | null>(null);
+	let modalErrorMessage = $state<string | null>(null);
 
 	let fluidModeLabel = $derived(fluidMode ? 'Fluid free-roam' : 'Preset grid');
 	let benchInstruction = $derived(
 		selectedBenchPlayerId
-			? 'Select a starting player on the pitch to complete the swap'
+			? 'Click or press Enter on a starting player to complete the swap (Escape to cancel)'
 			: 'Select a bench player to swap into the starting eleven'
 	);
 
+	// Seed default bench synchronously for SSR when interactive & empty
+	if (untrack(() => !readonly && bench.length === 0)) {
+		bench = untrack(() => buildInitialBench(lineup, squadPlayers));
+	}
+
 	$effect(() => {
-		if (bench.length === 0) {
-			bench = [
-				{ id: 'b1', name: 'Neto', number: 32, role: 'GK', x: 0, y: 0 },
-				{ id: 'b2', name: 'Timber', number: 12, role: 'DF', x: 0, y: 0 },
-				{ id: 'b3', name: 'Calafiori', number: 33, role: 'DF', x: 0, y: 0 },
-				{ id: 'b4', name: 'Merino', number: 23, role: 'MF', x: 0, y: 0 },
-				{ id: 'b5', name: 'Jorginho', number: 20, role: 'MF', x: 0, y: 0 },
-				{ id: 'b6', name: 'Trossard', number: 19, role: 'FW', x: 0, y: 0 },
-				{ id: 'b7', name: 'Sterling', number: 30, role: 'FW', x: 0, y: 0 },
-				{ id: 'b8', name: 'G. Jesus', number: 9, role: 'FW', x: 0, y: 0 }
-			];
+		if (!readonly && bench.length === 0) {
+			bench = buildInitialBench(lineup, squadPlayers);
 		}
 	});
 
 	function getPitchCoords(e: PointerEvent): { x: number; y: number } | null {
 		if (!svgRef) return null;
 		const rect = svgRef.getBoundingClientRect();
+		if (rect.width <= 0 || rect.height <= 0) return null;
 		const x = Math.max(2, Math.min(98, ((e.clientX - rect.left) / rect.width) * 100));
 		const y = Math.max(2, Math.min(98, ((e.clientY - rect.top) / rect.height) * 100));
 		return {
@@ -84,13 +150,17 @@
 		if (activeTool === 'select' && playerId) {
 			draggingPlayerId = playerId;
 			hasDragged = false;
-			(e.target as Element).setPointerCapture(e.pointerId);
+			dragStartCoords = getPitchCoords(e);
+			const targetEl = e.currentTarget as Element | null;
+			targetEl?.setPointerCapture?.(e.pointerId);
 		} else if (activeTool !== 'select') {
 			const pt = getPitchCoords(e);
 			if (pt) {
 				isDrawingVector = true;
 				vectorStart = pt;
 				vectorCurrent = pt;
+				const svgTarget = e.currentTarget as Element | null;
+				svgTarget?.setPointerCapture?.(e.pointerId);
 			}
 		}
 	}
@@ -99,15 +169,20 @@
 		if (readonly) return;
 
 		if (draggingPlayerId) {
-			hasDragged = true;
 			const pt = getPitchCoords(e);
-			if (pt) {
-				const idx = lineup.findIndex((p) => p.id === draggingPlayerId);
-				if (idx !== -1) {
-					lineup[idx].x = pt.x;
-					lineup[idx].y = pt.y;
-					onchange?.();
+			if (!pt) return;
+			if (!hasDragged && dragStartCoords) {
+				const delta = Math.hypot(pt.x - dragStartCoords.x, pt.y - dragStartCoords.y);
+				if (delta < 0.8) {
+					return;
 				}
+			}
+			hasDragged = true;
+			const idx = lineup.findIndex((p) => p.id === draggingPlayerId);
+			if (idx !== -1) {
+				lineup[idx].x = pt.x;
+				lineup[idx].y = pt.y;
+				onchange?.();
 			}
 		} else if (isDrawingVector && vectorStart) {
 			const pt = getPitchCoords(e);
@@ -122,13 +197,17 @@
 
 		if (draggingPlayerId) {
 			const pid = draggingPlayerId;
+			const didDrag = hasDragged;
 			draggingPlayerId = null;
-			if (!hasDragged) {
+			dragStartCoords = null;
+			hasDragged = false;
+			if (!didDrag) {
 				const player = lineup.find((p) => p.id === pid);
 				if (player) {
 					editingPlayer = { ...player };
 					isEditingBench = false;
 					selectedRosterId = '';
+					modalErrorMessage = null;
 				}
 			}
 		} else if (isDrawingVector && vectorStart && vectorCurrent) {
@@ -148,6 +227,56 @@
 			isDrawingVector = false;
 			vectorStart = null;
 			vectorCurrent = null;
+		}
+	}
+
+	function handlePointerCancel() {
+		draggingPlayerId = null;
+		dragStartCoords = null;
+		hasDragged = false;
+		isDrawingVector = false;
+		vectorStart = null;
+		vectorCurrent = null;
+	}
+
+	function handleTokenKeydown(e: KeyboardEvent, player: TacticalPlayerToken) {
+		if (readonly) return;
+
+		if (e.key === 'Escape' && selectedBenchPlayerId) {
+			e.preventDefault();
+			selectedBenchPlayerId = null;
+			return;
+		}
+
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			if (selectedBenchPlayerId) {
+				swapBenchWithStarting(selectedBenchPlayerId, player.id);
+				return;
+			}
+			editingPlayer = { ...player };
+			isEditingBench = false;
+			selectedRosterId = '';
+			modalErrorMessage = null;
+			return;
+		}
+
+		const step = e.shiftKey ? 5 : 2;
+		let dx = 0;
+		let dy = 0;
+		if (e.key === 'ArrowLeft') dx = -step;
+		else if (e.key === 'ArrowRight') dx = step;
+		else if (e.key === 'ArrowUp') dy = -step;
+		else if (e.key === 'ArrowDown') dy = step;
+
+		if (dx !== 0 || dy !== 0) {
+			e.preventDefault();
+			const idx = lineup.findIndex((p) => p.id === player.id);
+			if (idx !== -1) {
+				lineup[idx].x = Math.max(2, Math.min(98, Math.round((lineup[idx].x + dx) * 10) / 10));
+				lineup[idx].y = Math.max(2, Math.min(98, Math.round((lineup[idx].y + dy) * 10) / 10));
+				onchange?.();
+			}
 		}
 	}
 
@@ -175,6 +304,12 @@
 		}
 	}
 
+	function undoLastAnnotation() {
+		if (annotations.length === 0) return;
+		annotations = annotations.slice(0, -1);
+		onchange?.();
+	}
+
 	function clearAllAnnotations() {
 		annotations = [];
 		onchange?.();
@@ -182,48 +317,110 @@
 
 	function handleSavePlayerModal() {
 		if (!editingPlayer) return;
+		const cleanName = editingPlayer.name.trim();
+		if (!cleanName) {
+			modalErrorMessage = 'Player name cannot be empty.';
+			return;
+		}
+		const clampedNumber = Math.max(1, Math.min(99, Math.round(Number(editingPlayer.number) || 1)));
+		const updated: TacticalPlayerToken = {
+			...editingPlayer,
+			name: cleanName,
+			number: clampedNumber
+		};
+
 		if (isEditingBench) {
-			const idx = bench.findIndex((p) => p.id === editingPlayer?.id);
+			const idx = bench.findIndex((p) => p.id === updated.id);
 			if (idx !== -1) {
-				bench[idx] = { ...editingPlayer };
+				bench[idx] = updated;
 				onchange?.();
 			}
 		} else {
-			const idx = lineup.findIndex((p) => p.id === editingPlayer?.id);
+			const idx = lineup.findIndex((p) => p.id === updated.id);
 			if (idx !== -1) {
-				lineup[idx] = { ...editingPlayer };
+				lineup[idx] = updated;
 				onchange?.();
 			}
 		}
+		modalErrorMessage = null;
 		editingPlayer = null;
 	}
 
 	function handleRosterSelect(player: Player) {
 		if (!editingPlayer) return;
-		editingPlayer.name = player.name;
+		editingPlayer.name = shortSquadName(player.name);
 		editingPlayer.number = player.jersey_number;
-		editingPlayer.role = player.position;
+		editingPlayer.role = mapPositionToRole(player.position, editingPlayer.role);
+		modalErrorMessage = null;
+	}
+
+	function drawArrowOnCanvas(
+		ctx: CanvasRenderingContext2D,
+		x1: number,
+		y1: number,
+		x2: number,
+		y2: number,
+		color: string,
+		dash: number[],
+		lineWidth: number
+	) {
+		ctx.save();
+		ctx.strokeStyle = color;
+		ctx.fillStyle = color;
+		ctx.lineWidth = lineWidth;
+		ctx.lineCap = 'round';
+		ctx.setLineDash(dash);
+
+		ctx.beginPath();
+		ctx.moveTo(x1, y1);
+		ctx.lineTo(x2, y2);
+		ctx.stroke();
+
+		const angle = Math.atan2(y2 - y1, x2 - x1);
+		const headLen = 14;
+		ctx.setLineDash([]);
+		ctx.beginPath();
+		ctx.moveTo(x2, y2);
+		ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
+		ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
+		ctx.closePath();
+		ctx.fill();
+		ctx.restore();
 	}
 
 	function exportLineupAsImage() {
 		try {
 			const canvas = document.createElement('canvas');
 			canvas.width = 1200;
-			canvas.height = 850;
+			canvas.height = 870;
 			const ctx = canvas.getContext('2d');
 			if (!ctx) return;
 
-			ctx.fillStyle = 'rgb(6, 26, 9)';
-			ctx.fillRect(0, 0, 1200, 850);
+			const styles = getComputedStyle(document.documentElement);
+			const paperColor = styles.getPropertyValue('--color-paper').trim() || '#140f0e';
+			const paper2Color = styles.getPropertyValue('--color-paper-2').trim() || '#1d1614';
+			const ruleColor = styles.getPropertyValue('--color-rule-2').trim() || '#443532';
+			const inkColor = styles.getPropertyValue('--color-ink').trim() || '#f3eee8';
+			const accentColor = styles.getPropertyValue('--color-accent').trim() || '#c72a25';
+			const goldColor = styles.getPropertyValue('--color-accent-2').trim() || '#d5b263';
+			const successColor = styles.getPropertyValue('--color-success').trim() || '#3fb970';
+			const errorColor = styles.getPropertyValue('--color-error').trim() || '#e45c50';
+			const pitchColor = styles.getPropertyValue('--color-pitch').trim() || '#173822';
+			const pitch2Color = styles.getPropertyValue('--color-pitch-2').trim() || '#14321e';
 
-			ctx.fillStyle = 'rgb(8, 33, 12)';
-			for (let x = 0; x < 1200; x += 100) {
-				if ((x / 100) % 2 === 0) {
-					ctx.fillRect(x, 0, 50, 850);
-				}
+			ctx.fillStyle = paperColor;
+			ctx.fillRect(0, 0, 1200, 870);
+
+			ctx.fillStyle = pitchColor;
+			ctx.fillRect(50, 60, 1100, 680);
+
+			ctx.fillStyle = pitch2Color;
+			for (let x = 50; x < 1150; x += 110) {
+				ctx.fillRect(x, 60, 55, 680);
 			}
 
-			ctx.strokeStyle = 'rgb(34, 197, 94)';
+			ctx.strokeStyle = successColor;
+			ctx.globalAlpha = 0.45;
 			ctx.lineWidth = 3;
 			ctx.strokeRect(50, 60, 1100, 680);
 
@@ -238,61 +435,87 @@
 
 			ctx.strokeRect(50, 220, 180, 360);
 			ctx.strokeRect(970, 220, 180, 360);
+			ctx.globalAlpha = 1;
 
-			ctx.fillStyle = 'rgb(239, 1, 7)';
-			ctx.fillRect(50, 10, 1100, 35);
-			ctx.fillStyle = 'rgb(255, 255, 255)';
+			// Top Banner
+			ctx.fillStyle = accentColor;
+			ctx.fillRect(50, 12, 1100, 38);
+			ctx.fillStyle = inkColor;
 			ctx.font = 'bold 16px sans-serif';
-			ctx.fillText('GUNNERS REBORN : ARSENAL MATCHDAY TACTICAL LINEUP', 70, 33);
-			ctx.fillStyle = 'rgb(254, 240, 138)';
-			ctx.font = 'bold 14px monospace';
-			ctx.fillText(`FORMATION: ${formationName.toUpperCase()}`, 960, 33);
+			ctx.textAlign = 'left';
+			ctx.fillText('GUNNERS : ARSENAL MATCHDAY TACTICAL LINEUP', 70, 37);
 
+			ctx.fillStyle = goldColor;
+			ctx.font = 'bold 14px monospace';
+			ctx.textAlign = 'right';
+			ctx.fillText(`FORMATION: ${formationName.toUpperCase()}`, 1130, 36, 380);
+
+			// Tactical Vector Annotations
+			for (const ann of annotations) {
+				const x1 = 50 + (ann.from_x / 100) * 1100;
+				const y1 = 60 + (ann.from_y / 100) * 680;
+				const x2 = 50 + (ann.to_x / 100) * 1100;
+				const y2 = 60 + (ann.to_y / 100) * 680;
+				if (ann.type === 'run') {
+					drawArrowOnCanvas(ctx, x1, y1, x2, y2, goldColor, [], 4);
+				} else if (ann.type === 'pass') {
+					drawArrowOnCanvas(ctx, x1, y1, x2, y2, successColor, [10, 6], 3.5);
+				} else if (ann.type === 'press') {
+					drawArrowOnCanvas(ctx, x1, y1, x2, y2, errorColor, [12, 5], 4);
+				}
+			}
+
+			// Player Tokens
 			for (const p of lineup) {
 				const px = 50 + (p.x / 100) * 1100;
 				const py = 60 + (p.y / 100) * 680;
 
 				ctx.beginPath();
 				ctx.arc(px, py, 24, 0, Math.PI * 2);
-				ctx.fillStyle = 'rgb(239, 1, 7)';
+				ctx.fillStyle = accentColor;
 				ctx.fill();
 				ctx.lineWidth = 3;
-				ctx.strokeStyle = 'rgb(255, 255, 255)';
+				ctx.strokeStyle = inkColor;
 				ctx.stroke();
 
-				ctx.fillStyle = 'rgb(255, 255, 255)';
+				ctx.fillStyle = inkColor;
 				ctx.font = 'bold 16px monospace';
 				ctx.textAlign = 'center';
 				ctx.fillText(String(p.number), px, py + 6);
 
-				ctx.fillStyle = 'rgb(10, 12, 16)';
-				ctx.fillRect(px - 55, py + 30, 110, 20);
-				ctx.strokeStyle = 'rgb(156, 130, 74)';
+				ctx.fillStyle = paperColor;
+				ctx.fillRect(px - 62, py + 30, 124, 22);
+				ctx.strokeStyle = goldColor;
 				ctx.lineWidth = 1;
-				ctx.strokeRect(px - 55, py + 30, 110, 20);
+				ctx.strokeRect(px - 62, py + 30, 124, 22);
 
-				ctx.fillStyle = 'rgb(255, 255, 255)';
+				ctx.fillStyle = inkColor;
 				ctx.font = 'bold 11px sans-serif';
-				ctx.fillText(`${p.name} (${p.role})`, px, py + 44);
+				ctx.fillText(`${p.name} (${p.role})`, px, py + 45, 118);
 			}
 
-			ctx.fillStyle = 'rgb(13, 16, 23)';
-			ctx.fillRect(50, 760, 1100, 75);
-			ctx.strokeStyle = 'rgb(30, 36, 48)';
-			ctx.strokeRect(50, 760, 1100, 75);
+			// Substitutes Bench Bar (2 rows of 4 for unclipped long names)
+			ctx.fillStyle = paper2Color;
+			ctx.fillRect(50, 756, 1100, 96);
+			ctx.strokeStyle = ruleColor;
+			ctx.lineWidth = 1.5;
+			ctx.strokeRect(50, 756, 1100, 96);
 
-			ctx.fillStyle = 'rgb(156, 130, 74)';
+			ctx.fillStyle = goldColor;
 			ctx.font = 'bold 12px monospace';
 			ctx.textAlign = 'left';
-			ctx.fillText('BENCH:', 70, 802);
+			ctx.fillText('BENCH:', 70, 790);
 
-			let bx = 140;
-			for (const bp of bench.slice(0, 8)) {
-				ctx.fillStyle = 'rgb(255, 255, 255)';
-				ctx.font = '11px sans-serif';
-				ctx.fillText(`#${bp.number} ${bp.name}`, bx, 802);
-				bx += 115;
-			}
+			const benchSlice = bench.slice(0, 8);
+			benchSlice.forEach((bp, idx) => {
+				const col = idx % 4;
+				const row = Math.floor(idx / 4);
+				const bx = 155 + col * 245;
+				const by = row === 0 ? 790 : 826;
+				ctx.fillStyle = inkColor;
+				ctx.font = '13px sans-serif';
+				ctx.fillText(`#${bp.number} ${bp.name} (${bp.role})`, bx, by, 230);
+			});
 
 			const dataUrl = canvas.toDataURL('image/png');
 			const link = document.createElement('a');
@@ -308,13 +531,27 @@
 			console.error('Export failed:', err);
 		}
 	}
+
+	function displayTokenLabel(p: TacticalPlayerToken): string {
+		const raw = `${p.name} (${p.role})`;
+		return raw.length > 18 ? `${p.name.slice(0, 11)}… (${p.role})` : raw;
+	}
 </script>
 
 <div class="space-y-6 select-none">
 	{#if exportSuccessMessage}
-		<div class="p-3 rounded-card bg-paper-2 text-success border border-rule text-xs flex items-center justify-between">
+		<div
+			role="status"
+			class="p-3 rounded-card bg-paper-2 text-success border border-rule text-xs flex items-center justify-between gap-3"
+		>
 			<span>{exportSuccessMessage}</span>
-			<button type="button" onclick={() => (exportSuccessMessage = null)} class="text-muted hover:text-ink transition-colors">Close</button>
+			<button
+				type="button"
+				onclick={() => (exportSuccessMessage = null)}
+				class="min-h-[44px] px-2 text-muted hover:text-ink transition-colors font-semibold"
+			>
+				Close
+			</button>
 		</div>
 	{/if}
 
@@ -327,28 +564,32 @@
 				<button
 					type="button"
 					onclick={() => (activeTool = 'select')}
-					class="h-8 px-3 rounded-card font-semibold transition-colors border {activeTool === 'select' ? 'bg-paper-3 text-ink border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
+					aria-pressed={activeTool === 'select'}
+					class="min-h-[44px] px-3 rounded-card font-semibold transition-colors border {activeTool === 'select' ? 'bg-paper-3 text-ink border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 				>
 					Move tokens
 				</button>
 				<button
 					type="button"
 					onclick={() => (activeTool = 'run')}
-					class="h-8 px-3 rounded-card font-semibold transition-colors border {activeTool === 'run' ? 'bg-paper-3 text-accent-2 border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
+					aria-pressed={activeTool === 'run'}
+					class="min-h-[44px] px-3 rounded-card font-semibold transition-colors border {activeTool === 'run' ? 'bg-paper-3 text-accent-2 border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 				>
 					Run vector
 				</button>
 				<button
 					type="button"
 					onclick={() => (activeTool = 'pass')}
-					class="h-8 px-3 rounded-card font-semibold transition-colors border {activeTool === 'pass' ? 'bg-paper-3 text-success border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
+					aria-pressed={activeTool === 'pass'}
+					class="min-h-[44px] px-3 rounded-card font-semibold transition-colors border {activeTool === 'pass' ? 'bg-paper-3 text-success border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 				>
 					Pass channel
 				</button>
 				<button
 					type="button"
 					onclick={() => (activeTool = 'press')}
-					class="h-8 px-3 rounded-card font-semibold transition-colors border {activeTool === 'press' ? 'bg-paper-3 text-error border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
+					aria-pressed={activeTool === 'press'}
+					class="min-h-[44px] px-3 rounded-card font-semibold transition-colors border {activeTool === 'press' ? 'bg-paper-3 text-error border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 				>
 					High press
 				</button>
@@ -356,19 +597,20 @@
 				<button
 					type="button"
 					onclick={() => (fluidMode = !fluidMode)}
-					class="h-8 px-3 rounded-card font-semibold transition-colors border ml-1 {fluidMode ? 'bg-accent-2 text-paper border-accent-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
+					aria-pressed={fluidMode}
+					class="min-h-[44px] px-3 rounded-card font-semibold transition-colors border sm:ml-1 {fluidMode ? 'bg-accent-2 text-paper border-accent-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 					title="Fluid movement allows unconstrained dragging anywhere on pitch"
 				>
 					{fluidModeLabel}
 				</button>
 			</div>
 
-			<!-- Actions: Export PNG, Clear, Share -->
-			<div class="flex items-center gap-2">
+			<!-- Actions: Export PNG, Undo, Clear, Share -->
+			<div class="flex items-center gap-2 flex-wrap">
 				<button
 					type="button"
 					onclick={exportLineupAsImage}
-					class="h-8 px-3.5 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity"
+					class="min-h-[44px] px-3.5 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity"
 					title="Download high-resolution lineup graphic"
 				>
 					Export PNG
@@ -378,7 +620,7 @@
 					<button
 						type="button"
 						onclick={onshare}
-						class="h-8 px-3.5 rounded-card bg-paper-2 hover:bg-paper-3 text-accent-2 font-semibold text-xs transition-colors border border-rule"
+						class="min-h-[44px] px-3.5 rounded-card bg-paper-2 hover:bg-paper-3 text-accent-2 font-semibold text-xs transition-colors border border-rule"
 					>
 						Share to Terrace
 					</button>
@@ -387,8 +629,15 @@
 				{#if annotations.length > 0}
 					<button
 						type="button"
+						onclick={undoLastAnnotation}
+						class="min-h-[44px] px-3 rounded-card bg-paper-2 border border-rule text-ink-2 hover:text-ink font-semibold transition-colors"
+					>
+						Undo arrow
+					</button>
+					<button
+						type="button"
 						onclick={clearAllAnnotations}
-						class="h-8 px-2.5 rounded-card text-error hover:text-ink transition-colors"
+						class="min-h-[44px] px-2.5 rounded-card text-error hover:text-ink transition-colors font-semibold"
 					>
 						Clear arrows
 					</button>
@@ -398,16 +647,19 @@
 	{/if}
 
 	<!-- Pitch SVG Container -->
-	<div class="relative w-full rounded-card border border-rule bg-pitch overflow-hidden touch-none">
+	<div
+		class="relative w-full rounded-card border border-rule bg-pitch overflow-hidden {!readonly && (activeTool !== 'select' || draggingPlayerId !== null) ? 'touch-none' : 'touch-pan-y'}"
+	>
 		<svg
 			bind:this={svgRef}
 			viewBox="0 0 1000 680"
-			class="w-full h-auto cursor-crosshair"
-			role="application"
-			aria-label="Football tactical pitch diagram"
+			class="w-full h-auto {readonly ? '' : activeTool === 'select' ? 'cursor-default' : 'cursor-crosshair'}"
+			role={readonly ? 'img' : 'group'}
+			aria-label="Arsenal tactical pitch diagram"
 			onpointerdown={(e) => handlePointerDown(e)}
 			onpointermove={handlePointerMove}
 			onpointerup={handlePointerUp}
+			onpointercancel={handlePointerCancel}
 		>
 			<defs>
 				<marker id="arrow-run" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
@@ -489,77 +741,87 @@
 				{@const px = (player.x / 100) * 1000}
 				{@const py = (player.y / 100) * 680}
 				{@const isDragging = draggingPlayerId === player.id}
-				<g
-					transform="translate({px}, {py})"
-					class={readonly ? '' : 'cursor-grab active:cursor-grabbing focus:outline-none'}
-					role="button"
-					tabindex={readonly ? -1 : 0}
-					aria-label="{player.name} #{player.number} {player.role}"
-					onkeydown={(e) => {
-						if (!readonly && (e.key === 'Enter' || e.key === ' ')) {
-							editingPlayer = { ...player };
-							isEditingBench = false;
-							selectedRosterId = '';
-						}
-					}}
-					onpointerdown={(e) => {
-						e.stopPropagation();
-						handlePointerDown(e, player.id);
-					}}
-				>
-					{#if isDragging || (selectedBenchPlayerId && !readonly)}
-						<circle
-							r="30"
-							fill="none"
-							stroke={selectedBenchPlayerId ? 'var(--color-success)' : 'var(--color-accent-2)'}
-							stroke-width="3"
-							opacity="0.7"
-							stroke-dasharray={selectedBenchPlayerId ? '4 2' : 'none'}
-						/>
-					{/if}
-
-					<circle r="22" fill="var(--color-accent)" stroke="var(--color-ink)" stroke-width="3" />
-
-					<text text-anchor="middle" dy="5" fill="var(--color-ink)" font-size="14" font-weight="bold" font-family="var(--font-outlier)">
-						{player.number}
-					</text>
-
-					<g transform="translate(0, 32)">
-						<rect x="-48" y="-10" width="96" height="20" rx="4" fill="var(--color-paper)" fill-opacity="0.95" stroke="var(--color-accent-2)" stroke-width="1" />
-						<text text-anchor="middle" dy="4" fill="var(--color-ink)" font-size="10" font-weight="bold" font-family="var(--font-body)">
-							{player.name} ({player.role})
+				{#if readonly}
+					<g transform="translate({px}, {py})">
+						<circle r="22" fill="var(--color-accent)" stroke="var(--color-ink)" stroke-width="3" />
+						<text text-anchor="middle" dy="5" fill="var(--color-ink)" font-size="14" font-weight="bold" font-family="var(--font-outlier)">
+							{player.number}
 						</text>
+						<g transform="translate(0, 32)">
+							<rect x="-56" y="-11" width="112" height="22" rx="4" fill="var(--color-paper)" fill-opacity="0.95" stroke="var(--color-accent-2)" stroke-width="1" />
+							<text text-anchor="middle" dy="4" fill="var(--color-ink)" font-size="11" font-weight="bold" font-family="var(--font-body)">
+								{displayTokenLabel(player)}
+							</text>
+						</g>
 					</g>
-				</g>
+				{:else}
+					<g
+						transform="translate({px}, {py})"
+						class="cursor-grab active:cursor-grabbing pitch-token"
+						role="button"
+						tabindex="0"
+						aria-label={`${player.name} #${player.number} ${player.role}. Press Enter to edit or swap, Arrow keys to move.`}
+						onkeydown={(e) => handleTokenKeydown(e, player)}
+						onpointerdown={(e) => {
+							if (activeTool === 'select') {
+								e.stopPropagation();
+								handlePointerDown(e, player.id);
+							}
+						}}
+					>
+						{#if isDragging || selectedBenchPlayerId}
+							<circle
+								r="30"
+								fill="none"
+								stroke={selectedBenchPlayerId ? 'var(--color-success)' : 'var(--color-accent-2)'}
+								stroke-width="3"
+								opacity="0.7"
+								stroke-dasharray={selectedBenchPlayerId ? '4 2' : 'none'}
+							/>
+						{/if}
+
+						<circle r="22" fill="var(--color-accent)" stroke="var(--color-ink)" stroke-width="3" />
+
+						<text text-anchor="middle" dy="5" fill="var(--color-ink)" font-size="14" font-weight="bold" font-family="var(--font-outlier)">
+							{player.number}
+						</text>
+
+						<g transform="translate(0, 32)">
+							<rect x="-56" y="-11" width="112" height="22" rx="4" fill="var(--color-paper)" fill-opacity="0.95" stroke="var(--color-accent-2)" stroke-width="1" />
+							<text text-anchor="middle" dy="4" fill="var(--color-ink)" font-size="11" font-weight="bold" font-family="var(--font-body)">
+								{displayTokenLabel(player)}
+							</text>
+						</g>
+					</g>
+				{/if}
 			{/each}
 		</svg>
 	</div>
 
 	<!-- Substitutes Bench Pool (The Dugout) -->
-	{#if bench && bench.length > 0}
+	{#if !readonly && bench && bench.length > 0}
 		<div class="border-t border-rule pt-5 space-y-3">
 			<div class="flex items-center justify-between flex-wrap gap-2">
 				<span class="text-sm font-bold text-ink">
 					Substitutes bench (<span class="num font-outlier">{bench.length}</span> players)
 				</span>
-				<span class="text-xs text-muted">
+				<span class="text-xs text-muted" aria-live="polite">
 					{benchInstruction}
 				</span>
 			</div>
 
-			<div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-2.5">
-				{#each bench as bPlayer}
+			<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+				{#each bench as bPlayer (bPlayer.id)}
 					{@const isSelected = selectedBenchPlayerId === bPlayer.id}
 					{@const bTag = `#${bPlayer.number} ${bPlayer.name}`}
 					<button
 						type="button"
-						onclick={() => {
-							if (readonly) return;
-							selectedBenchPlayerId = isSelected ? null : bPlayer.id;
-						}}
-						class="p-2.5 rounded-card border transition-colors text-center flex flex-col items-center justify-center gap-1 whitespace-nowrap {isSelected ? 'bg-paper-3 border-accent-2 text-accent-2' : 'bg-paper-2 border-rule text-ink-2 hover:text-ink'}"
+						aria-pressed={isSelected}
+						onclick={() => { if (readonly) return; selectedBenchPlayerId = isSelected ? null : bPlayer.id; }}
+						class="min-h-[44px] px-3 py-2 rounded-card border transition-colors text-center flex items-center justify-between gap-2 {isSelected ? 'bg-paper-3 border-accent-2 text-accent-2' : 'bg-paper-2 border-rule text-ink-2 hover:text-ink'}"
 					>
-						<span class="text-xs font-semibold text-ink truncate max-w-[85px]">{bTag}</span>
+						<span class="text-xs font-semibold text-ink truncate">{bTag}</span>
+						<span class="text-xs font-outlier text-muted shrink-0">{bPlayer.role}</span>
 					</button>
 				{/each}
 			</div>
@@ -568,13 +830,36 @@
 
 	<!-- Quick Player Edit Modal -->
 	{#if editingPlayer}
-		<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-paper/85">
-			<div class="bg-paper-2 border-t-2 border-rule-2 p-6 w-full max-w-sm space-y-5">
+		<div class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4">
+			<button
+				type="button"
+				tabindex="-1"
+				aria-label="Close player editor"
+				onclick={() => (editingPlayer = null)}
+				class="fixed inset-0 w-full h-full bg-paper/85 cursor-default"
+			></button>
+			<div
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby="edit-player-modal-title"
+				use:focusTrap={{
+					active: Boolean(editingPlayer),
+					onEscape: () => (editingPlayer = null),
+					initialFocusSelector: '#roster-select, #player-name'
+				}}
+				class="relative z-10 bg-paper-2 border-t-2 border-rule-2 p-6 w-full max-w-sm space-y-5"
+			>
 				<div class="flex items-center justify-between border-b border-rule pb-3">
-					<h3 class="text-base font-bold text-ink">
-						Edit <span class="num font-outlier text-accent">#{editingPlayer.number}</span> {editingPlayer.name}
+					<h3 id="edit-player-modal-title" class="text-base font-bold text-ink">
+						Edit <span class="num font-outlier text-accent-text">#{editingPlayer.number}</span> {editingPlayer.name}
 					</h3>
-					<button type="button" onclick={() => (editingPlayer = null)} class="text-muted hover:text-ink text-xs font-semibold">Close</button>
+					<button
+						type="button"
+						onclick={() => (editingPlayer = null)}
+						class="min-h-[44px] px-2 text-muted hover:text-ink text-xs font-semibold"
+					>
+						Close
+					</button>
 				</div>
 
 				{#if squadPlayers && squadPlayers.length > 0}
@@ -585,14 +870,11 @@
 						<select
 							id="roster-select"
 							bind:value={selectedRosterId}
-							onchange={() => {
-								const selected = squadPlayers.find((p) => p.id === selectedRosterId);
-								if (selected) handleRosterSelect(selected);
-							}}
-							class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink"
+							onchange={() => { const selected = squadPlayers.find((p) => p.id === selectedRosterId); if (selected) handleRosterSelect(selected); }}
+							class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink"
 						>
 							<option value="">Choose Arsenal player…</option>
-							{#each squadPlayers as sp}
+							{#each squadPlayers as sp (sp.id)}
 								<option value={sp.id}>
 									#{sp.jersey_number} {sp.name} ({sp.position})
 								</option>
@@ -607,8 +889,9 @@
 						<input
 							id="player-name"
 							type="text"
+							maxlength={40}
 							bind:value={editingPlayer.name}
-							class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink mt-1"
+							class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink mt-1"
 						/>
 					</div>
 
@@ -621,7 +904,7 @@
 								min="1"
 								max="99"
 								bind:value={editingPlayer.number}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink num font-outlier mt-1"
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink num font-outlier mt-1"
 							/>
 						</div>
 						<div>
@@ -629,26 +912,46 @@
 							<select
 								id="player-role"
 								bind:value={editingPlayer.role}
-								class="w-full h-10 bg-paper border border-rule rounded-card px-3 text-xs text-ink mt-1"
+								class="w-full min-h-[44px] bg-paper border border-rule rounded-card px-3 text-xs text-ink mt-1"
 							>
 								<option value="GK">GK (Goalkeeper)</option>
 								<option value="CB">CB (Center Back)</option>
 								<option value="LB">LB (Left Back)</option>
 								<option value="RB">RB (Right Back)</option>
+								<option value="LWB">LWB (Left Wingback)</option>
+								<option value="RWB">RWB (Right Wingback)</option>
 								<option value="DM">DM (Defensive Mid)</option>
 								<option value="CM">CM (Central Mid)</option>
+								<option value="LM">LM (Left Mid)</option>
+								<option value="RM">RM (Right Mid)</option>
 								<option value="AM">AM (Attacking Mid)</option>
 								<option value="LW">LW (Left Wing)</option>
 								<option value="RW">RW (Right Wing)</option>
+								<option value="CF">CF (Center Forward)</option>
 								<option value="ST">ST (Striker)</option>
 							</select>
 						</div>
 					</div>
 				</div>
 
+				{#if modalErrorMessage}
+					<p role="alert" class="text-xs text-error font-semibold">{modalErrorMessage}</p>
+				{/if}
+
 				<div class="flex items-center justify-end gap-3 pt-3 border-t border-rule">
-					<button type="button" onclick={() => (editingPlayer = null)} class="h-9 px-3 rounded-card text-xs font-semibold text-ink-2 hover:text-ink">Cancel</button>
-					<button type="button" onclick={handleSavePlayerModal} class="h-9 px-4 rounded-card bg-accent hover:opacity-95 text-xs font-semibold text-accent-ink transition-opacity">
+					<button
+						type="button"
+						onclick={() => (editingPlayer = null)}
+						class="min-h-[44px] px-3 rounded-card text-xs font-semibold text-ink-2 hover:text-ink"
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						onclick={handleSavePlayerModal}
+						disabled={!editingPlayer.name.trim()}
+						class="min-h-[44px] px-4 rounded-card bg-accent hover:opacity-95 disabled:opacity-50 text-xs font-semibold text-accent-ink transition-opacity"
+					>
 						Save player
 					</button>
 				</div>
@@ -656,3 +959,10 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	.pitch-token:focus-visible {
+		outline: 2px solid var(--color-focus);
+		outline-offset: 4px;
+	}
+</style>

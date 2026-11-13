@@ -33,15 +33,65 @@ import type {
 
 export const API_BASE = (import.meta.env.PUBLIC_API_URL as string) || 'http://localhost:8000/api/v1';
 
+export interface ApiResult<T> {
+	data: T;
+	error: string | null;
+	status: number;
+	isFallback: boolean;
+}
+
 export class ApiError extends Error {
 	status: number;
 	detail: string;
+	isNetworkError: boolean;
 
-	constructor(status: number, detail: string) {
+	constructor(status: number, detail: string, isNetworkError = status === 0) {
 		super(detail);
 		this.name = 'ApiError';
 		this.status = status;
 		this.detail = detail;
+		this.isNetworkError = isNetworkError;
+	}
+}
+
+export async function fetchWithTimeout(
+	input: RequestInfo | URL,
+	init: RequestInit = {},
+	timeoutMs = 15000,
+	fetchFn: typeof fetch = fetch
+): Promise<Response> {
+	const controller = new AbortController();
+	let timedOut = false;
+
+	const externalSignal = init.signal;
+	const onExternalAbort = () => controller.abort(externalSignal?.reason);
+	if (externalSignal) {
+		if (externalSignal.aborted) {
+			controller.abort(externalSignal.reason);
+		} else {
+			externalSignal.addEventListener('abort', onExternalAbort, { once: true });
+		}
+	}
+
+	const timer = setTimeout(() => {
+		timedOut = true;
+		controller.abort(new DOMException('Request timed out', 'TimeoutError'));
+	}, timeoutMs);
+
+	try {
+		return await fetchFn(input, { ...init, signal: controller.signal });
+	} catch (err) {
+		if (timedOut) {
+			throw new ApiError(
+				0,
+				'Request timed out — the Arsenal data service may be waking from cold start.',
+				true
+			);
+		}
+		throw err;
+	} finally {
+		clearTimeout(timer);
+		externalSignal?.removeEventListener('abort', onExternalAbort);
 	}
 }
 
@@ -89,7 +139,14 @@ export async function throwApiError(res: Response, fallbackMessage: string): Pro
 
 export function toNetworkApiError(err: unknown, fallbackMessage: string): ApiError {
 	if (err instanceof ApiError) return err;
-	return new ApiError(0, err instanceof Error && err.message ? err.message : fallbackMessage);
+	if (err instanceof DOMException && err.name === 'TimeoutError') {
+		return new ApiError(
+			0,
+			'Request timed out — the Arsenal data service may be waking from cold start.',
+			true
+		);
+	}
+	return new ApiError(0, err instanceof Error && err.message ? err.message : fallbackMessage, true);
 }
 
 export async function fetchSeasons(): Promise<Season[]> {
@@ -859,7 +916,7 @@ export async function fetchFormationPresets(): Promise<FormationPreset[]> {
 				description: 'High press with aggressive wingers and a single holding midfielder.',
 				players: [
 					{ id: 'p1', name: 'Raya', number: 1, role: 'GK', x: 5.0, y: 50.0 },
-					{ id: 'p2', name: 'Zinchenko', number: 35, role: 'LB', x: 24.0, y: 14.0 },
+					{ id: 'p2', name: 'Calafiori', number: 33, role: 'LB', x: 24.0, y: 14.0 },
 					{ id: 'p3', name: 'Gabriel', number: 6, role: 'CB', x: 20.0, y: 36.0 },
 					{ id: 'p4', name: 'Saliba', number: 2, role: 'CB', x: 20.0, y: 64.0 },
 					{ id: 'p5', name: 'White', number: 4, role: 'RB', x: 24.0, y: 86.0 },
@@ -910,14 +967,51 @@ export async function saveTacticalBoard(
 	}
 }
 
-export async function fetchTacticalBoards(clubId?: string): Promise<TacticalBoard[]> {
+export async function fetchTacticalBoards(
+	clubId?: string,
+	accessToken?: string | null
+): Promise<TacticalBoard[]> {
 	try {
 		const url = clubId ? `${API_BASE}/tactics?club_id=${encodeURIComponent(clubId)}` : `${API_BASE}/tactics`;
-		const res = await fetch(url);
+		const res = await fetchWithTimeout(url, {
+			headers: buildHeaders(accessToken)
+		});
 		if (!res.ok) throw new Error('Failed to fetch tactical boards');
 		return await res.json();
 	} catch (err) {
 		return [];
+	}
+}
+
+export async function deleteTacticalBoard(
+	boardId: string,
+	accessToken?: string | null
+): Promise<{ status?: string; id?: string }> {
+	try {
+		const res = await fetchWithTimeout(`${API_BASE}/tactics/${encodeURIComponent(boardId)}`, {
+			method: 'DELETE',
+			headers: buildHeaders(accessToken)
+		});
+		if (!res.ok) await throwApiError(res, 'Failed to delete tactical board');
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach server while deleting tactical board');
+	}
+}
+
+export async function deleteInsight(
+	insightId: string,
+	accessToken?: string | null
+): Promise<{ status?: string; id?: string }> {
+	try {
+		const res = await fetchWithTimeout(`${API_BASE}/insights/${encodeURIComponent(insightId)}`, {
+			method: 'DELETE',
+			headers: buildHeaders(accessToken)
+		});
+		if (!res.ok) await throwApiError(res, 'Failed to delete insight');
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach server while deleting insight');
 	}
 }
 
@@ -1011,6 +1105,478 @@ export async function fetchArsenalNews(
 				}
 			]
 		};
+	}
+}
+
+export function getApiErrorMessage(err: unknown, fallback: string): { detail: string; status: number } {
+	const apiErr = toNetworkApiError(err, fallback);
+	return { detail: apiErr.detail || fallback, status: apiErr.status };
+}
+
+export async function fetchMatchDetailStrict(
+	matchId: string,
+	fetchFn: typeof fetch = fetch
+): Promise<Match | null> {
+	try {
+		const res = await fetchWithTimeout(
+			`${API_BASE}/matches/${encodeURIComponent(matchId)}`,
+			{},
+			15000,
+			fetchFn
+		);
+		if (res.status === 404) return null;
+		if (!res.ok) await throwApiError(res, `Failed to load match dossier (${res.status})`);
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach Arsenal match service');
+	}
+}
+
+export async function fetchPlayerStrict(
+	playerId: string,
+	fetchFn: typeof fetch = fetch
+): Promise<Player | null> {
+	try {
+		const res = await fetchWithTimeout(
+			`${API_BASE}/squad/${encodeURIComponent(playerId)}`,
+			{},
+			15000,
+			fetchFn
+		);
+		if (res.status === 404) return null;
+		if (!res.ok) await throwApiError(res, `Failed to load player dossier (${res.status})`);
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach Arsenal squad service');
+	}
+}
+
+export async function comparePlayersStrict(
+	player1Id: string,
+	player2Id: string,
+	fetchFn: typeof fetch = fetch
+): Promise<PlayerComparison> {
+	try {
+		const res = await fetchWithTimeout(
+			`${API_BASE}/squad/compare?player1_id=${encodeURIComponent(player1Id)}&player2_id=${encodeURIComponent(player2Id)}`,
+			{},
+			15000,
+			fetchFn
+		);
+		if (!res.ok) await throwApiError(res, 'Unable to compare the selected players');
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach squad comparison service');
+	}
+}
+
+export async function fetchMatchesResult(
+	params?: {
+		club_id?: string;
+		competition_id?: string;
+		season_id?: string;
+		status?: string;
+		order?: string;
+		limit?: number;
+	},
+	fetchFn: typeof fetch = fetch
+): Promise<ApiResult<Match[]>> {
+	try {
+		const query = new URLSearchParams();
+		if (params?.club_id) query.set('club_id', params.club_id);
+		if (params?.competition_id) query.set('competition_id', params.competition_id);
+		if (params?.season_id) query.set('season_id', params.season_id);
+		if (params?.status) query.set('status', params.status);
+		if (params?.order) query.set('order', params.order);
+		if (params?.limit) query.set('limit', params.limit.toString());
+
+		const res = await fetchWithTimeout(`${API_BASE}/matches?${query.toString()}`, {}, 15000, fetchFn);
+		if (!res.ok) await throwApiError(res, `Failed to fetch matches (${res.status})`);
+		const data = (await res.json()) as Match[];
+		return { data, error: null, status: res.status, isFallback: false };
+	} catch (err) {
+		const { detail, status } = getApiErrorMessage(err, 'Unable to load match ledger from backend service.');
+		return { data: [], error: detail, status, isFallback: false };
+	}
+}
+
+export async function fetchMatchSummaryResult(
+	clubId: string,
+	fetchFn: typeof fetch = fetch
+): Promise<ApiResult<MatchSummary | null>> {
+	try {
+		const res = await fetchWithTimeout(
+			`${API_BASE}/matches/summary?club_id=${encodeURIComponent(clubId)}`,
+			{},
+			15000,
+			fetchFn
+		);
+		if (!res.ok) await throwApiError(res, `Failed to load match summary (${res.status})`);
+		const data = (await res.json()) as MatchSummary;
+		return { data, error: null, status: res.status, isFallback: false };
+	} catch (err) {
+		const { detail, status } = getApiErrorMessage(err, 'Unable to load live matchday summary.');
+		return { data: null, error: detail, status, isFallback: false };
+	}
+}
+
+export async function fetchSquadResult(
+	clubId?: string,
+	position?: string,
+	fetchFn: typeof fetch = fetch
+): Promise<ApiResult<Player[]>> {
+	try {
+		const query = new URLSearchParams();
+		if (clubId) query.set('club_id', clubId);
+		if (position) query.set('position', position);
+		const res = await fetchWithTimeout(`${API_BASE}/squad?${query.toString()}`, {}, 15000, fetchFn);
+		if (!res.ok) await throwApiError(res, `Failed to load squad (${res.status})`);
+		const data = (await res.json()) as Player[];
+		return { data, error: null, status: res.status, isFallback: false };
+	} catch (err) {
+		const { detail, status } = getApiErrorMessage(err, 'Unable to load Arsenal squad directory.');
+		return { data: [], error: detail, status, isFallback: false };
+	}
+}
+
+export async function fetchArsenalNewsResult(
+	optsOrCategory?: FetchNewsOptions | string,
+	legacyRefresh = false,
+	fetchFn: typeof fetch = fetch
+): Promise<ApiResult<NewsFeed>> {
+	const opts: FetchNewsOptions =
+		typeof optsOrCategory === 'string'
+			? { category: optsOrCategory, refresh: legacyRefresh }
+			: (optsOrCategory ?? {});
+	try {
+		const params = new URLSearchParams();
+		if (opts.limit !== undefined) params.set('limit', String(opts.limit));
+		if (opts.offset !== undefined) params.set('offset', String(opts.offset));
+		if (opts.category && opts.category !== 'all') params.set('category', opts.category);
+		if (opts.tag && opts.tag !== 'all') params.set('tag', opts.tag);
+		if (opts.search && opts.search.trim()) params.set('search', opts.search.trim());
+		if (opts.refresh) params.set('refresh', 'true');
+		const qs = params.toString();
+		const url = qs ? `${API_BASE}/news?${qs}` : `${API_BASE}/news`;
+		const res = await fetchWithTimeout(url, {}, 15000, fetchFn);
+		if (!res.ok) await throwApiError(res, `Failed to load Arsenal news wire (${res.status})`);
+		const payload = (await res.json()) as NewsFeed;
+		return {
+			data: { ...payload, has_more: Boolean(payload.has_more) },
+			error: null,
+			status: res.status,
+			isFallback: false
+		};
+	} catch (err) {
+		const { detail, status } = getApiErrorMessage(err, 'Unable to reach The Armory news wire.');
+		return {
+			data: {
+				total: 0,
+				has_more: false,
+				sources_active: [],
+				cached_at: '',
+				articles: []
+			},
+			error: detail,
+			status,
+			isFallback: false
+		};
+	}
+}
+
+export async function fetchUpcomingPredictionsStrict(
+	userId?: string,
+	accessToken?: string | null,
+	fetchFn: typeof fetch = fetch
+): Promise<UpcomingMatchPrediction[]> {
+	try {
+		const url = userId
+			? `${API_BASE}/predictions/upcoming?user_id=${encodeURIComponent(userId)}`
+			: `${API_BASE}/predictions/upcoming`;
+		const res = await fetchWithTimeout(url, { headers: buildHeaders(accessToken) }, 15000, fetchFn);
+		if (!res.ok) await throwApiError(res, 'Failed to load upcoming fixtures for prediction');
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach matchday predictor service');
+	}
+}
+
+export async function fetchLeaderboardStrict(
+	clubId?: string,
+	seasonId?: string,
+	signal?: AbortSignal,
+	fetchFn: typeof fetch = fetch
+): Promise<LeaderboardEntry[]> {
+	try {
+		const query = new URLSearchParams();
+		if (clubId) query.set('club_id', clubId);
+		if (seasonId && seasonId !== 'all') query.set('season_id', seasonId);
+		const qs = query.toString();
+		const url = qs ? `${API_BASE}/predictions/leaderboard?${qs}` : `${API_BASE}/predictions/leaderboard`;
+		const res = await fetchWithTimeout(url, { signal }, 15000, fetchFn);
+		if (!res.ok) await throwApiError(res, 'Failed to load predictor leaderboard');
+		return await res.json();
+	} catch (err) {
+		if (err instanceof DOMException && err.name === 'AbortError') throw err;
+		throw toNetworkApiError(err, 'Unable to reach predictor leaderboard service');
+	}
+}
+
+export async function queryAnalyticsStrict(
+	params: {
+		metric: string;
+		team_ids: string[];
+		venue?: string;
+		season_id?: string;
+	},
+	fetchFn: typeof fetch = fetch
+): Promise<AnalyticsResponse> {
+	try {
+		const res = await fetchWithTimeout(
+			`${API_BASE}/matches/query`,
+			{
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					metric: params.metric,
+					team_ids: params.team_ids,
+					venue: params.venue || 'all',
+					season_id: params.season_id
+				})
+			},
+			15000,
+			fetchFn
+		);
+		if (!res.ok) await throwApiError(res, 'Analytics query failed');
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach Data Lab analytics engine');
+	}
+}
+
+export async function fetchMultiSeasonTrendsStrict(
+	clubId = 'arsenal',
+	venue = 'all',
+	fetchFn: typeof fetch = fetch
+): Promise<MultiSeasonTrendsResponse> {
+	try {
+		const query = new URLSearchParams();
+		if (clubId) query.set('club_id', clubId);
+		if (venue) query.set('venue', venue);
+		const res = await fetchWithTimeout(
+			`${API_BASE}/matches/trends?${query.toString()}`,
+			{},
+			15000,
+			fetchFn
+		);
+		if (!res.ok) await throwApiError(res, 'Failed to load multi-season trends');
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach multi-season trends service');
+	}
+}
+
+export async function fetchOpponentH2HStrict(
+	opponentId: string,
+	clubId = 'arsenal',
+	venue = 'all',
+	fetchFn: typeof fetch = fetch
+): Promise<OpponentH2HResponse> {
+	try {
+		const query = new URLSearchParams();
+		query.set('opponent_id', opponentId);
+		if (clubId) query.set('club_id', clubId);
+		if (venue) query.set('venue', venue);
+		const res = await fetchWithTimeout(
+			`${API_BASE}/matches/h2h?${query.toString()}`,
+			{},
+			15000,
+			fetchFn
+		);
+		if (!res.ok) await throwApiError(res, 'Failed to load opponent head-to-head record');
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach opponent head-to-head service');
+	}
+}
+
+export async function fetchInsightsResult(
+	clubId?: string,
+	fetchFn: typeof fetch = fetch
+): Promise<ApiResult<Insight[]>> {
+	try {
+		const url = clubId
+			? `${API_BASE}/insights?club_id=${encodeURIComponent(clubId)}`
+			: `${API_BASE}/insights`;
+		const res = await fetchWithTimeout(url, {}, 15000, fetchFn);
+		if (!res.ok) await throwApiError(res, `Failed to load insights (${res.status})`);
+		const data = (await res.json()) as Insight[];
+		return { data, error: null, status: res.status, isFallback: false };
+	} catch (err) {
+		const { detail, status } = getApiErrorMessage(err, 'Unable to load saved insights.');
+		return { data: [], error: detail, status, isFallback: false };
+	}
+}
+
+export async function fetchTacticalBoardsResult(
+	clubId?: string,
+	accessToken?: string | null,
+	fetchFn: typeof fetch = fetch
+): Promise<ApiResult<TacticalBoard[]>> {
+	try {
+		const url = clubId
+			? `${API_BASE}/tactics?club_id=${encodeURIComponent(clubId)}`
+			: `${API_BASE}/tactics`;
+		const res = await fetchWithTimeout(url, { headers: buildHeaders(accessToken) }, 15000, fetchFn);
+		if (!res.ok) await throwApiError(res, `Failed to load tactical boards (${res.status})`);
+		const data = (await res.json()) as TacticalBoard[];
+		return { data, error: null, status: res.status, isFallback: false };
+	} catch (err) {
+		const { detail, status } = getApiErrorMessage(err, 'Unable to load community tactical boards.');
+		return { data: [], error: detail, status, isFallback: false };
+	}
+}
+
+export async function fetchHistoricalMatchesResult(
+	fetchFn: typeof fetch = fetch
+): Promise<ApiResult<HistoricalMatchSummary[]>> {
+	try {
+		const res = await fetchWithTimeout(`${API_BASE}/analytics/historical/matches`, {}, 15000, fetchFn);
+		if (!res.ok) await throwApiError(res, `Failed to load historical matches (${res.status})`);
+		const data = (await res.json()) as HistoricalMatchSummary[];
+		return { data, error: null, status: res.status, isFallback: false };
+	} catch (err) {
+		const { detail, status } = getApiErrorMessage(err, 'Unable to load historical StatsBomb matches.');
+		return { data: [], error: detail, status, isFallback: false };
+	}
+}
+
+export async function fetchHistoricalMatchDetailStrict(
+	matchId: string,
+	fetchFn: typeof fetch = fetch
+): Promise<HistoricalMatchDetail | null> {
+	try {
+		const res = await fetchWithTimeout(
+			`${API_BASE}/analytics/historical/matches/${encodeURIComponent(matchId)}`,
+			{},
+			15000,
+			fetchFn
+		);
+		if (res.status === 404) return null;
+		if (!res.ok) await throwApiError(res, `Failed to load historical match detail (${res.status})`);
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to load historical match telemetry');
+	}
+}
+
+export async function fetchPostsResult(
+	clubId?: string,
+	currentUserId?: string,
+	search?: string,
+	tag?: string,
+	accessToken?: string | null,
+	fetchFn: typeof fetch = fetch
+): Promise<ApiResult<Post[]>> {
+	try {
+		const query = new URLSearchParams();
+		if (clubId && clubId !== 'global') query.set('club_id', clubId);
+		if (currentUserId) query.set('current_user_id', currentUserId);
+		if (search) query.set('search', search);
+		if (tag) query.set('tag', tag);
+		const res = await fetchWithTimeout(
+			`${API_BASE}/terrace/posts?${query.toString()}`,
+			{ headers: buildHeaders(accessToken) },
+			15000,
+			fetchFn
+		);
+		if (!res.ok) await throwApiError(res, `Failed to load Terrace feed (${res.status})`);
+		const data = (await res.json()) as Post[];
+		return { data, error: null, status: res.status, isFallback: false };
+	} catch (err) {
+		const { detail, status } = getApiErrorMessage(err, 'Unable to load The Terrace feed.');
+		return { data: [], error: detail, status, isFallback: false };
+	}
+}
+
+export async function fetchCommentsStrict(
+	postId: string,
+	fetchFn: typeof fetch = fetch
+): Promise<PostComment[]> {
+	try {
+		const res = await fetchWithTimeout(
+			`${API_BASE}/terrace/posts/${encodeURIComponent(postId)}/comments`,
+			{},
+			15000,
+			fetchFn
+		);
+		if (!res.ok) await throwApiError(res, 'Failed to load replies');
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to reach server while loading replies');
+	}
+}
+
+export async function fetchConversationsResult(
+	userId?: string,
+	accessToken?: string | null,
+	fetchFn: typeof fetch = fetch
+): Promise<ApiResult<Conversation[]>> {
+	try {
+		const query = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
+		const res = await fetchWithTimeout(
+			`${API_BASE}/messages/conversations${query}`,
+			{ headers: buildHeaders(accessToken) },
+			15000,
+			fetchFn
+		);
+		if (!res.ok) await throwApiError(res, `Failed to load conversations (${res.status})`);
+		const data = (await res.json()) as Conversation[];
+		return { data, error: null, status: res.status, isFallback: false };
+	} catch (err) {
+		const { detail, status } = getApiErrorMessage(err, 'Unable to load debates inbox.');
+		return { data: [], error: detail, status, isFallback: false };
+	}
+}
+
+export async function fetchNotificationsResult(
+	userId?: string,
+	accessToken?: string | null,
+	fetchFn: typeof fetch = fetch
+): Promise<ApiResult<Notification[]>> {
+	try {
+		const query = userId ? `?user_id=${encodeURIComponent(userId)}` : '';
+		const res = await fetchWithTimeout(
+			`${API_BASE}/notifications${query}`,
+			{ headers: buildHeaders(accessToken) },
+			15000,
+			fetchFn
+		);
+		if (!res.ok) await throwApiError(res, `Failed to load notifications (${res.status})`);
+		const data = (await res.json()) as Notification[];
+		return { data, error: null, status: res.status, isFallback: false };
+	} catch (err) {
+		const { detail, status } = getApiErrorMessage(err, 'Unable to load notifications.');
+		return { data: [], error: detail, status, isFallback: false };
+	}
+}
+
+export async function fetchSupporterProfileStrict(
+	username: string,
+	fetchFn: typeof fetch = fetch
+): Promise<SupporterProfile | null> {
+	try {
+		const res = await fetchWithTimeout(
+			`${API_BASE}/supporters/${encodeURIComponent(username)}`,
+			{},
+			15000,
+			fetchFn
+		);
+		if (res.status === 404) return null;
+		if (!res.ok) await throwApiError(res, `Failed to load supporter dossier (${res.status})`);
+		return await res.json();
+	} catch (err) {
+		throw toNetworkApiError(err, 'Unable to load supporter profile');
 	}
 }
 

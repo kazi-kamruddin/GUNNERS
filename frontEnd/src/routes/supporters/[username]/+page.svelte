@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { CLUBS } from '$lib/stores/theme.svelte';
+	import { formatMetricLabel } from '$lib/utils/format';
 	import type { PageProps } from './$types';
 
 	let { data }: PageProps = $props();
 
-	const profile = $derived(data.profile);
+	const profile = $derived(data.supporterProfile);
 	const name = $derived(profile.display_name);
 	const club = $derived(CLUBS[profile.favorite_club_id] || CLUBS.arsenal);
+	const isOwnProfile = $derived(Boolean(data.user?.id && data.user.id === profile.user_id));
 	const initials = $derived(
 		(profile.display_name || profile.username || 'G')
 			.split(/\s+/)
@@ -58,7 +60,7 @@
 							onerror={() => (avatarFailed = true)}
 						/>
 					{:else}
-						<span class="font-display font-bold text-2xl text-accent">{initials}</span>
+						<span class="font-display font-bold text-2xl text-accent-text">{initials}</span>
 					{/if}
 				</div>
 
@@ -82,12 +84,21 @@
 			</div>
 
 			<div class="self-start sm:self-end shrink-0">
-				<a
-					href="/messages?recipient={encodeURIComponent(profile.user_id)}&name={encodeURIComponent(profile.display_name)}&club={encodeURIComponent(profile.favorite_club_id)}"
-					class="h-10 px-4 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity inline-flex items-center"
-				>
-					Challenge to debate
-				</a>
+				{#if isOwnProfile}
+					<a
+						href="/profile"
+						class="min-h-[44px] px-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-ink font-semibold text-xs transition-colors inline-flex items-center whitespace-nowrap"
+					>
+						Edit profile
+					</a>
+				{:else}
+					<a
+						href="/messages?recipient={encodeURIComponent(profile.user_id)}&name={encodeURIComponent(profile.display_name)}&club={encodeURIComponent(profile.favorite_club_id)}"
+						class="min-h-[44px] px-4 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity inline-flex items-center whitespace-nowrap"
+					>
+						Challenge to debate
+					</a>
+				{/if}
 			</div>
 		</div>
 
@@ -102,6 +113,14 @@
 				<p class="text-2xl font-bold text-accent-2 num font-outlier mt-1">
 					{profile.stats.prediction_rank === 0 ? 'Unranked' : `#${profile.stats.prediction_rank}`}
 				</p>
+				{#if profile.stats.prediction_rank === 0}
+					<p class="text-xs text-muted mt-1">
+						0 scored predictions
+						{#if isOwnProfile}
+							· <a href="/predictions" class="text-accent-text hover:text-ink font-semibold">Open Predictor</a>
+						{/if}
+					</p>
+				{/if}
 			</div>
 			<div>
 				<p class="text-muted">Predictions</p>
@@ -112,19 +131,19 @@
 				<p class="text-2xl font-bold text-ink num font-outlier mt-1">{profile.stats.exact_scores}</p>
 			</div>
 			<div>
-				<p class="text-muted">Debates & insights</p>
+				<p class="text-muted">Debates &amp; insights</p>
 				<p class="text-2xl font-bold text-ink num font-outlier mt-1">{profile.stats.posts_count + profile.stats.insights_published}</p>
 			</div>
 			<div>
 				<p class="text-muted">Cheers received</p>
-				<p class="text-2xl font-bold text-accent num font-outlier mt-1">{profile.stats.cheers_received}</p>
+				<p class="text-2xl font-bold text-accent-text num font-outlier mt-1">{profile.stats.cheers_received}</p>
 			</div>
 		</div>
 	</section>
 
 	<!-- Published Data Lab Insights Shelf -->
 	<section class="border-t-2 border-rule-2 pt-8 space-y-6">
-		<div class="flex items-end justify-between border-b border-rule pb-4">
+		<div class="flex flex-wrap items-end justify-between gap-4 border-b border-rule pb-4">
 			<div class="space-y-1">
 				<h2 class="text-xl font-bold text-ink">Published tactical insights</h2>
 				<p class="text-xs text-muted">Reproducible analysis created by @{profile.username}</p>
@@ -138,28 +157,28 @@
 			</div>
 		{:else}
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-				{#each profile.featured_insights as ins}
+				{#each profile.featured_insights as ins (ins.id)}
 					<article class="border-t border-rule pt-4 flex flex-col justify-between space-y-4">
 						<div class="space-y-2">
-							<div class="flex items-center justify-between text-xs">
+							<div class="flex items-center justify-between gap-2 text-xs">
 								<span class="text-accent-2 font-semibold">
-									{ins.metric.replace('_', ' ')}
+									{formatMetricLabel(ins.metric)}
 								</span>
 								<span class="num font-outlier text-muted">{formatDate(ins.created_at)}</span>
 							</div>
-							<h3 class="text-base font-bold text-ink">{ins.title}</h3>
+							<h3 class="text-base font-bold text-ink card-headline">{ins.title}</h3>
 							{#if ins.description}
 								<p class="text-sm text-ink-2 line-clamp-2">{ins.description}</p>
 							{/if}
 						</div>
 
-						<div class="pt-3 border-t border-rule flex items-center justify-between text-xs">
+						<div class="pt-3 border-t border-rule flex flex-wrap items-center justify-between gap-2 text-xs">
 							<span class="text-muted">
 								{ins.team_ids.join(', ')} ({ins.venue})
 							</span>
 							<a
 								href="/lab?metric={ins.metric}&teams={ins.team_ids.join(',')}&venue={ins.venue}"
-								class="text-accent hover:text-ink font-semibold transition-colors"
+								class="inline-flex items-center min-h-[36px] text-accent-text hover:text-ink font-semibold transition-colors"
 							>
 								Open in Data Lab
 							</a>
@@ -172,12 +191,12 @@
 
 	<!-- Recent Terrace Debates -->
 	<section class="border-t-2 border-rule-2 pt-8 space-y-6">
-		<div class="flex items-end justify-between border-b border-rule pb-4">
+		<div class="flex flex-wrap items-end justify-between gap-4 border-b border-rule pb-4">
 			<div class="space-y-1">
 				<h2 class="text-xl font-bold text-ink">Terrace community debates</h2>
 				<p class="text-xs text-muted">Recent posts and tactical observations</p>
 			</div>
-			<a href="/terrace" class="text-xs text-accent hover:text-ink font-semibold transition-colors">Browse all debates</a>
+			<a href="/terrace" class="inline-flex items-center min-h-[36px] text-xs text-accent-text hover:text-ink font-semibold transition-colors">Browse all debates</a>
 		</div>
 
 		{#if profile.recent_posts.length === 0}
@@ -186,14 +205,22 @@
 			</div>
 		{:else}
 			<div class="divide-y divide-rule">
-				{#each profile.recent_posts as post}
+				{#each profile.recent_posts as post (post.id)}
 					<article class="py-5 space-y-3">
 						<p class="text-sm text-ink leading-relaxed whitespace-pre-line">
 							{post.content}
 						</p>
-						<div class="flex items-center justify-between text-xs text-muted num font-outlier">
+						<div class="flex flex-wrap items-center justify-between gap-3 text-xs text-muted num font-outlier">
 							<span>{post.reactions_count} cheers, {post.comments_count} replies</span>
-							<span>{formatDate(post.created_at)}</span>
+							<div class="flex items-center gap-4">
+								<span>{formatDate(post.created_at)}</span>
+								<a
+									href="/terrace#post-{encodeURIComponent(post.id)}"
+									class="inline-flex items-center min-h-[36px] text-accent-text hover:text-ink font-sans font-semibold transition-colors"
+								>
+									View on Terrace
+								</a>
+							</div>
 						</div>
 					</article>
 				{/each}

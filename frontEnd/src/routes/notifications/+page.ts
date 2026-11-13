@@ -1,27 +1,29 @@
-import { fetchNotifications, fetchUnreadNotificationsCount } from '$lib/api/football';
+import { fetchNotificationsResult, fetchUnreadNotificationsCount } from '$lib/api/football';
 import type { PageLoad } from './$types';
 
-export const load: PageLoad = async ({ parent }) => {
-	const { session, profile } = await parent();
-	const userId = session?.user?.id || profile?.id || null;
+export const load: PageLoad = async ({ parent, fetch }) => {
+	const { user, session, profile } = await parent();
+	const userId = user?.id || profile?.id || null;
 	const accessToken = session?.access_token ?? null;
 
-	if (!userId || !accessToken) {
+	if (!user || !userId || !accessToken) {
 		return {
 			notifications: [],
 			unreadCount: 0,
-			currentUserId: null
+			currentUserId: null,
+			notificationsError: null as string | null
 		};
 	}
 
-	const [notifications, unreadCount] = await Promise.all([
-		fetchNotifications(userId, accessToken),
+	const [notificationsResult, unreadCount] = await Promise.all([
+		fetchNotificationsResult(userId, accessToken, fetch),
 		fetchUnreadNotificationsCount(userId, accessToken)
 	]);
 
 	return {
-		notifications,
+		notifications: notificationsResult.data,
 		unreadCount,
-		currentUserId: userId
+		currentUserId: userId,
+		notificationsError: notificationsResult.error
 	};
 };

@@ -1,21 +1,27 @@
-import { fetchArsenalNews } from '$lib/api/football';
+import { fetchArsenalNewsResult } from '$lib/api/football';
 import type { PageLoad } from './$types';
 
-export const load: PageLoad = async ({ url }) => {
+export const load: PageLoad = async ({ url, fetch }) => {
 	const category = url.searchParams.get('category') || 'all';
 	const tag = url.searchParams.get('tag') || 'all';
 	const search = url.searchParams.get('search') || '';
-	const feed = await fetchArsenalNews({
-		limit: 12,
-		offset: 0,
-		category,
-		tag,
-		search
-	});
+	const res = await fetchArsenalNewsResult(
+		{
+			limit: 12,
+			offset: 0,
+			category,
+			tag,
+			search
+		},
+		false,
+		fetch
+	);
+
 	return {
 		category,
 		tag,
 		search,
-		feed
+		feed: res.data,
+		apiError: res.error
 	};
 };

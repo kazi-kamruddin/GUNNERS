@@ -1,11 +1,14 @@
 <script lang="ts">
+	import { page } from '$app/state';
+	import { focusTrap } from '$lib/actions/focusTrap';
+	import StateBanner from '$lib/components/StateBanner.svelte';
 	import {
 		ApiError,
-		fetchPosts,
+		fetchPostsResult,
 		fetchTrendingTags,
 		createPost,
 		toggleReaction,
-		fetchComments,
+		fetchCommentsStrict,
 		createComment
 	} from '$lib/api/football';
 	import {
@@ -22,6 +25,7 @@
 
 	let selectedTab = $state<'all' | 'insights' | 'tactics' | 'photos'>('all');
 	let posts = $state<Post[]>([]);
+	let postsError = $state<string | null>(null);
 	let availableInsights = $state<Insight[]>([]);
 	let availableTacticalBoards = $state<TacticalBoard[]>([]);
 	let isLoadingFeed = $state(false);
@@ -32,10 +36,12 @@
 	let isUploadingImage = $state(false);
 	let imageUploadStatus = $state<string | null>(null);
 	let imageUploadError = $state<string | null>(null);
+	let newPostPreviewFailed = $state(false);
 	let imageFileInput = $state<HTMLInputElement | null>(null);
 	let selectedInsightId = $state<string>('');
 	let selectedTacticalBoardId = $state<string>('');
 	let isSubmitting = $state(false);
+	let hadImageAttachment = false;
 
 	let confirmDeletePostId = $state<string | null>(null);
 	let deletingPostId = $state<string | null>(null);
@@ -45,6 +51,9 @@
 	let editingPostId = $state<string | null>(null);
 	let editPostContent = $state('');
 	let editPostImageUrl = $state('');
+	let editPostPreviewFailed = $state(false);
+	let isUploadingEditImage = $state(false);
+	let editImageUploadError = $state<string | null>(null);
 	let savingPostId = $state<string | null>(null);
 	let editPostError = $state<string | null>(null);
 
@@ -56,10 +65,14 @@
 	let showAuthModal = $state(false);
 	let authModalReason = $state<'post' | 'comment' | 'react'>('post');
 	let errorBanner = $state<{ message: string; isAuth?: boolean } | null>(null);
+	let postActionErrors = $state<Record<string, string | null>>({});
+	let brokenPostImages = $state<Record<string, boolean>>({});
 	let lightboxImageUrl = $state<string | null>(null);
 
 	let expandedComments = $state<Record<string, boolean>>({});
 	let postComments = $state<Record<string, PostComment[]>>({});
+	let loadingComments = $state<Record<string, boolean>>({});
+	let commentLoadErrors = $state<Record<string, string | null>>({});
 	let newCommentText = $state<Record<string, string>>({});
 	let isSubmittingComment = $state<Record<string, boolean>>({});
 
@@ -69,24 +82,53 @@
 
 	const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 	const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+	const MAX_POST_CHARS = 2000;
+	const MAX_COMMENT_CHARS = 1000;
 
 	let imageToggleLabel = $derived(showImageInput ? 'Hide photo input' : 'Add image');
 	let publishPostLabel = $derived(
 		isUploadingImage ? 'Uploading photo…' : isSubmitting ? 'Publishing…' : 'Publish to Terrace'
 	);
-	let commentPlaceholder = $derived(
-		data.user ? 'Write your debrief or reply…' : 'Sign in to reply to this debrief…'
+	let editSaveLabel = $derived(
+		isUploadingEditImage
+			? 'Uploading…'
+			: savingPostId && savingPostId === editingPostId
+				? 'Saving…'
+				: 'Save'
+	);
+	let authNext = $derived(encodeURIComponent(page.url.pathname + page.url.search));
+	let needsCaptionHint = $derived(Boolean(newPostImageUrl.trim() && !newPostContent.trim()));
+	let lightboxAuthor = $derived(
+		lightboxImageUrl
+			? posts.find((p) => p.image_url === lightboxImageUrl)?.author_name || 'supporter'
+			: 'supporter'
 	);
 
 	$effect(() => {
-		if (!newPostImageUrl) {
+		const trimmed = newPostImageUrl.trim();
+		if (trimmed) {
+			hadImageAttachment = true;
+			newPostPreviewFailed = false;
+		} else {
 			imageUploadStatus = null;
+			newPostPreviewFailed = false;
+			if (hadImageAttachment || !showImageInput) {
+				imageUploadError = null;
+				hadImageAttachment = false;
+			}
 			if (imageFileInput) imageFileInput.value = '';
 		}
 	});
 
 	$effect(() => {
+		if (editPostImageUrl !== undefined) {
+			editPostPreviewFailed = false;
+		}
+	});
+
+	$effect(() => {
 		posts = data.initialPosts;
+		postsError = data.postsError ?? null;
 		availableInsights = data.availableInsights;
 		availableTacticalBoards = data.availableTacticalBoards || [];
 		searchQuery = data.initialSearch || '';
@@ -105,14 +147,20 @@
 
 	async function reloadFeed(searchVal?: string, tagVal?: string) {
 		isLoadingFeed = true;
+		postsError = null;
 		try {
-			posts = await fetchPosts(
+			const result = await fetchPostsResult(
 				'arsenal',
 				data.user?.id,
 				searchVal !== undefined ? searchVal : searchQuery,
 				tagVal !== undefined ? tagVal : selectedTag,
 				data.session?.access_token
 			);
+			if (result.error) {
+				postsError = result.error;
+				return;
+			}
+			posts = result.data;
 		} finally {
 			isLoadingFeed = false;
 		}
@@ -151,9 +199,23 @@
 		await reloadFeed('', '');
 	}
 
+	function clearImageAttachment() {
+		newPostImageUrl = '';
+		imageUploadStatus = null;
+		imageUploadError = null;
+		newPostPreviewFailed = false;
+		hadImageAttachment = false;
+		if (imageFileInput) imageFileInput.value = '';
+	}
+
 	async function handlePublishPost() {
 		if (!requireAuth('post')) return;
-		if (!newPostContent.trim()) return;
+		if (!newPostContent.trim()) {
+			errorBanner = {
+				message: 'Write a short observation or caption before publishing to The Terrace.'
+			};
+			return;
+		}
 
 		isSubmitting = true;
 		errorBanner = null;
@@ -185,10 +247,7 @@
 				}
 				posts = [created, ...posts];
 				newPostContent = '';
-				newPostImageUrl = '';
-				imageUploadStatus = null;
-				imageUploadError = null;
-				if (imageFileInput) imageFileInput.value = '';
+				clearImageAttachment();
 				showImageInput = false;
 				selectedInsightId = '';
 				selectedTacticalBoardId = '';
@@ -209,6 +268,39 @@
 		}
 	}
 
+	async function uploadTerraceImage(file: File): Promise<string> {
+		if (!data.user || !data.supabase) {
+			throw new Error('Sign in required to upload images.');
+		}
+		if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+			throw new Error('Unsupported file format. Choose a JPEG, PNG, WebP, or GIF image.');
+		}
+		if (file.size > MAX_IMAGE_BYTES) {
+			throw new Error('Image exceeds the 5 MB file size limit.');
+		}
+
+		const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_') || 'image';
+		const storagePath = `${data.user.id}/${Date.now()}-${safeName}`;
+
+		const { error: uploadErr } = await data.supabase.storage
+			.from('terrace-media')
+			.upload(storagePath, file, {
+				cacheControl: '3600',
+				contentType: file.type,
+				upsert: false
+			});
+
+		if (uploadErr) {
+			throw new Error(uploadErr.message || 'Image upload failed.');
+		}
+
+		const { data: publicUrlData } = data.supabase.storage
+			.from('terrace-media')
+			.getPublicUrl(storagePath);
+
+		return publicUrlData.publicUrl;
+	}
+
 	async function handleImageFileSelected(event: Event) {
 		const input = event.currentTarget as HTMLInputElement;
 		const file = input.files?.[0];
@@ -217,46 +309,16 @@
 		imageUploadError = null;
 		imageUploadStatus = null;
 
-		if (!requireAuth('post') || !data.user || !data.supabase) {
+		if (!requireAuth('post')) {
 			input.value = '';
 			return;
 		}
-
-		if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-			imageUploadError = 'Unsupported file format. Choose a JPEG, PNG, WebP, or GIF image.';
-			input.value = '';
-			return;
-		}
-
-		if (file.size > MAX_IMAGE_BYTES) {
-			imageUploadError = 'Image exceeds the 5 MB file size limit.';
-			input.value = '';
-			return;
-		}
-
-		const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_') || 'image';
-		const storagePath = `${data.user.id}/${Date.now()}-${safeName}`;
 
 		isUploadingImage = true;
 		imageUploadStatus = 'Uploading photo to Terrace media…';
 		try {
-			const { error: uploadErr } = await data.supabase.storage
-				.from('terrace-media')
-				.upload(storagePath, file, {
-					cacheControl: '3600',
-					contentType: file.type,
-					upsert: false
-				});
-
-			if (uploadErr) {
-				throw new Error(uploadErr.message || 'Image upload failed.');
-			}
-
-			const { data: publicUrlData } = data.supabase.storage
-				.from('terrace-media')
-				.getPublicUrl(storagePath);
-
-			newPostImageUrl = publicUrlData.publicUrl;
+			newPostImageUrl = await uploadTerraceImage(file);
+			newPostPreviewFailed = false;
 			imageUploadStatus = `Uploaded ${file.name}`;
 		} catch (err) {
 			imageUploadStatus = null;
@@ -268,17 +330,34 @@
 		}
 	}
 
-	function clearImageAttachment() {
-		newPostImageUrl = '';
-		imageUploadStatus = null;
-		imageUploadError = null;
-		if (imageFileInput) imageFileInput.value = '';
+	async function handleEditImageFileSelected(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+
+		editImageUploadError = null;
+		if (!requireAuth('post')) {
+			input.value = '';
+			return;
+		}
+
+		isUploadingEditImage = true;
+		try {
+			editPostImageUrl = await uploadTerraceImage(file);
+			editPostPreviewFailed = false;
+		} catch (err) {
+			editImageUploadError =
+				err instanceof Error ? err.message : 'Could not upload replacement image.';
+		} finally {
+			isUploadingEditImage = false;
+			input.value = '';
+		}
 	}
 
 	async function handleDeletePost(postId: string) {
 		if (!requireAuth('post')) return;
 		deletingPostId = postId;
-		errorBanner = null;
+		postActionErrors = { ...postActionErrors, [postId]: null };
 		try {
 			await deleteTerracePost(postId, data.session?.access_token);
 			posts = posts.filter((p) => p.id !== postId);
@@ -288,13 +367,20 @@
 			}
 			await refreshTrendingTags();
 		} catch (err) {
-			errorBanner = {
-				message:
-					err instanceof ApiError
-						? err.detail
-						: 'Could not delete post. Please try again.',
-				isAuth: err instanceof ApiError && err.status === 401
-			};
+			if (err instanceof ApiError && err.status === 401) {
+				errorBanner = {
+					message: 'Please sign in to delete posts on The Terrace.',
+					isAuth: true
+				};
+			} else {
+				postActionErrors = {
+					...postActionErrors,
+					[postId]:
+						err instanceof ApiError
+							? err.detail
+							: 'Could not delete post. Please try again.'
+				};
+			}
 		} finally {
 			deletingPostId = null;
 		}
@@ -306,6 +392,8 @@
 		editPostContent = post.content;
 		editPostImageUrl = post.image_url || '';
 		editPostError = null;
+		editImageUploadError = null;
+		editPostPreviewFailed = false;
 	}
 
 	function cancelEditPost() {
@@ -313,6 +401,8 @@
 		editPostContent = '';
 		editPostImageUrl = '';
 		editPostError = null;
+		editImageUploadError = null;
+		editPostPreviewFailed = false;
 	}
 
 	async function handleSavePostEdit(post: Post) {
@@ -334,6 +424,7 @@
 				data.session?.access_token
 			);
 			posts = posts.map((p) => (p.id === post.id ? updated : p));
+			brokenPostImages = { ...brokenPostImages, [post.id]: false };
 			editingPostId = null;
 			editPostContent = '';
 			editPostImageUrl = '';
@@ -409,7 +500,7 @@
 	async function handleDeleteComment(postId: string, commentId: string) {
 		if (!requireAuth('comment')) return;
 		deletingCommentId = commentId;
-		errorBanner = null;
+		postActionErrors = { ...postActionErrors, [postId]: null };
 		try {
 			await deleteTerraceComment(postId, commentId, data.session?.access_token);
 			postComments[postId] = (postComments[postId] || []).filter((c) => c.id !== commentId);
@@ -419,13 +510,20 @@
 			}
 			confirmDeleteCommentId = null;
 		} catch (err) {
-			errorBanner = {
-				message:
-					err instanceof ApiError
-						? err.detail
-						: 'Could not delete comment. Please try again.',
-				isAuth: err instanceof ApiError && err.status === 401
-			};
+			if (err instanceof ApiError && err.status === 401) {
+				errorBanner = {
+					message: 'Please sign in to delete replies on The Terrace.',
+					isAuth: true
+				};
+			} else {
+				postActionErrors = {
+					...postActionErrors,
+					[postId]:
+						err instanceof ApiError
+							? err.detail
+							: 'Could not delete comment. Please try again.'
+				};
+			}
 		} finally {
 			deletingCommentId = null;
 		}
@@ -434,7 +532,7 @@
 	async function handleToggleReaction(post: Post) {
 		if (!requireAuth('react')) return;
 
-		errorBanner = null;
+		postActionErrors = { ...postActionErrors, [post.id]: null };
 		const userId = data.user?.id || null;
 		const wasReacted = post.user_reacted;
 		post.user_reacted = !wasReacted;
@@ -447,15 +545,39 @@
 		} catch (err) {
 			post.user_reacted = wasReacted;
 			post.reactions_count += wasReacted ? 1 : -1;
-			const isAuth = err instanceof ApiError && err.status === 401;
-			errorBanner = {
-				message: isAuth
-					? 'Please sign in to cheer posts on The Terrace.'
-					: err instanceof ApiError
+			if (err instanceof ApiError && err.status === 401) {
+				errorBanner = {
+					message: 'Please sign in to cheer posts on The Terrace.',
+					isAuth: true
+				};
+			} else {
+				postActionErrors = {
+					...postActionErrors,
+					[post.id]:
+						err instanceof ApiError
+							? err.detail
+							: 'Could not update cheer. Please try again.'
+				};
+			}
+		}
+	}
+
+	async function loadPostComments(postId: string) {
+		loadingComments = { ...loadingComments, [postId]: true };
+		commentLoadErrors = { ...commentLoadErrors, [postId]: null };
+		try {
+			const items = await fetchCommentsStrict(postId);
+			postComments = { ...postComments, [postId]: items };
+		} catch (err) {
+			commentLoadErrors = {
+				...commentLoadErrors,
+				[postId]:
+					err instanceof ApiError
 						? err.detail
-						: 'Could not update reaction. Please try again.',
-				isAuth
+						: 'Unable to load replies right now.'
 			};
+		} finally {
+			loadingComments = { ...loadingComments, [postId]: false };
 		}
 	}
 
@@ -463,8 +585,8 @@
 		const isOpen = !!expandedComments[postId];
 		expandedComments[postId] = !isOpen;
 
-		if (!isOpen && !postComments[postId]) {
-			postComments[postId] = await fetchComments(postId);
+		if (!isOpen && (!postComments[postId] || commentLoadErrors[postId])) {
+			await loadPostComments(postId);
 		}
 	}
 
@@ -474,7 +596,7 @@
 		const text = newCommentText[postId]?.trim();
 		if (!text) return;
 
-		errorBanner = null;
+		postActionErrors = { ...postActionErrors, [postId]: null };
 		isSubmittingComment[postId] = true;
 		const authorName = data.profile?.display_name || data.user?.email?.split('@')[0] || 'Gooner';
 		const authorClub = 'arsenal';
@@ -496,15 +618,20 @@
 				if (targetPost) targetPost.comments_count += 1;
 			}
 		} catch (err) {
-			const isAuth = err instanceof ApiError && err.status === 401;
-			errorBanner = {
-				message: isAuth
-					? 'Please sign in to reply on The Terrace.'
-					: err instanceof ApiError
-						? err.detail
-						: 'Could not post your reply. Please try again.',
-				isAuth
-			};
+			if (err instanceof ApiError && err.status === 401) {
+				errorBanner = {
+					message: 'Please sign in to reply on The Terrace.',
+					isAuth: true
+				};
+			} else {
+				postActionErrors = {
+					...postActionErrors,
+					[postId]:
+						err instanceof ApiError
+							? err.detail
+							: 'Could not post your reply. Please try again.'
+				};
+			}
 		} finally {
 			isSubmittingComment[postId] = false;
 		}
@@ -591,9 +718,9 @@
 
 		{#if !data.user}
 			<div class="border-t border-rule pt-3 text-xs text-ink-2 max-w-xs space-y-1">
-				<div class="font-bold text-accent">Guest browsing mode</div>
+				<div class="font-bold text-accent-text">Guest browsing mode</div>
 				<p class="text-muted leading-snug">
-					Read all posts, tactics, and debriefs freely. <a href="/login" class="text-ink underline font-semibold hover:text-accent">Sign in</a> to join debates or publish.
+					Read all posts, tactics, and debriefs freely. <a href="/login?next={authNext}" class="text-ink underline font-semibold hover:text-accent-text">Sign in</a> to join debates or publish.
 				</p>
 			</div>
 		{/if}
@@ -604,13 +731,13 @@
 			<div class="flex items-center gap-3 flex-wrap">
 				<span>{errorBanner.message}</span>
 				{#if errorBanner.isAuth}
-					<a href="/login" class="underline text-ink font-semibold hover:text-accent">Sign in</a>
+					<a href="/login?next={authNext}" class="underline text-ink font-semibold hover:text-accent-text">Sign in</a>
 				{/if}
 			</div>
 			<button
 				type="button"
 				onclick={() => (errorBanner = null)}
-				class="text-muted hover:text-ink font-semibold shrink-0"
+				class="min-h-[44px] px-2 text-muted hover:text-ink font-semibold shrink-0"
 			>
 				Dismiss
 			</button>
@@ -619,24 +746,24 @@
 
 	<!-- Search & Category Filters -->
 	<section class="space-y-5">
-		<div class="flex items-center gap-3">
-			<div class="relative flex-1">
+		<div class="flex flex-wrap sm:flex-nowrap items-center gap-2.5">
+			<div class="relative flex-1 min-w-[200px]">
 				<input
 					type="text"
 					aria-label="Search Terrace discussions"
 					bind:value={searchQuery}
 					onkeydown={(e) => e.key === 'Enter' && handleSearch()}
 					placeholder="Search discussions, tactics, player debriefs (#Saka, #Derby, #Arteta)…"
-					class="w-full h-10 bg-paper-2 border border-rule rounded-card pl-9 pr-3 text-xs text-ink placeholder-muted"
+					class="w-full min-h-[44px] bg-paper-2 border border-rule rounded-card pl-9 pr-3 text-xs text-ink placeholder-muted"
 				/>
-				<svg class="w-4 h-4 text-muted absolute left-3 top-3" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+				<svg class="w-4 h-4 text-muted absolute left-3 top-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 				</svg>
 			</div>
 			<button
 				type="button"
 				onclick={handleSearch}
-				class="h-10 px-4 rounded-card bg-accent hover:opacity-95 text-accent-ink text-xs font-semibold transition-opacity"
+				class="min-h-[44px] px-4 rounded-card bg-accent hover:opacity-95 text-accent-ink text-xs font-semibold transition-opacity"
 			>
 				Search
 			</button>
@@ -644,7 +771,7 @@
 				<button
 					type="button"
 					onclick={clearFilters}
-					class="h-10 px-3.5 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-ink-2 hover:text-ink text-xs font-semibold transition-colors"
+					class="min-h-[44px] px-3.5 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-ink-2 hover:text-ink text-xs font-semibold transition-colors"
 				>
 					Reset
 				</button>
@@ -657,7 +784,7 @@
 				type="button"
 				aria-pressed={selectedTab === 'all'}
 				onclick={() => selectCategory('all')}
-				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'all' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
+				class="min-h-[44px] px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'all' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
 			>
 				All Terrace
 			</button>
@@ -665,7 +792,7 @@
 				type="button"
 				aria-pressed={selectedTab === 'insights'}
 				onclick={() => selectCategory('insights')}
-				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'insights' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
+				class="min-h-[44px] px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'insights' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
 			>
 				With insights
 			</button>
@@ -673,7 +800,7 @@
 				type="button"
 				aria-pressed={selectedTab === 'tactics'}
 				onclick={() => selectCategory('tactics')}
-				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'tactics' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
+				class="min-h-[44px] px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'tactics' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
 			>
 				With tactics
 			</button>
@@ -681,7 +808,7 @@
 				type="button"
 				aria-pressed={selectedTab === 'photos'}
 				onclick={() => selectCategory('photos')}
-				class="h-9 px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'photos' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
+				class="min-h-[44px] px-3.5 rounded-card text-xs font-semibold transition-colors border {selectedTab === 'photos' ? 'bg-accent text-accent-ink border-accent' : 'text-ink-2 hover:text-ink border-rule bg-paper-2'}"
 			>
 				With photos
 			</button>
@@ -690,7 +817,7 @@
 		{#if trendingTags && trendingTags.length > 0}
 			<div class="flex items-center gap-2 flex-wrap text-xs">
 				<span class="text-muted font-semibold">Trending topics:</span>
-				{#each trendingTags as t}
+				{#each trendingTags as t (t.tag)}
 					{@const cleanTag = t.tag.replace(/^#+/, '')}
 					{@const isTagActive = selectedTag.toLowerCase() === cleanTag.toLowerCase()}
 					{@const tagLabel = `#${cleanTag} (${t.count})`}
@@ -698,7 +825,7 @@
 						type="button"
 						aria-pressed={isTagActive}
 						onclick={() => handleTagClick(cleanTag)}
-						class="h-7 px-2.5 rounded-card text-xs transition-colors border {isTagActive ? 'bg-paper-3 text-accent border-rule-2 font-semibold' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
+						class="min-h-[36px] px-3 rounded-card text-xs transition-colors border {isTagActive ? 'bg-paper-3 text-accent-text border-rule-2 font-semibold' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 					>
 						{tagLabel}
 					</button>
@@ -709,7 +836,7 @@
 
 	<!-- Post Composer -->
 	<section class="border-t-2 border-rule-2 pt-6 space-y-4">
-		<div class="flex items-center justify-between text-xs">
+		<div class="flex flex-wrap items-center justify-between gap-2 text-xs">
 			<div class="flex items-center gap-2">
 				<span class="font-bold text-ink">
 					{data.profile?.display_name || (data.user ? data.user.email?.split('@')[0] : 'Gooner guest')}
@@ -719,198 +846,264 @@
 			<span class="text-muted">Emirates Stadium Terrace</span>
 		</div>
 
-		<textarea
-			aria-label="Write a Terrace post"
-			bind:value={newPostContent}
-			onfocus={() => {
-				if (!data.user) requireAuth('post');
-			}}
-			rows="3"
-			placeholder="Share tactical observations, match reactions, lineup notes, or a photo link…"
-			class="w-full bg-paper-2 border border-rule rounded-card p-3 text-xs text-ink placeholder-muted resize-none"
-		></textarea>
-
-		{#if showImageInput}
-			<div class="border-t border-rule pt-3 space-y-3">
-				<div class="flex items-center justify-between text-xs gap-4">
-					<span class="font-semibold text-ink-2">
-						Photo attachment <span class="font-normal text-muted">(Upload JPEG, PNG, WebP, GIF up to 5 MB or paste a direct URL)</span>
-					</span>
+		{#if !data.user}
+			<div class="p-4 bg-paper-2 border-y border-rule flex flex-wrap items-center justify-between gap-4">
+				<p class="text-xs text-ink-2">
+					Sign in with your Gunners supporter account to publish tactical debriefs, attach boards, or share match photos.
+				</p>
+				<div class="flex items-center gap-2.5 shrink-0">
 					<button
 						type="button"
-						onclick={() => { showImageInput = false; newPostImageUrl = ''; }}
-						class="text-muted hover:text-error font-semibold shrink-0"
+						onclick={() => requireAuth('post')}
+						class="min-h-[44px] px-4 rounded-card bg-accent hover:opacity-95 text-accent-ink text-xs font-semibold transition-opacity"
 					>
-						Cancel
+						Sign in to publish
 					</button>
+					<a
+						href="/signup?next={authNext}"
+						class="inline-flex items-center min-h-[44px] px-3.5 rounded-card border border-rule bg-paper hover:bg-paper-3 text-ink text-xs font-semibold transition-colors"
+					>
+						Create account
+					</a>
 				</div>
-
-				<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-					<div class="space-y-1">
-						<label for="terrace-image-file" class="block text-xs font-semibold text-ink-2">
-							Upload from device
-						</label>
-						<input
-							id="terrace-image-file"
-							bind:this={imageFileInput}
-							type="file"
-							accept="image/jpeg,image/png,image/webp,image/gif"
-							disabled={isUploadingImage}
-							onchange={handleImageFileSelected}
-							class="block w-full h-10 bg-paper-2 border border-rule rounded-card px-3 py-2 text-xs text-ink-2 file:mr-3 file:border-0 file:bg-paper-3 file:text-ink file:text-xs file:font-semibold file:px-2.5 file:py-1 file:rounded-card hover:file:bg-accent hover:file:text-accent-ink disabled:opacity-50"
-						/>
-					</div>
-
-					<div class="space-y-1">
-						<label for="image-url-input" class="block text-xs font-semibold text-ink-2">
-							Or paste image URL
-						</label>
-						<input
-							id="image-url-input"
-							type="url"
-							bind:value={newPostImageUrl}
-							placeholder="https://images.unsplash.com/…"
-							class="w-full h-10 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
-						/>
-					</div>
+			</div>
+		{:else}
+			<div class="space-y-1.5">
+				<textarea
+					aria-label="Write a Terrace post"
+					aria-describedby={needsCaptionHint ? 'terrace-caption-hint' : undefined}
+					bind:value={newPostContent}
+					maxlength={MAX_POST_CHARS}
+					rows="3"
+					placeholder="Share tactical observations, match reactions, lineup notes, or a photo caption…"
+					class="w-full bg-paper-2 border border-rule rounded-card p-3 text-xs text-ink placeholder-muted resize-y"
+				></textarea>
+				<div class="flex flex-wrap items-center justify-between gap-2 text-xs">
+					{#if needsCaptionHint}
+						<p id="terrace-caption-hint" role="status" class="text-accent-2 font-semibold">
+							Add a short observation or caption above to publish your photo.
+						</p>
+					{:else}
+						<span></span>
+					{/if}
+					{#if newPostContent.length > 1600}
+						<span class="num font-outlier text-muted">
+							{newPostContent.length}/{MAX_POST_CHARS}
+						</span>
+					{/if}
 				</div>
+			</div>
 
-				{#if imageUploadStatus}
-					<p aria-live="polite" class="text-xs text-success font-semibold">{imageUploadStatus}</p>
-				{/if}
-
-				{#if imageUploadError}
-					<p role="alert" class="text-xs text-error font-semibold">{imageUploadError}</p>
-				{/if}
-
-				{#if newPostImageUrl.trim()}
-					<div class="relative w-40 h-24 overflow-hidden border border-rule mt-2">
-						<img src={newPostImageUrl} alt="Attachment preview" class="w-full h-full object-cover" />
+			{#if showImageInput}
+				<div class="border-t border-rule pt-3 space-y-3">
+					<div class="flex items-center justify-between text-xs gap-4">
+						<span class="font-semibold text-ink-2">
+							Photo attachment <span class="font-normal text-muted">(Upload JPEG, PNG, WebP, GIF up to 5 MB or paste a direct URL)</span>
+						</span>
 						<button
 							type="button"
-							onclick={() => (newPostImageUrl = '')}
-							aria-label="Remove attached photo"
-							class="absolute top-1 right-1 bg-paper/90 hover:bg-accent hover:text-accent-ink text-ink rounded-card px-1.5 py-0.5 text-xs font-semibold"
-							title="Remove photo"
+							onclick={() => { showImageInput = false; newPostImageUrl = ''; }}
+							class="min-h-[36px] px-2 text-muted hover:text-error font-semibold shrink-0"
 						>
-							Remove
+							Cancel
 						</button>
 					</div>
-				{/if}
-			</div>
-		{/if}
 
-		{#if attachedInsightPreview}
-			<div class="border-t border-rule pt-3 flex items-center justify-between gap-4 text-xs">
-				<div class="space-y-1">
-					<div class="flex items-center gap-2">
-						<span class="text-accent-2 font-semibold">Insight attached</span>
-						<span class="font-bold text-ink">{attachedInsightPreview.title}</span>
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+						<div class="space-y-1">
+							<label for="terrace-image-file" class="block text-xs font-semibold text-ink-2">
+								Upload from device
+							</label>
+							<input
+								id="terrace-image-file"
+								bind:this={imageFileInput}
+								type="file"
+								accept="image/jpeg,image/png,image/webp,image/gif"
+								disabled={isUploadingImage}
+								onchange={handleImageFileSelected}
+								class="block w-full min-h-[44px] bg-paper-2 border border-rule rounded-card px-3 py-2 text-xs text-ink-2 file:mr-3 file:border-0 file:bg-paper-3 file:text-ink file:text-xs file:font-semibold file:px-2.5 file:py-1 file:rounded-card hover:file:bg-accent hover:file:text-accent-ink disabled:opacity-50"
+							/>
+						</div>
+
+						<div class="space-y-1">
+							<label for="image-url-input" class="block text-xs font-semibold text-ink-2">
+								Or paste image URL
+							</label>
+							<input
+								id="image-url-input"
+								type="url"
+								bind:value={newPostImageUrl}
+								placeholder="https://images.unsplash.com/…"
+								class="w-full min-h-[44px] bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
+							/>
+						</div>
 					</div>
-					<p class="text-muted">
-						Metric: {attachedInsightPreview.metric}, venue: {attachedInsightPreview.venue}
-					</p>
-				</div>
-				<button
-					type="button"
-					onclick={() => (selectedInsightId = '')}
-					class="text-muted hover:text-error font-semibold"
-				>
-					Detach
-				</button>
-			</div>
-		{/if}
 
-		{#if attachedTacticalBoardPreview}
-			<div class="border-t border-rule pt-3 flex items-center justify-between gap-4 text-xs">
-				<div class="space-y-1">
-					<div class="flex items-center gap-2">
-						<span class="text-accent font-semibold">
-							Tactical board attached (<span class="num font-outlier">{attachedTacticalBoardPreview.formation}</span>)
-						</span>
-						<span class="font-bold text-ink">{attachedTacticalBoardPreview.title}</span>
+					{#if imageUploadStatus}
+						<p aria-live="polite" class="text-xs text-success font-semibold">{imageUploadStatus}</p>
+					{/if}
+
+					{#if imageUploadError}
+						<p role="alert" class="text-xs text-error font-semibold">{imageUploadError}</p>
+					{/if}
+
+					{#if newPostImageUrl.trim()}
+						<div class="relative w-44 h-28 rounded-card overflow-hidden border border-rule bg-paper-2 mt-2 flex items-center justify-center">
+							{#if newPostPreviewFailed}
+								<p class="text-xs text-error px-3 text-center">Preview could not be loaded.</p>
+							{:else}
+								<img
+									src={newPostImageUrl}
+									alt="Attachment preview"
+									class="w-full h-full object-cover"
+									onerror={() => (newPostPreviewFailed = true)}
+								/>
+							{/if}
+							<button
+								type="button"
+								onclick={() => (newPostImageUrl = '')}
+								aria-label="Remove attached photo"
+								class="absolute top-1.5 right-1.5 min-h-[32px] bg-paper/90 hover:bg-accent hover:text-accent-ink text-ink border border-rule rounded-pill px-2.5 py-0.5 text-xs font-semibold"
+								title="Remove photo"
+							>
+								Remove
+							</button>
+						</div>
+					{/if}
+				</div>
+			{/if}
+
+			{#if attachedInsightPreview}
+				<div class="border-t border-rule pt-3 flex items-center justify-between gap-4 text-xs">
+					<div class="space-y-1">
+						<div class="flex items-center gap-2">
+							<span class="text-accent-2 font-semibold">Insight attached</span>
+							<span class="font-bold text-ink">{attachedInsightPreview.title}</span>
+						</div>
+						<p class="text-muted">
+							Metric: {attachedInsightPreview.metric}, venue: {attachedInsightPreview.venue}
+						</p>
 					</div>
-					<p class="text-muted num font-outlier">
-						Players: {attachedTacticalBoardPreview.lineup.length}, vectors: {attachedTacticalBoardPreview.annotations.length}
-					</p>
+					<button
+						type="button"
+						onclick={() => (selectedInsightId = '')}
+						class="min-h-[36px] px-2 text-muted hover:text-error font-semibold"
+					>
+						Detach
+					</button>
 				</div>
+			{/if}
+
+			{#if attachedTacticalBoardPreview}
+				<div class="border-t border-rule pt-3 flex items-center justify-between gap-4 text-xs">
+					<div class="space-y-1">
+						<div class="flex items-center gap-2">
+							<span class="text-accent-text font-semibold">
+								Tactical board attached (<span class="num font-outlier">{attachedTacticalBoardPreview.formation}</span>)
+							</span>
+							<span class="font-bold text-ink">{attachedTacticalBoardPreview.title}</span>
+						</div>
+						<p class="text-muted num font-outlier">
+							Players: {attachedTacticalBoardPreview.lineup.length}, vectors: {attachedTacticalBoardPreview.annotations.length}
+						</p>
+					</div>
+					<button
+						type="button"
+						onclick={() => (selectedTacticalBoardId = '')}
+						class="min-h-[36px] px-2 text-muted hover:text-error font-semibold"
+					>
+						Detach
+					</button>
+				</div>
+			{/if}
+
+			<div class="flex items-center justify-between pt-3 border-t border-rule flex-wrap gap-3">
+				<div class="flex items-center gap-2.5 flex-wrap">
+					<button
+						type="button"
+						onclick={() => {
+							if (!requireAuth('post')) return;
+							showImageInput = !showImageInput;
+						}}
+						aria-expanded={showImageInput}
+						class="min-h-[44px] px-3 rounded-card bg-paper-2 hover:bg-paper-3 border border-rule text-xs text-ink-2 font-semibold transition-colors {showImageInput ? 'border-accent text-accent-text' : ''}"
+					>
+						{imageToggleLabel}
+					</button>
+
+					<select
+						aria-label="Attach Data Lab insight"
+						bind:value={selectedInsightId}
+						class="min-h-[44px] bg-paper-2 border border-rule text-xs text-ink-2 rounded-card px-2.5"
+					>
+						<option value="">Attach insight (optional)</option>
+						{#each availableInsights as ins (ins.id)}
+							<option value={ins.id}>{ins.title}</option>
+						{/each}
+					</select>
+
+					<select
+						aria-label="Attach tactical board"
+						bind:value={selectedTacticalBoardId}
+						class="min-h-[44px] bg-paper-2 border border-rule text-xs text-ink-2 rounded-card px-2.5"
+					>
+						<option value="">Attach tactic (optional)</option>
+						{#each availableTacticalBoards as tb (tb.id)}
+							<option value={tb.id}>{tb.title} ({tb.formation})</option>
+						{/each}
+					</select>
+
+					<a
+						href="/board"
+						class="inline-flex items-center min-h-[44px] px-1.5 text-xs text-accent-text hover:text-ink font-semibold transition-colors"
+					>
+						Create tactic
+					</a>
+				</div>
+
 				<button
 					type="button"
-					onclick={() => (selectedTacticalBoardId = '')}
-					class="text-muted hover:text-error font-semibold"
+					onclick={handlePublishPost}
+					disabled={isSubmitting || isUploadingImage || !newPostContent.trim()}
+					class="min-h-[44px] px-5 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity disabled:opacity-50"
 				>
-					Detach
+					{publishPostLabel}
 				</button>
 			</div>
 		{/if}
-
-		<div class="flex items-center justify-between pt-3 border-t border-rule flex-wrap gap-3">
-			<div class="flex items-center gap-2.5 flex-wrap">
-				<button
-					type="button"
-					onclick={() => {
-						if (!requireAuth('post')) return;
-						showImageInput = !showImageInput;
-					}}
-					class="h-9 px-3 rounded-card bg-paper-2 hover:bg-paper-3 border border-rule text-xs text-ink-2 font-semibold transition-colors {showImageInput ? 'border-accent text-accent' : ''}"
-				>
-					{imageToggleLabel}
-				</button>
-
-				<select
-					aria-label="Attach Data Lab insight"
-					bind:value={selectedInsightId}
-					class="h-9 bg-paper-2 border border-rule text-xs text-ink-2 rounded-card px-2.5"
-				>
-					<option value="">Attach insight (optional)</option>
-					{#each availableInsights as ins}
-						<option value={ins.id}>{ins.title}</option>
-					{/each}
-				</select>
-
-				<select
-					aria-label="Attach tactical board"
-					bind:value={selectedTacticalBoardId}
-					class="h-9 bg-paper-2 border border-rule text-xs text-ink-2 rounded-card px-2.5"
-				>
-					<option value="">Attach tactic (optional)</option>
-					{#each availableTacticalBoards as tb}
-						<option value={tb.id}>{tb.title} ({tb.formation})</option>
-					{/each}
-				</select>
-
-				<a
-					href="/board"
-					class="text-xs text-accent hover:text-ink font-semibold transition-colors"
-				>
-					Create tactic
-				</a>
-			</div>
-
-			<button
-				type="button"
-				onclick={handlePublishPost}
-				disabled={isSubmitting || isUploadingImage || (!newPostContent.trim() && !newPostImageUrl.trim())}
-				class="h-9 px-5 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity disabled:opacity-50"
-			>
-				{publishPostLabel}
-			</button>
-		</div>
 	</section>
 
 	<!-- Feed Stream -->
 	{#if isLoadingFeed}
-		<div class="py-12 text-muted text-sm">
+		<div role="status" class="py-12 text-muted text-sm">
 			Loading Terrace discussions…
 		</div>
+	{:else if postsError && posts.length === 0}
+		<StateBanner
+			variant="error"
+			title="Terrace feed unavailable"
+			message={postsError}
+			onretry={() => reloadFeed()}
+			busy={isLoadingFeed}
+		/>
 	{:else if visiblePosts.length === 0}
 		<div class="py-12 border-t border-rule space-y-2">
 			<p class="text-sm text-ink font-bold">No discussions match the active filters.</p>
 			<p class="text-xs text-muted">Be the first Gooner to share your thoughts above, or reset your active filters.</p>
 		</div>
 	{:else}
+		{#if postsError}
+			<StateBanner
+				variant="warning"
+				title="Feed refresh issue"
+				message={postsError}
+				onretry={() => reloadFeed()}
+				busy={isLoadingFeed}
+			/>
+		{/if}
+
 		<div class="divide-y divide-rule border-t border-rule">
-			{#each visiblePosts as post}
+			{#each visiblePosts as post (post.id)}
 				{@const debateBtnLabel = `Debates (${post.comments_count})`}
 				{@const cheerBtnLabel = `Cheer (${post.reactions_count})`}
 				{@const isPostOwner = Boolean(data.user?.id && post.author_id === data.user.id)}
@@ -918,23 +1111,25 @@
 				<article id="post-{post.id}" class="py-8 space-y-4">
 					<!-- Post Author & Meta -->
 					<div class="flex items-center justify-between text-xs gap-3 flex-wrap">
-						<div class="flex items-center gap-3">
+						<div class="flex items-center gap-3 flex-wrap">
 							<a
 								href="/supporters/{encodeURIComponent(post.author_name)}"
-								class="font-bold text-ink hover:text-accent transition-colors"
+								class="font-bold text-ink hover:text-accent-text transition-colors"
 							>
 								{post.author_name}
 							</a>
 							<span class="text-muted">Arsenal</span>
-							<a
-								href="/messages?recipient={encodeURIComponent(post.author_id || post.author_name)}&name={encodeURIComponent(post.author_name)}&club=arsenal"
-								class="text-accent-2 hover:text-ink font-semibold transition-colors"
-								title="Challenge {post.author_name} to a private debate"
-							>
-								Direct debate
-							</a>
+							{#if !isPostOwner}
+								<a
+									href="/messages?recipient={encodeURIComponent(post.author_id || post.author_name)}&name={encodeURIComponent(post.author_name)}&club=arsenal"
+									class="text-accent-2 hover:text-ink font-semibold transition-colors"
+									title="Challenge {post.author_name} to a private debate"
+								>
+									Direct debate
+								</a>
+							{/if}
 						</div>
-						<div class="flex items-center gap-3">
+						<div class="flex items-center gap-3 flex-wrap">
 							<span class="text-muted num font-outlier">{formatTimestamp(post.created_at)}</span>
 							{#if edited}
 								<span class="text-muted">(edited)</span>
@@ -947,7 +1142,7 @@
 											type="button"
 											onclick={() => handleDeletePost(post.id)}
 											disabled={deletingPostId === post.id}
-											class="h-7 px-2.5 rounded-card bg-accent text-accent-ink font-semibold text-xs whitespace-nowrap disabled:opacity-50"
+											class="min-h-[36px] px-2.5 rounded-card bg-accent text-accent-ink font-semibold text-xs whitespace-nowrap disabled:opacity-50"
 										>
 											{confirmPostBtn}
 										</button>
@@ -955,7 +1150,7 @@
 											type="button"
 											onclick={() => (confirmDeletePostId = null)}
 											disabled={deletingPostId === post.id}
-											class="h-7 px-2.5 rounded-card border border-rule bg-paper-2 text-ink-2 hover:text-ink font-semibold text-xs"
+											class="min-h-[36px] px-2.5 rounded-card border border-rule bg-paper-2 text-ink-2 hover:text-ink font-semibold text-xs"
 										>
 											Cancel
 										</button>
@@ -965,7 +1160,7 @@
 										type="button"
 										onclick={() => startEditPost(post)}
 										aria-label="Edit post by {post.author_name}"
-										class="text-muted hover:text-ink font-semibold transition-colors"
+										class="min-h-[36px] px-2 text-muted hover:text-ink font-semibold transition-colors"
 									>
 										Edit
 									</button>
@@ -973,7 +1168,7 @@
 										type="button"
 										onclick={() => (confirmDeletePostId = post.id)}
 										aria-label="Delete post by {post.author_name}"
-										class="text-muted hover:text-error font-semibold transition-colors"
+										class="min-h-[36px] px-2 text-muted hover:text-error font-semibold transition-colors"
 									>
 										Delete
 									</button>
@@ -984,32 +1179,87 @@
 
 					<!-- Post Content or Inline Editor -->
 					{#if editingPostId === post.id}
-						{@const savePostLabel = savingPostId === post.id ? 'Saving…' : 'Save'}
 						<div class="space-y-3 border-l-2 border-accent-2 pl-4 py-2">
-							<label for="edit-post-{post.id}" class="block text-xs font-semibold text-ink-2">
-								Edit post
-							</label>
+							<div class="flex items-center justify-between gap-2">
+								<label for="edit-post-{post.id}" class="block text-xs font-semibold text-ink-2">
+									Edit post
+								</label>
+								{#if editPostContent.length > 1600}
+									<span class="text-xs num font-outlier text-muted">
+										{editPostContent.length}/{MAX_POST_CHARS}
+									</span>
+								{/if}
+							</div>
 							<textarea
 								id="edit-post-{post.id}"
 								aria-label="Edit post content"
 								bind:value={editPostContent}
+								maxlength={MAX_POST_CHARS}
 								rows="3"
 								disabled={savingPostId === post.id}
 								class="w-full bg-paper-2 border border-rule rounded-card p-3 text-xs text-ink placeholder-muted resize-y"
 							></textarea>
-							<div class="space-y-1">
-								<label for="edit-post-img-{post.id}" class="block text-xs font-semibold text-ink-2">
-									Image URL (optional)
-								</label>
-								<input
-									id="edit-post-img-{post.id}"
-									type="url"
-									bind:value={editPostImageUrl}
-									disabled={savingPostId === post.id}
-									placeholder="https://…"
-									class="w-full h-9 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
-								/>
+
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+								<div class="space-y-1">
+									<label for="edit-post-file-{post.id}" class="block text-xs font-semibold text-ink-2">
+										Replace photo from device
+									</label>
+									<input
+										id="edit-post-file-{post.id}"
+										type="file"
+										accept="image/jpeg,image/png,image/webp,image/gif"
+										disabled={savingPostId === post.id || isUploadingEditImage}
+										onchange={handleEditImageFileSelected}
+										class="block w-full min-h-[44px] bg-paper-2 border border-rule rounded-card px-3 py-2 text-xs text-ink-2 file:mr-3 file:border-0 file:bg-paper-3 file:text-ink file:text-xs file:font-semibold file:px-2.5 file:py-1 file:rounded-card hover:file:bg-accent hover:file:text-accent-ink disabled:opacity-50"
+									/>
+								</div>
+
+								<div class="space-y-1">
+									<label for="edit-post-img-{post.id}" class="block text-xs font-semibold text-ink-2">
+										Image URL (optional)
+									</label>
+									<input
+										id="edit-post-img-{post.id}"
+										type="url"
+										bind:value={editPostImageUrl}
+										disabled={savingPostId === post.id || isUploadingEditImage}
+										placeholder="https://…"
+										class="w-full min-h-[44px] bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
+									/>
+								</div>
 							</div>
+
+							{#if editImageUploadError}
+								<p role="alert" class="text-xs text-error font-semibold">{editImageUploadError}</p>
+							{/if}
+
+							{#if editPostImageUrl.trim()}
+								<div class="relative w-44 h-28 rounded-card overflow-hidden border border-rule bg-paper-2 flex items-center justify-center">
+									{#if editPostPreviewFailed}
+										<p class="text-xs text-error px-3 text-center">Preview could not be loaded.</p>
+									{:else}
+										<img
+											src={editPostImageUrl}
+											alt="Edited attachment preview"
+											class="w-full h-full object-cover"
+											onerror={() => (editPostPreviewFailed = true)}
+										/>
+									{/if}
+									<button
+										type="button"
+										onclick={() => {
+											editPostImageUrl = '';
+											editImageUploadError = null;
+											editPostPreviewFailed = false;
+										}}
+										class="absolute top-1.5 right-1.5 min-h-[32px] bg-paper/90 hover:bg-accent hover:text-accent-ink text-ink border border-rule rounded-pill px-2.5 py-0.5 text-xs font-semibold"
+									>
+										Remove image
+									</button>
+								</div>
+							{/if}
+
 							{#if editPostError}
 								<p role="alert" class="text-xs text-error font-semibold">{editPostError}</p>
 							{/if}
@@ -1017,18 +1267,18 @@
 								<button
 									type="button"
 									onclick={cancelEditPost}
-									disabled={savingPostId === post.id}
-									class="h-8 px-3 rounded-card border border-rule bg-paper-2 text-ink-2 hover:text-ink text-xs font-semibold disabled:opacity-50"
+									disabled={savingPostId === post.id || isUploadingEditImage}
+									class="min-h-[36px] px-3 rounded-card border border-rule bg-paper-2 text-ink-2 hover:text-ink text-xs font-semibold disabled:opacity-50"
 								>
 									Cancel
 								</button>
 								<button
 									type="button"
 									onclick={() => handleSavePostEdit(post)}
-									disabled={savingPostId === post.id || !editPostContent.trim()}
-									class="h-8 px-3.5 rounded-card bg-accent hover:opacity-95 text-accent-ink text-xs font-semibold disabled:opacity-50"
+									disabled={savingPostId === post.id || isUploadingEditImage || !editPostContent.trim()}
+									class="min-h-[36px] px-3.5 rounded-card bg-accent hover:opacity-95 text-accent-ink text-xs font-semibold whitespace-nowrap disabled:opacity-50"
 								>
-									{savePostLabel}
+									{editSaveLabel}
 								</button>
 							</div>
 						</div>
@@ -1037,7 +1287,7 @@
 							{#each parsePostSegments(post.content) as seg}{#if seg.tag}<button
 									type="button"
 									onclick={() => handleTagClick(seg.tag!)}
-									class="font-semibold underline decoration-rule-2 underline-offset-2 transition-colors {selectedTag.toLowerCase() === seg.tag.toLowerCase() ? 'text-accent' : 'text-accent-2 hover:text-accent'}"
+									class="font-semibold underline decoration-rule-2 underline-offset-2 transition-colors {selectedTag.toLowerCase() === seg.tag.toLowerCase() ? 'text-accent-text' : 'text-accent-2 hover:text-accent-text'}"
 								>{seg.text}</button>{:else}{seg.text}{/if}{/each}
 						</p>
 					{/if}
@@ -1045,29 +1295,37 @@
 					<!-- Attached Image -->
 					{#if post.image_url}
 						<div class="rounded-card overflow-hidden border border-rule max-h-96 bg-paper-2">
-							<button
-								type="button"
-								onclick={() => (lightboxImageUrl = post.image_url || null)}
-								class="w-full text-left group relative"
-							>
-								<img
-									src={post.image_url}
-									alt="Post attachment"
-									class="w-full max-h-96 object-cover hover:opacity-95 transition-opacity cursor-zoom-in"
-									loading="lazy"
-								/>
-							</button>
+							{#if brokenPostImages[post.id]}
+								<div class="p-4 text-xs text-muted">
+									Attached photo could not be loaded.
+								</div>
+							{:else}
+								<button
+									type="button"
+									onclick={() => (lightboxImageUrl = post.image_url || null)}
+									aria-label="Enlarge photo shared by {post.author_name}"
+									class="w-full text-left group relative block"
+								>
+									<img
+										src={post.image_url}
+										alt="Photo shared by {post.author_name}"
+										class="w-full max-h-96 object-cover hover:opacity-95 transition-opacity cursor-zoom-in"
+										loading="lazy"
+										onerror={() => (brokenPostImages = { ...brokenPostImages, [post.id]: true })}
+									/>
+								</button>
+							{/if}
 						</div>
 					{/if}
 
 					<!-- Attached Insight -->
 					{#if post.insight}
 						{@const ins = post.insight}
-						<div class="border-l-2 border-accent-2 pl-4 py-2 space-y-3 bg-paper-2 p-4">
+						<div class="border-l-2 border-accent-2 space-y-3 bg-paper-2 p-4">
 							<div class="flex items-center justify-between gap-2 flex-wrap">
 								<div class="space-y-0.5">
 									<span class="text-xs font-semibold text-accent-2">Data Lab snapshot</span>
-									<h3 class="text-sm font-bold text-ink">{ins.title}</h3>
+									<h3 class="text-sm font-bold text-ink card-headline">{ins.title}</h3>
 								</div>
 								<a
 									href="/lab?metric={ins.metric}&teams={ins.team_ids.join(',')}&venue={ins.venue}"
@@ -1079,7 +1337,7 @@
 
 							{#if ins.snapshot && ins.snapshot.series}
 								<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-rule text-xs">
-									{#each ins.snapshot.series as item}
+									{#each ins.snapshot.series as item (item.team_id)}
 										<div class="space-y-1">
 											<div class="flex items-center justify-between">
 												<span class="text-ink font-bold">{item.team_name}</span>
@@ -1101,17 +1359,17 @@
 					<!-- Attached Tactical Board -->
 					{#if post.tactical_board}
 						{@const tb = post.tactical_board}
-						<div class="border-l-2 border-accent pl-4 py-2 space-y-3 bg-paper-2 p-4">
+						<div class="border-l-2 border-accent space-y-3 bg-paper-2 p-4">
 							<div class="flex items-center justify-between gap-2 flex-wrap">
 								<div class="space-y-0.5">
-									<span class="text-xs font-semibold text-accent">
+									<span class="text-xs font-semibold text-accent-text">
 										Lineup blueprint (<span class="num font-outlier">{tb.formation}</span>)
 									</span>
-									<h3 class="text-sm font-bold text-ink">{tb.title}</h3>
+									<h3 class="text-sm font-bold text-ink card-headline">{tb.title}</h3>
 								</div>
 								<a
 									href="/board"
-									class="text-xs font-semibold text-accent hover:text-ink transition-colors"
+									class="text-xs font-semibold text-accent-text hover:text-ink transition-colors"
 								>
 									Open in lineup studio
 								</a>
@@ -1135,36 +1393,65 @@
 					{/if}
 
 					<!-- Post Action Bar -->
-					<div class="flex items-center gap-3 pt-2 text-xs">
+					<div class="flex items-center gap-3 pt-2 text-xs flex-wrap">
 						<button
 							type="button"
+							aria-pressed={post.user_reacted}
 							onclick={() => handleToggleReaction(post)}
-							class="h-8 px-3 rounded-card transition-colors border flex items-center gap-1.5 {post.user_reacted ? 'bg-paper-3 text-accent-2 font-bold border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
+							class="min-h-[44px] px-3.5 rounded-card transition-colors border flex items-center gap-1.5 {post.user_reacted ? 'bg-paper-3 text-accent-2 font-bold border-rule-2' : 'bg-paper-2 text-ink-2 border-rule hover:text-ink'}"
 						>
 							<span>{cheerBtnLabel}</span>
 						</button>
 
 						<button
 							type="button"
+							aria-expanded={!!expandedComments[post.id]}
+							aria-controls="comments-{post.id}"
 							onclick={() => toggleCommentSection(post.id)}
-							class="h-8 px-3 rounded-card bg-paper-2 border border-rule text-ink-2 hover:text-ink transition-colors font-semibold"
+							class="min-h-[44px] px-3.5 rounded-card bg-paper-2 border border-rule text-ink-2 hover:text-ink transition-colors font-semibold"
 						>
 							{debateBtnLabel}
 						</button>
 					</div>
 
+					{#if postActionErrors[post.id]}
+						<div role="alert" class="p-3 rounded-card bg-paper-2 border border-rule text-error text-xs flex items-center justify-between gap-3">
+							<span>{postActionErrors[post.id]}</span>
+							<button
+								type="button"
+								onclick={() => (postActionErrors = { ...postActionErrors, [post.id]: null })}
+								class="min-h-[36px] px-2 text-muted hover:text-ink font-semibold shrink-0"
+							>
+								Dismiss
+							</button>
+						</div>
+					{/if}
+
 					<!-- Comments Thread -->
 					{#if expandedComments[post.id]}
-						<div class="pt-4 border-t border-rule space-y-4">
-							{#if postComments[post.id] && postComments[post.id].length > 0}
+						<div id="comments-{post.id}" class="pt-4 border-t border-rule space-y-4">
+							{#if loadingComments[post.id]}
+								<p role="status" class="text-xs text-muted">Loading replies…</p>
+							{:else if commentLoadErrors[post.id]}
+								<div role="alert" class="p-3 bg-paper-2 border-l-2 border-l-error border-y border-r border-rule text-xs flex flex-wrap items-center justify-between gap-3">
+									<span class="text-error">{commentLoadErrors[post.id]}</span>
+									<button
+										type="button"
+										onclick={() => loadPostComments(post.id)}
+										class="min-h-[36px] px-3 rounded-card border border-rule bg-paper text-ink font-semibold"
+									>
+										Retry
+									</button>
+								</div>
+							{:else if postComments[post.id] && postComments[post.id].length > 0}
 								<div class="divide-y divide-rule">
-									{#each postComments[post.id] as comment}
+									{#each postComments[post.id] as comment (comment.id)}
 										{@const isCommentOwner = Boolean(data.user?.id && comment.author_id === data.user.id)}
 										<div class="py-3 space-y-1 text-xs">
-											<div class="flex items-center justify-between gap-2">
+											<div class="flex items-center justify-between gap-2 flex-wrap">
 												<a
 													href="/supporters/{encodeURIComponent(comment.author_name)}"
-													class="font-bold text-ink hover:text-accent transition-colors"
+													class="font-bold text-ink hover:text-accent-text transition-colors"
 												>
 													{comment.author_name}
 												</a>
@@ -1178,7 +1465,7 @@
 																	type="button"
 																	onclick={() => handleDeleteComment(post.id, comment.id)}
 																	disabled={deletingCommentId === comment.id}
-																	class="h-6 px-2 rounded-card bg-accent text-accent-ink font-semibold text-xs whitespace-nowrap disabled:opacity-50"
+																	class="min-h-[36px] px-2.5 rounded-card bg-accent text-accent-ink font-semibold text-xs whitespace-nowrap disabled:opacity-50"
 																>
 																	{confirmCommentBtn}
 																</button>
@@ -1186,7 +1473,7 @@
 																	type="button"
 																	onclick={() => (confirmDeleteCommentId = null)}
 																	disabled={deletingCommentId === comment.id}
-																	class="h-6 px-2 rounded-card border border-rule bg-paper-2 text-ink-2 hover:text-ink font-semibold text-xs"
+																	class="min-h-[36px] px-2.5 rounded-card border border-rule bg-paper-2 text-ink-2 hover:text-ink font-semibold text-xs"
 																>
 																	Cancel
 																</button>
@@ -1196,7 +1483,7 @@
 																type="button"
 																onclick={() => startEditComment(comment)}
 																aria-label="Edit comment"
-																class="text-muted hover:text-ink font-semibold transition-colors"
+																class="min-h-[36px] px-2 text-muted hover:text-ink font-semibold transition-colors"
 															>
 																Edit
 															</button>
@@ -1204,7 +1491,7 @@
 																type="button"
 																onclick={() => (confirmDeleteCommentId = comment.id)}
 																aria-label="Delete comment"
-																class="text-muted hover:text-error font-semibold transition-colors"
+																class="min-h-[36px] px-2 text-muted hover:text-error font-semibold transition-colors"
 															>
 																Delete
 															</button>
@@ -1218,6 +1505,7 @@
 													<textarea
 														aria-label="Edit comment content"
 														bind:value={editCommentContent}
+														maxlength={MAX_COMMENT_CHARS}
 														rows="2"
 														disabled={savingCommentId === comment.id}
 														class="w-full bg-paper-2 border border-rule rounded-card p-2 text-xs text-ink resize-y"
@@ -1230,7 +1518,7 @@
 															type="button"
 															onclick={cancelEditComment}
 															disabled={savingCommentId === comment.id}
-															class="h-6 px-2.5 rounded-card border border-rule bg-paper-2 text-ink-2 hover:text-ink font-semibold text-xs disabled:opacity-50"
+															class="min-h-[36px] px-2.5 rounded-card border border-rule bg-paper-2 text-ink-2 hover:text-ink font-semibold text-xs disabled:opacity-50"
 														>
 															Cancel
 														</button>
@@ -1238,7 +1526,7 @@
 															type="button"
 															onclick={() => handleSaveCommentEdit(post.id, comment)}
 															disabled={savingCommentId === comment.id || !editCommentContent.trim()}
-															class="h-6 px-2.5 rounded-card bg-accent text-accent-ink font-semibold text-xs disabled:opacity-50"
+															class="min-h-[36px] px-2.5 rounded-card bg-accent text-accent-ink font-semibold text-xs disabled:opacity-50"
 														>
 															{saveCommentLabel}
 														</button>
@@ -1254,27 +1542,39 @@
 								<p class="text-xs text-muted">No comments yet. Join the conversation below.</p>
 							{/if}
 
-							<div class="flex items-center gap-2">
-								<input
-									type="text"
-									aria-label="Reply to discussion"
-									bind:value={newCommentText[post.id]}
-									placeholder={commentPlaceholder}
-									class="flex-1 h-9 bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
-									onfocus={() => {
-										if (!data.user) requireAuth('comment');
-									}}
-									onkeydown={(e) => e.key === 'Enter' && handleAddComment(post.id)}
-								/>
-								<button
-									type="button"
-									onclick={() => handleAddComment(post.id)}
-									disabled={isSubmittingComment[post.id] || !newCommentText[post.id]?.trim()}
-									class="h-9 px-4 rounded-card bg-accent hover:opacity-95 text-xs font-semibold text-accent-ink transition-opacity"
-								>
-									Reply
-								</button>
-							</div>
+							{#if !data.user}
+								<div class="pt-1 flex items-center justify-between gap-3 flex-wrap">
+									<span class="text-xs text-muted">Sign in to reply to this debate.</span>
+									<button
+										type="button"
+										onclick={() => requireAuth('comment')}
+										class="min-h-[44px] px-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs font-semibold text-ink transition-colors"
+									>
+										Sign in to reply
+									</button>
+								</div>
+							{:else}
+								{@const replyBtnLabel = isSubmittingComment[post.id] ? 'Sending…' : 'Reply'}
+								<div class="flex items-center gap-2">
+									<input
+										type="text"
+										aria-label="Reply to discussion"
+										maxlength={MAX_COMMENT_CHARS}
+										bind:value={newCommentText[post.id]}
+										placeholder="Write your debrief or reply…"
+										class="flex-1 min-w-0 min-h-[44px] bg-paper-2 border border-rule rounded-card px-3 text-xs text-ink placeholder-muted"
+										onkeydown={(e) => e.key === 'Enter' && handleAddComment(post.id)}
+									/>
+									<button
+										type="button"
+										onclick={() => handleAddComment(post.id)}
+										disabled={isSubmittingComment[post.id] || !newCommentText[post.id]?.trim()}
+										class="min-h-[44px] px-4 rounded-card bg-accent hover:opacity-95 text-xs font-semibold text-accent-ink whitespace-nowrap transition-opacity disabled:opacity-50"
+									>
+										{replyBtnLabel}
+									</button>
+								</div>
+							{/if}
 						</div>
 					{/if}
 				</article>
@@ -1285,18 +1585,33 @@
 
 <!-- Guest Auth Gate Modal -->
 {#if showAuthModal}
-	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-paper/85">
-		<div class="bg-paper-2 border-t-2 border-rule-2 p-6 max-w-md w-full space-y-5 relative">
+	<div
+		class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 bg-paper/85"
+		role="presentation"
+		onclick={(e) => {
+			if (e.target === e.currentTarget) showAuthModal = false;
+		}}
+	>
+		<div
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="terrace-auth-modal-title"
+			use:focusTrap={{
+				active: showAuthModal,
+				onEscape: () => (showAuthModal = false)
+			}}
+			class="bg-paper-2 border-t-2 border-rule-2 p-6 max-w-md w-full space-y-5 relative"
+		>
 			<button
 				type="button"
 				onclick={() => (showAuthModal = false)}
-				class="absolute top-4 right-4 text-muted hover:text-ink text-xs font-semibold"
+				class="absolute top-3 right-3 min-h-[36px] px-2 text-muted hover:text-ink text-xs font-semibold"
 			>
 				Close
 			</button>
 
-			<div class="space-y-2">
-				<h2 class="text-lg font-bold text-ink">
+			<div class="space-y-2 pr-12">
+				<h2 id="terrace-auth-modal-title" class="text-lg font-bold text-ink">
 					Join the Terrace discussion
 				</h2>
 				<p class="text-xs text-ink-2 leading-relaxed">
@@ -1316,21 +1631,21 @@
 
 			<div class="flex flex-col gap-2.5 pt-1">
 				<a
-					href="/login"
-					class="w-full h-10 inline-flex items-center justify-center font-semibold text-xs bg-accent hover:opacity-95 text-accent-ink rounded-card transition-opacity"
+					href="/login?next={authNext}"
+					class="w-full min-h-[44px] inline-flex items-center justify-center font-semibold text-xs bg-accent hover:opacity-95 text-accent-ink rounded-card transition-opacity"
 				>
 					Sign in
 				</a>
 				<a
-					href="/signup"
-					class="w-full h-10 inline-flex items-center justify-center font-semibold text-xs bg-paper border border-rule text-ink rounded-card transition-colors hover:bg-paper-3"
+					href="/signup?next={authNext}"
+					class="w-full min-h-[44px] inline-flex items-center justify-center font-semibold text-xs bg-paper border border-rule text-ink rounded-card transition-colors hover:bg-paper-3"
 				>
 					Create free Gooner account
 				</a>
 				<button
 					type="button"
 					onclick={() => (showAuthModal = false)}
-					class="text-xs text-muted hover:text-ink pt-1"
+					class="min-h-[44px] text-xs text-muted hover:text-ink"
 				>
 					Browse as guest
 				</button>
@@ -1342,24 +1657,36 @@
 <!-- Lightbox Modal for Post Images -->
 {#if lightboxImageUrl}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-paper/90 cursor-zoom-out"
-		onclick={() => (lightboxImageUrl = null)}
-		role="button"
-		tabindex="0"
-		onkeydown={(e) => e.key === 'Escape' && (lightboxImageUrl = null)}
+		class="fixed inset-0 z-[var(--z-modal)] flex items-center justify-center p-4 bg-paper/90 cursor-zoom-out"
+		role="presentation"
+		onclick={(e) => {
+			if (e.target === e.currentTarget) lightboxImageUrl = null;
+		}}
 	>
-		<div class="relative max-w-5xl max-h-[90vh]">
+		<div
+			role="dialog"
+			aria-modal="true"
+			aria-labelledby="terrace-lightbox-title"
+			use:focusTrap={{
+				active: Boolean(lightboxImageUrl),
+				onEscape: () => (lightboxImageUrl = null)
+			}}
+			class="relative max-w-5xl max-h-[90vh] flex flex-col items-end gap-2 cursor-default"
+		>
+			<h2 id="terrace-lightbox-title" class="visually-hidden">
+				Photo shared by {lightboxAuthor}
+			</h2>
 			<button
 				type="button"
 				onclick={() => (lightboxImageUrl = null)}
-				class="absolute -top-10 right-0 text-ink text-xs bg-paper-2 border border-rule px-3 py-1 rounded-card font-semibold"
+				class="min-h-[44px] text-ink text-xs bg-paper-2 border border-rule px-3.5 rounded-card font-semibold"
 			>
 				Close
 			</button>
 			<img
 				src={lightboxImageUrl}
-				alt="Full size preview"
-				class="max-w-full max-h-[85vh] object-contain rounded-card border border-rule"
+				alt="Photo shared by {lightboxAuthor}"
+				class="max-w-full max-h-[82vh] object-contain rounded-card border border-rule"
 			/>
 		</div>
 	</div>

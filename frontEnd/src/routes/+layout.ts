@@ -5,31 +5,50 @@ import type { LayoutLoad } from './$types';
 export const load: LayoutLoad = async ({ data, depends, fetch }) => {
 	depends('supabase:auth');
 
-	const supabase = isBrowser()
-		? createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-				global: { fetch }
-			})
-		: createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-				global: { fetch },
-				cookies: {
-					getAll() {
-						return data.cookies;
-					}
+	if (!isBrowser()) {
+		const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+			global: { fetch },
+			cookies: {
+				getAll() {
+					return data.cookies;
 				}
-			});
+			}
+		});
+
+		return {
+			supabase,
+			session: data.session,
+			user: data.user,
+			profile: data.profile
+		};
+	}
+
+	const supabase = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+		global: { fetch }
+	});
+
+	const {
+		data: { user },
+		error: userError
+	} = await supabase.auth.getUser();
+
+	if (userError || !user) {
+		return {
+			supabase,
+			session: null,
+			user: null,
+			profile: null
+		};
+	}
 
 	const {
 		data: { session }
 	} = await supabase.auth.getSession();
 
-	const {
-		data: { user }
-	} = await supabase.auth.getUser();
-
 	return {
 		supabase,
 		session: session ?? data.session,
-		user: user ?? data.user,
+		user,
 		profile: data.profile
 	};
 };
