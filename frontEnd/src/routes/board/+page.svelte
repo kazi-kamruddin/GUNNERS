@@ -281,11 +281,11 @@
 	<section class="border-t-2 border-rule-2 pt-6 space-y-5">
 		<div class="flex items-center justify-between flex-wrap gap-3">
 			<h2 class="text-lg font-bold text-ink">Blueprint notes</h2>
-			<div class="flex items-center gap-6 text-xs">
-				<span><span class="text-muted">Players on pitch:</span> <strong class="num font-outlier text-ink">{currentLineup.length}</strong></span>
-				<span><span class="text-muted">Tactical vectors:</span> <strong class="num font-outlier text-accent-2">{currentAnnotations.length}</strong></span>
-				<span><span class="text-muted">Club:</span> <strong class="text-ink">{themeState.currentTheme.name}</strong></span>
-			</div>
+			<dl class="flex items-center gap-6 text-xs">
+				<div class="flex items-center gap-1.5"><dt class="text-muted">Players on pitch:</dt><dd class="num font-outlier text-ink font-bold">{currentLineup.length}</dd></div>
+				<div class="flex items-center gap-1.5"><dt class="text-muted">Tactical vectors:</dt><dd class="num font-outlier text-accent-2 font-bold">{currentAnnotations.length}</dd></div>
+				<div class="flex items-center gap-1.5"><dt class="text-muted">Club:</dt><dd class="text-ink font-bold">{themeState.currentTheme.name}</dd></div>
+			</dl>
 		</div>
 
 		<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
