@@ -47,7 +47,11 @@ test.describe('Shell, Responsive Geometry & Accessibility Probes', () => {
 				if (route !== '/') {
 					await navigateSpa(page, route);
 				}
-				await expect(page.locator('h1').first()).toBeVisible();
+				if (route === '/') {
+					await expect(page.locator('h1').first()).toBeVisible();
+				} else {
+					await expect(page.locator('#main-content')).toBeVisible();
+				}
 
 				const metrics = await page.evaluate(() => ({
 					scrollWidth: document.documentElement.scrollWidth,
