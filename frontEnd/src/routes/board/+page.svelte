@@ -233,73 +233,63 @@
 		</div>
 	{/if}
 
-	<!-- Header -->
-	<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b-2 border-rule-2 pb-8">
-		<div class="space-y-3">
-			<h1>Matchday lineup &amp; tactical studio</h1>
-			<p class="lead text-ink-2">
-				Build your starting eleven, swap bench substitutes, draw pressing channels, and export high-resolution lineup graphics.
+	<!-- Compact Top Control Bar -->
+	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rule pb-4">
+		<div class="flex items-center gap-3 flex-wrap">
+			<label for="formation-select" class="text-xs text-ink-2 font-semibold">Formation preset</label>
+			<select
+				id="formation-select"
+				value={selectedFormationId}
+				onchange={(e) => handleFormationSelect((e.target as HTMLSelectElement).value)}
+				class="min-h-[44px] bg-paper-2 border border-rule text-ink text-xs rounded-card px-3 font-semibold"
+			>
+				{#each data.presets as p (p.id)}
+					<option value={p.id}>{p.name}</option>
+				{/each}
+			</select>
+			<p class="text-xs text-muted">
+				Click or press Enter on any pitch token to edit or swap; drag or use Arrow keys to adjust positioning.
 			</p>
 		</div>
 
-		<div class="flex items-center gap-3 flex-wrap">
-			<button
-				type="button"
-				onclick={handleSaveBoard}
-				disabled={isSaving || !isTitleValid || currentLineup.length === 0}
-				class="min-h-[44px] px-5 rounded-card bg-accent hover:opacity-95 disabled:opacity-50 text-sm text-accent-ink font-semibold transition-opacity"
-			>
-				{publishLabel}
-			</button>
-		</div>
+		<button
+			type="button"
+			onclick={handleSaveBoard}
+			disabled={isSaving || !isTitleValid || currentLineup.length === 0}
+			class="min-h-[44px] px-5 rounded-card bg-accent hover:opacity-95 disabled:opacity-50 text-sm text-accent-ink font-semibold transition-opacity shrink-0 self-start sm:self-auto"
+		>
+			{publishLabel}
+		</button>
 	</div>
 
-	<!-- Main Workspace Grid: Controls & Pitch Board -->
-	<div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
-		<!-- Left: Pitch Canvas (8 cols) -->
-		<div class="lg:col-span-8 space-y-6">
-			<!-- Preset & Quick Actions Bar -->
-			<div class="pb-4 border-b border-rule flex items-center justify-between gap-4 flex-wrap text-xs">
-				<div class="flex items-center gap-3">
-					<label for="formation-select" class="text-ink-2 font-semibold">Formation preset</label>
-					<select
-						id="formation-select"
-						value={selectedFormationId}
-						onchange={(e) => handleFormationSelect((e.target as HTMLSelectElement).value)}
-						class="min-h-[44px] bg-paper-2 border border-rule text-ink text-xs rounded-card px-3 font-semibold"
-					>
-						{#each data.presets as p (p.id)}
-							<option value={p.id}>{p.name}</option>
-						{/each}
-					</select>
-				</div>
+	<!-- Interactive Tactical Pitch (70% vertical pitch + 30% substitutes, tools below) -->
+	<div>
+		<TacticalBoardComponent
+			bind:lineup={currentLineup}
+			bind:annotations={currentAnnotations}
+			squadPlayers={data.squad}
+			formationName={data.presets.find((p) => p.id === selectedFormationId)?.name || '4-3-3 Attacking'}
+			readonly={false}
+			onchange={() => {
+				savedBoardId = null;
+			}}
+			onshare={handleShareToTerrace}
+		/>
+	</div>
 
-				<p class="text-xs text-muted">
-					Click or press Enter on any pitch token to edit or swap; drag or use Arrow keys to adjust positioning.
-				</p>
-			</div>
-
-			<!-- Interactive Tactical Pitch Component -->
-			<div>
-				<TacticalBoardComponent
-					bind:lineup={currentLineup}
-					bind:annotations={currentAnnotations}
-					squadPlayers={data.squad}
-					formationName={data.presets.find((p) => p.id === selectedFormationId)?.name || '4-3-3 Attacking'}
-					readonly={false}
-					onchange={() => {
-						savedBoardId = null;
-					}}
-					onshare={handleShareToTerrace}
-				/>
+	<!-- Blueprint Info & Tactical Instructions (below pitch & tools) -->
+	<section class="border-t-2 border-rule-2 pt-6 space-y-5">
+		<div class="flex items-center justify-between flex-wrap gap-3">
+			<h2 class="text-lg font-bold text-ink">Blueprint notes</h2>
+			<div class="flex items-center gap-6 text-xs">
+				<span><span class="text-muted">Players on pitch:</span> <strong class="num font-outlier text-ink">{currentLineup.length}</strong></span>
+				<span><span class="text-muted">Tactical vectors:</span> <strong class="num font-outlier text-accent-2">{currentAnnotations.length}</strong></span>
+				<span><span class="text-muted">Club:</span> <strong class="text-ink">{themeState.currentTheme.name}</strong></span>
 			</div>
 		</div>
 
-		<!-- Right: Blueprint Info & Tactical Instructions (4 cols) -->
-		<aside class="lg:col-span-4 border-t-2 border-rule-2 pt-5 space-y-5">
-			<h2 class="text-lg font-bold text-ink">Blueprint notes</h2>
-
-			<div class="space-y-2">
+		<div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+			<div class="md:col-span-5 space-y-2">
 				<div class="flex items-center justify-between text-xs">
 					<label for="blueprint-title" class="text-ink-2 font-semibold">Tactic title</label>
 					<span class="num font-outlier text-muted">{trimmedTitleLength}/150</span>
@@ -321,7 +311,7 @@
 				{/if}
 			</div>
 
-			<div class="space-y-2">
+			<div class="md:col-span-7 space-y-2">
 				<div class="flex items-center justify-between text-xs">
 					<label for="tactical-notes" class="text-ink-2 font-semibold">Tactical instructions &amp; debrief</label>
 					<span class="num font-outlier text-muted">{tacticalNotes.length}/3000</span>
@@ -333,28 +323,13 @@
 					oninput={() => {
 						savedBoardId = null;
 					}}
-					rows="6"
+					rows="3"
 					placeholder="Explain passing channels, pressing triggers, defensive rest-defense shape, or matchup notes…"
 					class="w-full bg-paper-2 border border-rule rounded-card p-3 text-xs text-ink placeholder-muted resize-none"
 				></textarea>
 			</div>
-
-			<dl class="pt-4 border-t border-rule space-y-2.5 text-xs">
-				<div class="flex items-center justify-between">
-					<dt class="text-muted">Players on pitch</dt>
-					<dd class="num font-outlier font-semibold text-ink">{currentLineup.length}</dd>
-				</div>
-				<div class="flex items-center justify-between">
-					<dt class="text-muted">Tactical vectors</dt>
-					<dd class="num font-outlier font-semibold text-accent-2">{currentAnnotations.length}</dd>
-				</div>
-				<div class="flex items-center justify-between">
-					<dt class="text-muted">Club affiliation</dt>
-					<dd class="font-semibold text-ink">{themeState.currentTheme.name}</dd>
-				</div>
-			</dl>
-		</aside>
-	</div>
+		</div>
+	</section>
 
 	<!-- Community Tactical Blueprints Section -->
 	<section class="border-t-2 border-rule-2 pt-8 space-y-6">

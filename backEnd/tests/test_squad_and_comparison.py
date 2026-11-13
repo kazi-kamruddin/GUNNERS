@@ -28,11 +28,11 @@ async def test_list_squad_fallback_when_db_empty():
 @pytest.mark.asyncio
 async def test_player_comparison_and_get_fallback():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        res = await ac.get("/api/v1/squad/compare?player1_id=ply_saka&player2_id=ply_martinelli")
+        res = await ac.get("/api/v1/squad/compare?player1_id=ply_saka&player2_id=ply_gyokeres")
         assert res.status_code == 200
         data = res.json()
         assert data["player1"]["player"]["name"] == "Bukayo Saka"
-        assert data["player2"]["player"]["name"] == "Gabriel Martinelli"
+        assert data["player2"]["player"]["name"] == "Viktor Gyökeres"
         assert "comparison_summary" in data
         assert data["player1"]["discipline_score"] > 0
         assert data["player2"]["discipline_score"] > 0

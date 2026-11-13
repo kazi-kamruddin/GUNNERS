@@ -27,7 +27,7 @@
 	<!-- Stage Hero: Headline + Signature Matchday Ledger -->
 	<section class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start border-b border-rule pb-16">
 		<div class="lg:col-span-7 space-y-6 pt-2">
-			<h1 class="text-ink">Victoria Concordia Crescit.</h1>
+			<h1 class="text-ink">North London Forever.</h1>
 			<p class="lead text-ink-2">
 				Arsenal tactical intelligence, Arteta era match records, and supporter debates.
 			</p>

@@ -601,21 +601,18 @@
 	<title>The Dressing Room | Direct Debates</title>
 </svelte:head>
 
-<div class="container py-12 space-y-8">
-	<!-- Header Bar -->
-	<div class="border-b-2 border-rule-2 pb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-		<div class="space-y-2">
-			<h1>The Dressing Room</h1>
-			<p class="lead text-ink-2">
-				Direct realtime tactical discussions with fellow Arsenal supporters and analysts.
-			</p>
-		</div>
+<div class="container py-8 space-y-6">
+	<!-- Compact Header Bar -->
+	<div class="border-b border-rule pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+		<p class="text-sm text-ink-2">
+			Direct realtime tactical discussions with fellow Arsenal supporters and analysts.
+		</p>
 
 		{#if isSignedIn}
 			<button
 				type="button"
 				onclick={() => (showStartModal = true)}
-				class="min-h-[44px] px-4 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity self-start sm:self-auto whitespace-nowrap"
+				class="min-h-[40px] px-4 rounded-card bg-accent hover:opacity-95 text-accent-ink font-semibold text-xs transition-opacity self-start sm:self-auto whitespace-nowrap"
 			>
 				Start new debate
 			</button>

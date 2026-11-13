@@ -141,7 +141,7 @@ describe('Arsenal squad roster hygiene in client fallbacks', () => {
 		for (const departed of LEGACY_DEPARTED_PLAYERS) {
 			expect(tacticalBoardSource).not.toContain(departed);
 		}
-		expect(tacticalBoardSource).toContain('Gyökeres');
-		expect(tacticalBoardSource).toContain('Zubimendi');
+		expect(tacticalBoardSource).toContain('Havertz');
+		expect(tacticalBoardSource).toContain('Kepa');
 	});
 });

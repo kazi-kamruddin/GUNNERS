@@ -31,6 +31,18 @@
 	let currentSeasonDetail = $derived(
 		selectedSeason !== 'all' ? seasons.find((s) => s.id === selectedSeason) : null
 	);
+	let previousResults = $derived(
+		matches
+			.filter((m) => m.status === 'FINISHED')
+			.slice()
+			.sort((a, b) => new Date(b.utc_date).getTime() - new Date(a.utc_date).getTime())
+	);
+	let upcomingFixtures = $derived(
+		matches
+			.filter((m) => m.status !== 'FINISHED')
+			.slice()
+			.sort((a, b) => new Date(a.utc_date).getTime() - new Date(b.utc_date).getTime())
+	);
 
 	$effect(() => {
 		matches = data.initialMatches ?? [];
@@ -63,7 +75,8 @@
 				club_id: 'arsenal',
 				competition_id: selectedComp !== 'ALL' ? selectedComp : undefined,
 				status: activeTab !== 'ALL' ? activeTab : undefined,
-				season_id: selectedSeason !== 'all' ? selectedSeason : undefined
+				season_id: selectedSeason !== 'all' ? selectedSeason : undefined,
+				limit: 100
 			});
 			if (seq !== requestSeq) return;
 			matchesError = res.error;
@@ -89,16 +102,16 @@
 	<title>Arsenal Match Schedule & Results | GUNNERS</title>
 </svelte:head>
 
-<div class="container py-12 space-y-12">
-	<!-- Page Header -->
-	<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b-2 border-rule-2 pb-8">
-		<div class="space-y-3">
-			<h1 class="text-[length:var(--text-display-s)]">Arsenal match ledger</h1>
-			<p class="lead text-ink-2">
-				Mikel Arteta’s Premier League and Champions League campaigns with verified scorelines and venues.
-			</p>
+<div class="container py-8 space-y-8">
+	<!-- Compact Quick Actions -->
+	<div class="flex flex-wrap items-center justify-between gap-3 border-b border-rule pb-4">
+		<div class="flex items-center gap-2 text-xs text-muted">
+			<span class="font-semibold text-ink-2">Arsenal FC Schedule &amp; Results</span>
+			{#if syncStatus}
+				<span>·</span>
+				<span class="num">{syncStatus.matches_synced} synced</span>
+			{/if}
 		</div>
-
 		<div class="flex flex-wrap items-center gap-3">
 			<a
 				href="/predictions"
@@ -300,110 +313,133 @@
 			onretry={resetFilters}
 		/>
 	{:else if matches.length > 0}
-		<div class="divide-y divide-rule border-y border-rule {isLoading ? 'opacity-70 transition-opacity' : ''}">
-			{#each matches as match (match.id)}
-				<div class="py-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-paper-2 px-2 sm:px-3 transition-colors">
-					<!-- Date & Competition info -->
-					<div class="lg:min-w-[190px] flex flex-wrap lg:flex-col items-baseline lg:items-start justify-between gap-x-3 gap-y-0.5">
-						<div class="flex items-center gap-2 text-xs text-muted">
-							<span class="font-semibold text-ink-2">{match.competition_id || 'PL'}</span>
-							{#if match.matchday}
-								<span class="num">Matchday {match.matchday}</span>
-							{/if}
-						</div>
-						<time class="num block text-xs text-muted">
-							{formatMatchDateTime(match.utc_date)}
-						</time>
+		{#snippet matchRow(match: Match)}
+			<div class="py-3.5 px-3 flex flex-col gap-3 hover:bg-paper-3/50 transition-colors">
+				<div class="flex items-center justify-between gap-2 text-xs text-muted">
+					<div class="flex items-center gap-2">
+						<span class="font-semibold text-ink-2">{match.competition_id || 'PL'}</span>
+						{#if match.matchday}
+							<span class="num">MD {match.matchday}</span>
+						{/if}
+					</div>
+					<time class="num">{formatMatchDateTime(match.utc_date)}</time>
+				</div>
+
+				<a
+					href="/matches/{encodeURIComponent(match.id)}"
+					class="group grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-3 min-w-0"
+				>
+					<div class="flex items-center justify-end gap-2 text-right min-w-0">
+						<span class="text-xs sm:text-sm font-semibold group-hover:text-accent-text transition-colors truncate {match.home_team_id === 'arsenal' ? 'text-ink' : 'text-ink-2'}">
+							{match.home_team_name}
+						</span>
+						{#if match.home_team_crest && !failedCrests[`row-home-${match.id}`]}
+							<img
+								src={match.home_team_crest}
+								alt=""
+								width="20"
+								height="20"
+								class="w-5 h-5 object-contain shrink-0"
+								onerror={() => (failedCrests = { ...failedCrests, [`row-home-${match.id}`]: true })}
+							/>
+						{/if}
 					</div>
 
-					<!-- Teams & Score / Time (overflow-safe down to 320px) -->
-					<a
-						href="/matches/{encodeURIComponent(match.id)}"
-						class="group flex-1 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 sm:gap-5 min-w-0 py-1"
-					>
-						<!-- Home Team -->
-						<div class="flex items-center justify-end gap-2 text-right min-w-0">
-							<span class="text-xs sm:text-sm font-semibold group-hover:text-accent-text transition-colors truncate {match.home_team_id === 'arsenal' ? 'text-ink' : 'text-ink-2'}">
-								{match.home_team_name}
+					<div class="min-w-[64px] text-center shrink-0">
+						{#if match.status === 'FINISHED' && match.home_score !== null && match.home_score !== undefined}
+							<span class="num font-outlier font-semibold text-sm text-ink px-2.5 py-1 rounded-card bg-paper-3 border border-rule">
+								{match.home_score} : {match.away_score}
 							</span>
-							{#if match.home_team_crest && !failedCrests[`row-home-${match.id}`]}
-								<img
-									src={match.home_team_crest}
-									alt=""
-									width="24"
-									height="24"
-									class="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0"
-									onerror={() => (failedCrests = { ...failedCrests, [`row-home-${match.id}`]: true })}
-								/>
-							{/if}
-						</div>
-
-						<!-- Score / Status Box -->
-						<div class="min-w-[68px] sm:min-w-[92px] text-center shrink-0">
-							{#if match.status === 'FINISHED' && match.home_score !== null && match.home_score !== undefined}
-								<div class="num font-outlier font-semibold text-sm sm:text-base text-ink px-2 sm:px-3 py-1 rounded-card bg-paper-3 group-hover:border-rule-2 border border-transparent transition-colors">
-									{match.home_score} : {match.away_score}
-								</div>
-								<div class="text-xs text-muted mt-0.5">Full time</div>
-							{:else}
-								<div class="text-xs font-semibold text-accent-2 px-2 py-1 rounded-card bg-paper-3">
-									Upcoming
-								</div>
-							{/if}
-						</div>
-
-						<!-- Away Team -->
-						<div class="flex items-center justify-start gap-2 text-left min-w-0">
-							{#if match.away_team_crest && !failedCrests[`row-away-${match.id}`]}
-								<img
-									src={match.away_team_crest}
-									alt=""
-									width="24"
-									height="24"
-									class="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0"
-									onerror={() => (failedCrests = { ...failedCrests, [`row-away-${match.id}`]: true })}
-								/>
-							{/if}
-							<span class="text-xs sm:text-sm font-semibold group-hover:text-accent-text transition-colors truncate {match.away_team_id === 'arsenal' ? 'text-ink' : 'text-ink-2'}">
-								{match.away_team_name}
-							</span>
-						</div>
-					</a>
-
-					<!-- Venue & Actions -->
-					<div class="lg:min-w-[220px] flex flex-wrap items-center justify-between lg:justify-end gap-2.5">
-						{#if match.venue}
-							<span class="text-xs text-muted truncate max-w-[140px] hidden xl:inline" title={match.venue}>
-								{match.venue}
+						{:else}
+							<span class="text-xs font-semibold text-accent-2 px-2 py-1 rounded-card bg-paper-3">
+								vs
 							</span>
 						{/if}
-						<div class="flex items-center gap-2 ml-auto lg:ml-0">
+					</div>
+
+					<div class="flex items-center justify-start gap-2 text-left min-w-0">
+						{#if match.away_team_crest && !failedCrests[`row-away-${match.id}`]}
+							<img
+								src={match.away_team_crest}
+								alt=""
+								width="20"
+								height="20"
+								class="w-5 h-5 object-contain shrink-0"
+								onerror={() => (failedCrests = { ...failedCrests, [`row-away-${match.id}`]: true })}
+							/>
+						{/if}
+						<span class="text-xs sm:text-sm font-semibold group-hover:text-accent-text transition-colors truncate {match.away_team_id === 'arsenal' ? 'text-ink' : 'text-ink-2'}">
+							{match.away_team_name}
+						</span>
+					</div>
+				</a>
+
+				<div class="flex items-center justify-between gap-2 text-xs">
+					<span class="text-muted truncate">{match.venue || match.competition_name || ''}</span>
+					<div class="flex items-center gap-2 shrink-0">
+						<a
+							href="/matches/{encodeURIComponent(match.id)}"
+							class="inline-flex items-center min-h-[36px] px-2.5 rounded-card border border-rule bg-paper hover:bg-paper-3 font-semibold text-ink-2 hover:text-ink transition-colors whitespace-nowrap"
+						>
+							Match center
+						</a>
+						{#if match.status !== 'FINISHED'}
 							<a
-								href="/matches/{encodeURIComponent(match.id)}"
-								class="inline-flex items-center min-h-[44px] px-3 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs font-semibold text-ink-2 hover:text-ink transition-colors whitespace-nowrap"
+								href="/predictions"
+								class="inline-flex items-center min-h-[36px] px-2.5 rounded-card bg-accent text-accent-ink hover:opacity-90 font-semibold transition-opacity whitespace-nowrap"
 							>
-								Match center
+								Predict
 							</a>
-							{#if match.status === 'FINISHED'}
-								<a
-									href="/terrace"
-									class="inline-flex items-center min-h-[44px] px-3 rounded-card border border-rule bg-paper-3 hover:bg-paper text-xs font-semibold text-ink transition-colors whitespace-nowrap"
-								>
-									Debate
-								</a>
-							{:else}
-								<a
-									href="/predictions"
-									class="inline-flex items-center min-h-[44px] px-3 rounded-card bg-accent text-accent-ink hover:opacity-90 text-xs font-semibold transition-opacity whitespace-nowrap"
-								>
-									Predict
-								</a>
-							{/if}
-						</div>
+						{/if}
 					</div>
 				</div>
-			{/each}
-		</div>
+			</div>
+		{/snippet}
+
+		{#if activeTab === 'ALL'}
+			<div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start {isLoading ? 'opacity-70 transition-opacity' : ''}">
+				<!-- Left: Previous Results (latest result at the very top) -->
+				<section class="rounded-card border border-rule bg-paper-2 overflow-hidden">
+					<div class="px-4 py-3 border-b-2 border-rule-2 flex items-center justify-between">
+						<h2 class="text-base font-bold text-ink">Previous results</h2>
+						<span class="num text-xs text-muted">{previousResults.length} matches · Latest first</span>
+					</div>
+					{#if previousResults.length === 0}
+						<p class="p-6 text-sm text-muted">No completed results match the current filter.</p>
+					{:else}
+						<div class="divide-y divide-rule">
+							{#each previousResults as match (match.id)}
+								{@render matchRow(match)}
+							{/each}
+						</div>
+					{/if}
+				</section>
+
+				<!-- Right: Upcoming Fixtures (immediate next match at the very top) -->
+				<section class="rounded-card border border-rule bg-paper-2 overflow-hidden">
+					<div class="px-4 py-3 border-b-2 border-rule-2 flex items-center justify-between">
+						<h2 class="text-base font-bold text-ink">Upcoming fixtures</h2>
+						<span class="num text-xs text-accent-2">{upcomingFixtures.length} matches · Next match first</span>
+					</div>
+					{#if upcomingFixtures.length === 0}
+						<p class="p-6 text-sm text-muted">No upcoming fixtures match the current filter.</p>
+					{:else}
+						<div class="divide-y divide-rule">
+							{#each upcomingFixtures as match (match.id)}
+								{@render matchRow(match)}
+							{/each}
+						</div>
+					{/if}
+				</section>
+			</div>
+		{:else}
+			{@const singleList = activeTab === 'FINISHED' ? previousResults : upcomingFixtures}
+			<div class="rounded-card border border-rule bg-paper-2 divide-y divide-rule {isLoading ? 'opacity-70 transition-opacity' : ''}">
+				{#each singleList as match (match.id)}
+					{@render matchRow(match)}
+				{/each}
+			</div>
+		{/if}
 	{/if}
 
 	<!-- Data Provenance / Sync Footer -->

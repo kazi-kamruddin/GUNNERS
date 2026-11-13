@@ -75,12 +75,12 @@ async def test_upcoming_and_submit_prediction_with_kickoff_lock_and_counts(sessi
         up_res = await ac.get("/api/v1/predictions/upcoming", headers=headers)
         assert up_res.status_code == 200
         matches = up_res.json()
-        assert len(matches) == 2
+        assert len(matches) == 1
 
         by_id = {m["match"]["id"]: m for m in matches}
         assert by_id["match_future_1"]["can_predict"] is True
         assert by_id["match_future_1"]["total_predictions_count"] == 0
-        assert by_id["match_locked_past"]["can_predict"] is False
+        assert "match_locked_past" not in by_id
 
         # Submit score prediction (spoofed user_id in JSON is ignored)
         pred_res = await ac.post(

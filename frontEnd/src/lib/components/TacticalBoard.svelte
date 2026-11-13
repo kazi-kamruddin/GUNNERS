@@ -31,17 +31,17 @@
 
 	const DEFAULT_BENCH_POOL: TacticalPlayerToken[] = [
 		{ id: 'b1', name: 'Kepa', number: 13, role: 'GK', x: 0, y: 0 },
-		{ id: 'b2', name: 'Timber', number: 12, role: 'RB', x: 0, y: 0 },
-		{ id: 'b3', name: 'Calafiori', number: 33, role: 'LB', x: 0, y: 0 },
-		{ id: 'b4', name: 'Lewis-Skelly', number: 49, role: 'LB', x: 0, y: 0 },
-		{ id: 'b5', name: 'Merino', number: 23, role: 'CM', x: 0, y: 0 },
-		{ id: 'b6', name: 'Eze', number: 10, role: 'AM', x: 0, y: 0 },
-		{ id: 'b7', name: 'Trossard', number: 19, role: 'LW', x: 0, y: 0 },
-		{ id: 'b8', name: 'Madueke', number: 20, role: 'RW', x: 0, y: 0 },
-		{ id: 'b9', name: 'G. Jesus', number: 9, role: 'ST', x: 0, y: 0 },
-		{ id: 'b10', name: 'Gyökeres', number: 14, role: 'ST', x: 0, y: 0 },
-		{ id: 'b11', name: 'Zubimendi', number: 36, role: 'DM', x: 0, y: 0 },
-		{ id: 'b12', name: 'Nwaneri', number: 22, role: 'AM', x: 0, y: 0 }
+		{ id: 'b2', name: 'Meslier', number: 30, role: 'GK', x: 0, y: 0 },
+		{ id: 'b3', name: 'White', number: 4, role: 'RB', x: 0, y: 0 },
+		{ id: 'b4', name: 'Mosquera', number: 3, role: 'CB', x: 0, y: 0 },
+		{ id: 'b5', name: 'Hincapié', number: 5, role: 'CB', x: 0, y: 0 },
+		{ id: 'b6', name: 'Konsa', number: 15, role: 'CB', x: 0, y: 0 },
+		{ id: 'b7', name: 'Merino', number: 23, role: 'CM', x: 0, y: 0 },
+		{ id: 'b8', name: 'Bruno G.', number: 39, role: 'CM', x: 0, y: 0 },
+		{ id: 'b9', name: 'Madueke', number: 20, role: 'RW', x: 0, y: 0 },
+		{ id: 'b10', name: 'Havertz', number: 29, role: 'ST', x: 0, y: 0 },
+		{ id: 'b11', name: 'Lewis-Skelly', number: 49, role: 'CM', x: 0, y: 0 },
+		{ id: 'b12', name: 'Dowman', number: 56, role: 'AM', x: 0, y: 0 }
 	];
 
 	function mapPositionToRole(position: string, existingRole?: string): string {
@@ -391,8 +391,8 @@
 	function exportLineupAsImage() {
 		try {
 			const canvas = document.createElement('canvas');
-			canvas.width = 1200;
-			canvas.height = 870;
+			canvas.width = 680;
+			canvas.height = 1120;
 			const ctx = canvas.getContext('2d');
 			if (!ctx) return;
 
@@ -409,53 +409,54 @@
 			const pitch2Color = styles.getPropertyValue('--color-pitch-2').trim() || '#14321e';
 
 			ctx.fillStyle = paperColor;
-			ctx.fillRect(0, 0, 1200, 870);
+			ctx.fillRect(0, 0, 680, 1120);
 
 			ctx.fillStyle = pitchColor;
-			ctx.fillRect(50, 60, 1100, 680);
+			ctx.fillRect(30, 60, 620, 900);
 
 			ctx.fillStyle = pitch2Color;
-			for (let x = 50; x < 1150; x += 110) {
-				ctx.fillRect(x, 60, 55, 680);
+			for (let y = 60; y < 960; y += 90) {
+				ctx.fillRect(30, y, 620, 45);
 			}
 
 			ctx.strokeStyle = successColor;
 			ctx.globalAlpha = 0.45;
 			ctx.lineWidth = 3;
-			ctx.strokeRect(50, 60, 1100, 680);
+			ctx.strokeRect(30, 60, 620, 900);
 
 			ctx.beginPath();
-			ctx.moveTo(600, 60);
-			ctx.lineTo(600, 740);
+			ctx.moveTo(30, 510);
+			ctx.lineTo(650, 510);
 			ctx.stroke();
 
 			ctx.beginPath();
-			ctx.arc(600, 400, 85, 0, Math.PI * 2);
+			ctx.arc(340, 510, 80, 0, Math.PI * 2);
 			ctx.stroke();
 
-			ctx.strokeRect(50, 220, 180, 360);
-			ctx.strokeRect(970, 220, 180, 360);
+			// Top (Opponent) & Bottom (Arsenal) penalty boxes
+			ctx.strokeRect(165, 60, 350, 155);
+			ctx.strokeRect(165, 805, 350, 155);
 			ctx.globalAlpha = 1;
 
 			// Top Banner
 			ctx.fillStyle = accentColor;
-			ctx.fillRect(50, 12, 1100, 38);
+			ctx.fillRect(30, 12, 620, 38);
 			ctx.fillStyle = inkColor;
-			ctx.font = 'bold 16px sans-serif';
+			ctx.font = 'bold 14px sans-serif';
 			ctx.textAlign = 'left';
-			ctx.fillText('GUNNERS : ARSENAL MATCHDAY TACTICAL LINEUP', 70, 37);
+			ctx.fillText('GUNNERS : ARSENAL LINEUP', 46, 36);
 
 			ctx.fillStyle = goldColor;
-			ctx.font = 'bold 14px monospace';
+			ctx.font = 'bold 12px monospace';
 			ctx.textAlign = 'right';
-			ctx.fillText(`FORMATION: ${formationName.toUpperCase()}`, 1130, 36, 380);
+			ctx.fillText(formationName.toUpperCase(), 634, 35, 260);
 
 			// Tactical Vector Annotations
 			for (const ann of annotations) {
-				const x1 = 50 + (ann.from_x / 100) * 1100;
-				const y1 = 60 + (ann.from_y / 100) * 680;
-				const x2 = 50 + (ann.to_x / 100) * 1100;
-				const y2 = 60 + (ann.to_y / 100) * 680;
+				const x1 = 30 + (ann.from_x / 100) * 620;
+				const y1 = 60 + (ann.from_y / 100) * 900;
+				const x2 = 30 + (ann.to_x / 100) * 620;
+				const y2 = 60 + (ann.to_y / 100) * 900;
 				if (ann.type === 'run') {
 					drawArrowOnCanvas(ctx, x1, y1, x2, y2, goldColor, [], 4);
 				} else if (ann.type === 'pass') {
@@ -467,11 +468,11 @@
 
 			// Player Tokens
 			for (const p of lineup) {
-				const px = 50 + (p.x / 100) * 1100;
-				const py = 60 + (p.y / 100) * 680;
+				const px = 30 + (p.x / 100) * 620;
+				const py = 60 + (p.y / 100) * 900;
 
 				ctx.beginPath();
-				ctx.arc(px, py, 24, 0, Math.PI * 2);
+				ctx.arc(px, py, 22, 0, Math.PI * 2);
 				ctx.fillStyle = accentColor;
 				ctx.fill();
 				ctx.lineWidth = 3;
@@ -479,42 +480,42 @@
 				ctx.stroke();
 
 				ctx.fillStyle = inkColor;
-				ctx.font = 'bold 16px monospace';
+				ctx.font = 'bold 15px monospace';
 				ctx.textAlign = 'center';
-				ctx.fillText(String(p.number), px, py + 6);
+				ctx.fillText(String(p.number), px, py + 5);
 
 				ctx.fillStyle = paperColor;
-				ctx.fillRect(px - 62, py + 30, 124, 22);
+				ctx.fillRect(px - 58, py + 28, 116, 20);
 				ctx.strokeStyle = goldColor;
 				ctx.lineWidth = 1;
-				ctx.strokeRect(px - 62, py + 30, 124, 22);
+				ctx.strokeRect(px - 58, py + 28, 116, 20);
 
 				ctx.fillStyle = inkColor;
-				ctx.font = 'bold 11px sans-serif';
-				ctx.fillText(`${p.name} (${p.role})`, px, py + 45, 118);
+				ctx.font = 'bold 10px sans-serif';
+				ctx.fillText(`${p.name} (${p.role})`, px, py + 42, 110);
 			}
 
-			// Substitutes Bench Bar (2 rows of 4 for unclipped long names)
+			// Substitutes Bench Bar
 			ctx.fillStyle = paper2Color;
-			ctx.fillRect(50, 756, 1100, 96);
+			ctx.fillRect(30, 976, 620, 128);
 			ctx.strokeStyle = ruleColor;
 			ctx.lineWidth = 1.5;
-			ctx.strokeRect(50, 756, 1100, 96);
+			ctx.strokeRect(30, 976, 620, 128);
 
 			ctx.fillStyle = goldColor;
-			ctx.font = 'bold 12px monospace';
+			ctx.font = 'bold 11px monospace';
 			ctx.textAlign = 'left';
-			ctx.fillText('BENCH:', 70, 790);
+			ctx.fillText('SUBSTITUTES:', 46, 1002);
 
 			const benchSlice = bench.slice(0, 8);
 			benchSlice.forEach((bp, idx) => {
-				const col = idx % 4;
-				const row = Math.floor(idx / 4);
-				const bx = 155 + col * 245;
-				const by = row === 0 ? 790 : 826;
+				const col = idx % 2;
+				const row = Math.floor(idx / 2);
+				const bx = 46 + col * 300;
+				const by = 1026 + row * 22;
 				ctx.fillStyle = inkColor;
-				ctx.font = '13px sans-serif';
-				ctx.fillText(`#${bp.number} ${bp.name} (${bp.role})`, bx, by, 230);
+				ctx.font = '12px sans-serif';
+				ctx.fillText(`#${bp.number} ${bp.name} (${bp.role})`, bx, by, 285);
 			});
 
 			const dataUrl = canvas.toDataURL('image/png');
@@ -555,9 +556,199 @@
 		</div>
 	{/if}
 
+	<!-- Main Pitch (70% left, vertical) + Substitutes (30% right) -->
+	<div class="grid grid-cols-1 lg:grid-cols-10 gap-6 items-start">
+		<!-- Left: Vertical Pitch SVG Container (70% width) -->
+		<div
+			class="{!readonly && bench && bench.length > 0 ? 'lg:col-span-7' : 'lg:col-span-10'} relative w-full rounded-card border border-rule bg-pitch overflow-hidden {!readonly && (activeTool !== 'select' || draggingPlayerId !== null) ? 'touch-none' : 'touch-pan-y'}"
+		>
+			<svg
+				bind:this={svgRef}
+				viewBox="0 0 680 960"
+				class="w-full max-w-[470px] aspect-[680/960] mx-auto block {readonly ? '' : activeTool === 'select' ? 'cursor-default' : 'cursor-crosshair'}"
+				role={readonly ? 'img' : 'group'}
+				aria-label="Arsenal vertical tactical pitch diagram (opponent goal at top, Arsenal goal at bottom)"
+				onpointerdown={(e) => handlePointerDown(e)}
+				onpointermove={handlePointerMove}
+				onpointerup={handlePointerUp}
+				onpointercancel={handlePointerCancel}
+			>
+				<defs>
+					<marker id="arrow-run" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+						<path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="var(--color-accent-2)" />
+					</marker>
+					<marker id="arrow-pass" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+						<path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="var(--color-success)" />
+					</marker>
+					<marker id="arrow-press" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+						<path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="var(--color-error)" />
+					</marker>
+
+					<pattern id="stripes" width="680" height="96" patternUnits="userSpaceOnUse">
+						<rect width="680" height="48" fill="var(--color-pitch)" />
+						<rect y="48" width="680" height="48" fill="var(--color-pitch-2)" />
+					</pattern>
+				</defs>
+
+				<!-- Grass background -->
+				<rect width="680" height="960" fill="url(#stripes)" />
+
+				<!-- Vertical Pitch Markings (Opponent goal at top, Arsenal goal at bottom) -->
+				<rect x="30" y="30" width="620" height="900" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
+				<line x1="30" y1="480" x2="650" y2="480" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
+				<circle cx="340" cy="480" r="80" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
+				<circle cx="340" cy="480" r="4" fill="var(--color-success)" fill-opacity="0.5" />
+
+				<!-- Top (Opponent) Goal & Penalty Area -->
+				<rect x="285" y="14" width="110" height="16" fill="none" stroke="var(--color-ink-2)" stroke-width="2" stroke-opacity="0.45" />
+				<rect x="165" y="30" width="350" height="160" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
+				<rect x="245" y="30" width="190" height="55" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
+				<circle cx="340" cy="138" r="3.5" fill="var(--color-success)" fill-opacity="0.5" />
+				<path d="M 285 190 A 80 80 0 0 0 395 190" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
+
+				<!-- Bottom (Arsenal) Goal & Penalty Area -->
+				<rect x="285" y="930" width="110" height="16" fill="none" stroke="var(--color-accent-2)" stroke-width="2.5" stroke-opacity="0.7" />
+				<rect x="165" y="770" width="350" height="160" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
+				<rect x="245" y="875" width="190" height="55" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
+				<circle cx="340" cy="822" r="3.5" fill="var(--color-success)" fill-opacity="0.5" />
+				<path d="M 285 770 A 80 80 0 0 1 395 770" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
+
+				{#if showGuides}
+					<line x1="30" y1="330" x2="650" y2="330" stroke="var(--color-accent-2)" stroke-dasharray="4 6" stroke-width="1.5" stroke-opacity="0.25" />
+					<line x1="30" y1="630" x2="650" y2="630" stroke="var(--color-accent-2)" stroke-dasharray="4 6" stroke-width="1.5" stroke-opacity="0.25" />
+					<line x1="236" y1="30" x2="236" y2="930" stroke="var(--color-ink-2)" stroke-dasharray="4 6" stroke-width="1.5" stroke-opacity="0.2" />
+					<line x1="444" y1="30" x2="444" y2="930" stroke="var(--color-ink-2)" stroke-dasharray="4 6" stroke-width="1.5" stroke-opacity="0.2" />
+				{/if}
+
+				<!-- Vector Annotations Layer -->
+				{#each annotations as ann (ann.id)}
+					{@const x1 = (ann.from_x / 100) * 680}
+					{@const y1 = (ann.from_y / 100) * 960}
+					{@const x2 = (ann.to_x / 100) * 680}
+					{@const y2 = (ann.to_y / 100) * 960}
+					{#if ann.type === 'run'}
+						<line x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--color-accent-2)" stroke-width="3.5" stroke-linecap="round" marker-end="url(#arrow-run)" />
+					{:else if ann.type === 'pass'}
+						<line x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--color-success)" stroke-width="3" stroke-dasharray="6 4" stroke-linecap="round" marker-end="url(#arrow-pass)" />
+					{:else if ann.type === 'press'}
+						<line x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--color-error)" stroke-width="3.5" stroke-dasharray="8 3" marker-end="url(#arrow-press)" />
+					{/if}
+				{/each}
+
+				{#if isDrawingVector && vectorStart && vectorCurrent}
+					{@const sx = (vectorStart.x / 100) * 680}
+					{@const sy = (vectorStart.y / 100) * 960}
+					{@const cx = (vectorCurrent.x / 100) * 680}
+					{@const cy = (vectorCurrent.y / 100) * 960}
+					<line
+						x1={sx}
+						y1={sy}
+						x2={cx}
+						y2={cy}
+						stroke={activeTool === 'run' ? 'var(--color-accent-2)' : activeTool === 'pass' ? 'var(--color-success)' : 'var(--color-error)'}
+						stroke-width="3"
+						stroke-dasharray="4 4"
+						opacity="0.8"
+					/>
+				{/if}
+
+				<!-- Player Tokens Layer -->
+				{#each lineup as player (player.id)}
+					{@const px = (player.x / 100) * 680}
+					{@const py = (player.y / 100) * 960}
+					{@const isDragging = draggingPlayerId === player.id}
+					{#if readonly}
+						<g transform="translate({px}, {py})">
+							<circle r="22" fill="var(--color-accent)" stroke="var(--color-ink)" stroke-width="3" />
+							<text text-anchor="middle" dy="5" fill="var(--color-ink)" font-size="14" font-weight="bold" font-family="var(--font-outlier)">
+								{player.number}
+							</text>
+							<g transform="translate(0, 32)">
+								<rect x="-56" y="-11" width="112" height="22" rx="4" fill="var(--color-paper)" fill-opacity="0.95" stroke="var(--color-accent-2)" stroke-width="1" />
+								<text text-anchor="middle" dy="4" fill="var(--color-ink)" font-size="11" font-weight="bold" font-family="var(--font-body)">
+									{displayTokenLabel(player)}
+								</text>
+							</g>
+						</g>
+					{:else}
+						<g
+							transform="translate({px}, {py})"
+							class="cursor-grab active:cursor-grabbing pitch-token"
+							role="button"
+							tabindex="0"
+							aria-label={`${player.name} #${player.number} ${player.role}. Press Enter to edit or swap, Arrow keys to move.`}
+							onkeydown={(e) => handleTokenKeydown(e, player)}
+							onpointerdown={(e) => {
+								if (activeTool === 'select') {
+									e.stopPropagation();
+									handlePointerDown(e, player.id);
+								}
+							}}
+						>
+							{#if isDragging || selectedBenchPlayerId}
+								<circle
+									r="30"
+									fill="none"
+									stroke={selectedBenchPlayerId ? 'var(--color-success)' : 'var(--color-accent-2)'}
+									stroke-width="3"
+									opacity="0.7"
+									stroke-dasharray={selectedBenchPlayerId ? '4 2' : 'none'}
+								/>
+							{/if}
+
+							<circle r="22" fill="var(--color-accent)" stroke="var(--color-ink)" stroke-width="3" />
+
+							<text text-anchor="middle" dy="5" fill="var(--color-ink)" font-size="14" font-weight="bold" font-family="var(--font-outlier)">
+								{player.number}
+							</text>
+
+							<g transform="translate(0, 32)">
+								<rect x="-56" y="-11" width="112" height="22" rx="4" fill="var(--color-paper)" fill-opacity="0.95" stroke="var(--color-accent-2)" stroke-width="1" />
+								<text text-anchor="middle" dy="4" fill="var(--color-ink)" font-size="11" font-weight="bold" font-family="var(--font-body)">
+									{displayTokenLabel(player)}
+								</text>
+							</g>
+						</g>
+					{/if}
+				{/each}
+			</svg>
+		</div>
+
+		<!-- Right: Substitutes Bench Pool (30% width) -->
+		{#if !readonly && bench && bench.length > 0}
+			<aside class="lg:col-span-3 rounded-card border border-rule bg-paper-2 p-4 space-y-3">
+				<div class="border-b border-rule pb-3 space-y-1">
+					<div class="flex items-center justify-between gap-2">
+						<span class="text-sm font-bold text-ink">Substitutes</span>
+						<span class="num font-outlier text-xs text-muted">{bench.length} players</span>
+					</div>
+					<p class="text-xs text-muted" aria-live="polite">
+						{benchInstruction}
+					</p>
+				</div>
+
+				<div class="flex flex-col gap-2">
+					{#each bench as bPlayer (bPlayer.id)}
+						{@const isSelected = selectedBenchPlayerId === bPlayer.id}
+						{@const bTag = `#${bPlayer.number} ${bPlayer.name}`}
+						<button
+							type="button"
+							aria-pressed={isSelected}
+							onclick={() => { if (readonly) return; selectedBenchPlayerId = isSelected ? null : bPlayer.id; }}
+							class="min-h-[44px] w-full px-3 py-2 rounded-card border transition-colors text-left flex items-center justify-between gap-2 {isSelected ? 'bg-paper-3 border-accent-2 text-accent-2' : 'bg-paper border-rule text-ink-2 hover:text-ink hover:bg-paper-3/60'}"
+						>
+							<span class="text-xs font-semibold text-ink truncate">{bTag}</span>
+							<span class="text-xs font-outlier text-muted shrink-0">{bPlayer.role}</span>
+						</button>
+					{/each}
+				</div>
+			</aside>
+		{/if}
+	</div>
+
 	{#if !readonly}
-		<!-- Pitch Toolbar -->
-		<div class="flex items-center justify-between gap-3 pb-4 border-b border-rule flex-wrap text-xs">
+		<!-- Below Pitch & Substitutes: Tools, Export PNG, Share to Terrace -->
+		<div class="flex items-center justify-between gap-3 pt-4 border-t border-rule flex-wrap text-xs">
 			<!-- Drawing & Moving Tools -->
 			<div class="flex items-center gap-2 flex-wrap">
 				<span class="text-muted font-semibold mr-1">Tools:</span>
@@ -642,188 +833,6 @@
 						Clear arrows
 					</button>
 				{/if}
-			</div>
-		</div>
-	{/if}
-
-	<!-- Pitch SVG Container -->
-	<div
-		class="relative w-full rounded-card border border-rule bg-pitch overflow-hidden {!readonly && (activeTool !== 'select' || draggingPlayerId !== null) ? 'touch-none' : 'touch-pan-y'}"
-	>
-		<svg
-			bind:this={svgRef}
-			viewBox="0 0 1000 680"
-			class="w-full h-auto {readonly ? '' : activeTool === 'select' ? 'cursor-default' : 'cursor-crosshair'}"
-			role={readonly ? 'img' : 'group'}
-			aria-label="Arsenal tactical pitch diagram"
-			onpointerdown={(e) => handlePointerDown(e)}
-			onpointermove={handlePointerMove}
-			onpointerup={handlePointerUp}
-			onpointercancel={handlePointerCancel}
-		>
-			<defs>
-				<marker id="arrow-run" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-					<path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="var(--color-accent-2)" />
-				</marker>
-				<marker id="arrow-pass" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-					<path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="var(--color-success)" />
-				</marker>
-				<marker id="arrow-press" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
-					<path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="var(--color-error)" />
-				</marker>
-
-				<pattern id="stripes" width="100" height="680" patternUnits="userSpaceOnUse">
-					<rect width="50" height="680" fill="var(--color-pitch)" />
-					<rect x="50" width="50" height="680" fill="var(--color-pitch-2)" />
-				</pattern>
-			</defs>
-
-			<!-- Grass background -->
-			<rect width="1000" height="680" fill="url(#stripes)" />
-
-			<!-- Pitch Markings -->
-			<rect x="30" y="30" width="940" height="620" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
-			<line x1="500" y1="30" x2="500" y2="650" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
-			<circle cx="500" cy="340" r="85" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
-			<circle cx="500" cy="340" r="4" fill="var(--color-success)" fill-opacity="0.5" />
-
-			<rect x="30" y="165" width="165" height="350" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
-			<rect x="30" y="245" width="55" height="190" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
-			<circle cx="140" cy="340" r="3.5" fill="var(--color-success)" fill-opacity="0.5" />
-			<path d="M 195 290 A 85 85 0 0 1 195 390" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
-
-			<rect x="805" y="165" width="165" height="350" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
-			<rect x="915" y="245" width="55" height="190" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
-			<circle cx="860" cy="340" r="3.5" fill="var(--color-success)" fill-opacity="0.5" />
-			<path d="M 805 290 A 85 85 0 0 0 805 390" fill="none" stroke="var(--color-success)" stroke-width="2.5" stroke-opacity="0.35" />
-
-			{#if showGuides}
-				<line x1="30" y1="204" x2="970" y2="204" stroke="var(--color-accent-2)" stroke-dasharray="4 6" stroke-width="1.5" stroke-opacity="0.25" />
-				<line x1="30" y1="476" x2="970" y2="476" stroke="var(--color-accent-2)" stroke-dasharray="4 6" stroke-width="1.5" stroke-opacity="0.25" />
-				<line x1="343" y1="30" x2="343" y2="650" stroke="var(--color-ink-2)" stroke-dasharray="4 6" stroke-width="1.5" stroke-opacity="0.2" />
-				<line x1="657" y1="30" x2="657" y2="650" stroke="var(--color-ink-2)" stroke-dasharray="4 6" stroke-width="1.5" stroke-opacity="0.2" />
-			{/if}
-
-			<!-- Vector Annotations Layer -->
-			{#each annotations as ann (ann.id)}
-				{@const x1 = (ann.from_x / 100) * 1000}
-				{@const y1 = (ann.from_y / 100) * 680}
-				{@const x2 = (ann.to_x / 100) * 1000}
-				{@const y2 = (ann.to_y / 100) * 680}
-				{#if ann.type === 'run'}
-					<line x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--color-accent-2)" stroke-width="3.5" stroke-linecap="round" marker-end="url(#arrow-run)" />
-				{:else if ann.type === 'pass'}
-					<line x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--color-success)" stroke-width="3" stroke-dasharray="6 4" stroke-linecap="round" marker-end="url(#arrow-pass)" />
-				{:else if ann.type === 'press'}
-					<line x1={x1} y1={y1} x2={x2} y2={y2} stroke="var(--color-error)" stroke-width="3.5" stroke-dasharray="8 3" marker-end="url(#arrow-press)" />
-				{/if}
-			{/each}
-
-			{#if isDrawingVector && vectorStart && vectorCurrent}
-				{@const sx = (vectorStart.x / 100) * 1000}
-				{@const sy = (vectorStart.y / 100) * 680}
-				{@const cx = (vectorCurrent.x / 100) * 1000}
-				{@const cy = (vectorCurrent.y / 100) * 680}
-				<line
-					x1={sx}
-					y1={sy}
-					x2={cx}
-					y2={cy}
-					stroke={activeTool === 'run' ? 'var(--color-accent-2)' : activeTool === 'pass' ? 'var(--color-success)' : 'var(--color-error)'}
-					stroke-width="3"
-					stroke-dasharray="4 4"
-					opacity="0.8"
-				/>
-			{/if}
-
-			<!-- Player Tokens Layer -->
-			{#each lineup as player (player.id)}
-				{@const px = (player.x / 100) * 1000}
-				{@const py = (player.y / 100) * 680}
-				{@const isDragging = draggingPlayerId === player.id}
-				{#if readonly}
-					<g transform="translate({px}, {py})">
-						<circle r="22" fill="var(--color-accent)" stroke="var(--color-ink)" stroke-width="3" />
-						<text text-anchor="middle" dy="5" fill="var(--color-ink)" font-size="14" font-weight="bold" font-family="var(--font-outlier)">
-							{player.number}
-						</text>
-						<g transform="translate(0, 32)">
-							<rect x="-56" y="-11" width="112" height="22" rx="4" fill="var(--color-paper)" fill-opacity="0.95" stroke="var(--color-accent-2)" stroke-width="1" />
-							<text text-anchor="middle" dy="4" fill="var(--color-ink)" font-size="11" font-weight="bold" font-family="var(--font-body)">
-								{displayTokenLabel(player)}
-							</text>
-						</g>
-					</g>
-				{:else}
-					<g
-						transform="translate({px}, {py})"
-						class="cursor-grab active:cursor-grabbing pitch-token"
-						role="button"
-						tabindex="0"
-						aria-label={`${player.name} #${player.number} ${player.role}. Press Enter to edit or swap, Arrow keys to move.`}
-						onkeydown={(e) => handleTokenKeydown(e, player)}
-						onpointerdown={(e) => {
-							if (activeTool === 'select') {
-								e.stopPropagation();
-								handlePointerDown(e, player.id);
-							}
-						}}
-					>
-						{#if isDragging || selectedBenchPlayerId}
-							<circle
-								r="30"
-								fill="none"
-								stroke={selectedBenchPlayerId ? 'var(--color-success)' : 'var(--color-accent-2)'}
-								stroke-width="3"
-								opacity="0.7"
-								stroke-dasharray={selectedBenchPlayerId ? '4 2' : 'none'}
-							/>
-						{/if}
-
-						<circle r="22" fill="var(--color-accent)" stroke="var(--color-ink)" stroke-width="3" />
-
-						<text text-anchor="middle" dy="5" fill="var(--color-ink)" font-size="14" font-weight="bold" font-family="var(--font-outlier)">
-							{player.number}
-						</text>
-
-						<g transform="translate(0, 32)">
-							<rect x="-56" y="-11" width="112" height="22" rx="4" fill="var(--color-paper)" fill-opacity="0.95" stroke="var(--color-accent-2)" stroke-width="1" />
-							<text text-anchor="middle" dy="4" fill="var(--color-ink)" font-size="11" font-weight="bold" font-family="var(--font-body)">
-								{displayTokenLabel(player)}
-							</text>
-						</g>
-					</g>
-				{/if}
-			{/each}
-		</svg>
-	</div>
-
-	<!-- Substitutes Bench Pool (The Dugout) -->
-	{#if !readonly && bench && bench.length > 0}
-		<div class="border-t border-rule pt-5 space-y-3">
-			<div class="flex items-center justify-between flex-wrap gap-2">
-				<span class="text-sm font-bold text-ink">
-					Substitutes bench (<span class="num font-outlier">{bench.length}</span> players)
-				</span>
-				<span class="text-xs text-muted" aria-live="polite">
-					{benchInstruction}
-				</span>
-			</div>
-
-			<div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-				{#each bench as bPlayer (bPlayer.id)}
-					{@const isSelected = selectedBenchPlayerId === bPlayer.id}
-					{@const bTag = `#${bPlayer.number} ${bPlayer.name}`}
-					<button
-						type="button"
-						aria-pressed={isSelected}
-						onclick={() => { if (readonly) return; selectedBenchPlayerId = isSelected ? null : bPlayer.id; }}
-						class="min-h-[44px] px-3 py-2 rounded-card border transition-colors text-center flex items-center justify-between gap-2 {isSelected ? 'bg-paper-3 border-accent-2 text-accent-2' : 'bg-paper-2 border-rule text-ink-2 hover:text-ink'}"
-					>
-						<span class="text-xs font-semibold text-ink truncate">{bTag}</span>
-						<span class="text-xs font-outlier text-muted shrink-0">{bPlayer.role}</span>
-					</button>
-				{/each}
 			</div>
 		</div>
 	{/if}

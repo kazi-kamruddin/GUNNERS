@@ -826,24 +826,21 @@
 		</div>
 	{/if}
 
-	<!-- Editorial Header -->
-	<div class="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b-2 border-rule-2 pb-8">
-		<div class="space-y-3">
-			<h1>The Data Lab</h1>
-			<p class="lead text-ink-2">
-				Reproducible Mikel Arteta era analytics, multi-season trajectories, opponent ledgers, squad comparisons, and StatsBomb event telemetry.
-			</p>
-		</div>
+	<!-- Compact Lab Control Strip -->
+	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-rule pb-5">
+		<p class="text-sm text-ink-2">
+			Mikel Arteta era analytics, multi-season trajectories, opponent ledgers, and StatsBomb event telemetry.
+		</p>
 
-		<div class="flex items-center gap-3 flex-wrap">
+		<div class="flex items-center gap-3 flex-wrap shrink-0">
 			<a
 				href="/lab/historical"
-				class="min-h-[44px] px-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs text-accent-2 font-semibold transition-colors inline-flex items-center whitespace-nowrap"
+				class="min-h-[40px] px-4 rounded-card border border-rule bg-paper-2 hover:bg-paper-3 text-xs text-accent-2 font-semibold transition-colors inline-flex items-center whitespace-nowrap"
 			>
 				StatsBomb 2D pitch
 			</a>
 			<span class="text-xs text-muted">
-				Coverage: Arteta era (<span class="num font-outlier">2019</span> to present)
+				Coverage: Arteta era (<span class="num font-outlier">2019</span>–present)
 			</span>
 		</div>
 	</div>

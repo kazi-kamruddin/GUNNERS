@@ -49,7 +49,13 @@
 		return Math.max(0, Math.min(20, Math.trunc(n)));
 	}
 
-	let upcoming = $state<UpcomingMatchPrediction[]>(untrack(() => data.upcoming || []));
+	function isArsenalMatch(u: UpcomingMatchPrediction): boolean {
+		return u.match.home_team_id === 'arsenal' || u.match.away_team_id === 'arsenal';
+	}
+
+	let upcoming = $state<UpcomingMatchPrediction[]>(
+		untrack(() => (data.upcoming || []).filter(isArsenalMatch))
+	);
 	let upcomingError = $state<string | null>(untrack(() => data.upcomingError ?? null));
 	let leaderboard = $state<LeaderboardEntry[]>(untrack(() => data.leaderboard || []));
 	let leaderboardError = $state<string | null>(untrack(() => data.leaderboardError ?? null));
@@ -443,22 +449,14 @@
 	<title>Matchday Predictor &amp; Supporter Leaderboard | GUNNERS</title>
 </svelte:head>
 
-<div class="container py-12 space-y-12">
-	<!-- Page Header -->
-	<div class="border-b-2 border-rule-2 pb-8 flex flex-col md:flex-row md:items-end justify-between gap-6">
-		<div class="space-y-3">
-			<h1 class="display-s text-ink">Matchday predictor</h1>
-			<p class="lead text-ink-2">
-				Test your football foresight on upcoming Arsenal fixtures, earn points, and climb the supporter leaderboard.
-			</p>
-		</div>
-
-		<!-- Points System Reminder -->
-		<div class="border-t border-rule pt-3 text-xs space-y-1">
-			<span class="text-accent-2 font-bold block">Points scoring</span>
-			<p class="text-ink-2">Exact scoreline: <strong class="text-success num font-outlier">3 pts</strong></p>
-			<p class="text-ink-2">Correct outcome (W/D/L): <strong class="text-accent-2 num font-outlier">1 pt</strong></p>
-			<p class="text-muted">Incorrect outcome: <strong class="text-ink-2 num font-outlier">0 pts</strong></p>
+<div class="container py-8 space-y-8">
+	<!-- Compact Arsenal Predictor Scoring Bar -->
+	<div class="border-b border-rule pb-4 flex flex-wrap items-center justify-between gap-4 text-xs">
+		<span class="font-semibold text-ink-2">Arsenal FC Matchday Score Predictor</span>
+		<div class="flex flex-wrap items-center gap-4">
+			<span class="text-ink-2">Exact score: <strong class="text-success num font-outlier">3 pts</strong></span>
+			<span class="text-ink-2">Correct outcome (W/D/L): <strong class="text-accent-2 num font-outlier">1 pt</strong></span>
+			<span class="text-muted">Incorrect: <strong class="text-ink-2 num font-outlier">0 pts</strong></span>
 		</div>
 	</div>
 
