@@ -16,6 +16,7 @@ const libPath = decodeURIComponent(new URL('./src/lib', import.meta.url).pathnam
 );
 
 export default defineConfig({
+	envPrefix: ['VITE_', 'PUBLIC_'],
 	resolve: {
 		alias: {
 			$lib: libPath
